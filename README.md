@@ -1,31 +1,40 @@
 # DevHunt — AI Assistant
 
-A local-first, self-hosted AI assistant for problem solving, debugging, learning, and answering any question. Powered by Google's free Gemini & Gemma models. No subscriptions. No data sent to third-party services. Runs entirely on your machine.
+> A local-first, self-hosted AI assistant for developers. Built for problem solving, debugging, learning, and answering any question — powered by Google's free Gemini & Gemma models. No subscriptions. No cloud. Runs entirely on your machine.
 
 ---
 
-## Created By
+## Why DevHunt?
 
-| | |
-|---|---|
-| **Name** | Hitesh Solanki |
-| **Website** | [hiteshsolanki.in](https://hiteshsolanki.in) |
-| **Email** | solankihiteshpankajbhai7@gmail.com |
-| **Mobile** | +91 9327810431 |
+Most AI tools either cost money or send your data to third-party servers. DevHunt is different — it runs 100% locally, uses Google's free-tier Gemini models, and keeps all your data on your own machine. It's designed for developers who want a serious AI workspace without the SaaS price tag.
 
 ---
 
-## What it does
+## Features
 
-- **AI Assistant** — streaming chat that answers any question, helps debug errors, explains concepts, and writes code
-- **Knowledge Base (RAG)** — index your PDFs, notes, and URLs so the AI can reference them in answers
-- **Learning Path** — AI-generated day-by-day learning roadmap tailored to your goals
-- **Quest Board** — Kanban-style task board with AI auto-detection of tasks from chat
-- **Terminal Stats** — study hours, streaks, consistency score, skills progress
-- **API Key Manager** — rotate multiple Gemini API keys with automatic cooldown on rate limits
-- **Chat History Viewer** — browse all past conversations in-app
-- **Backup & Restore** — export everything to a single JSON file, import it back anytime
-- **System Logs** — real-time log viewer with filters by level and category
+### Streaming Chat
+Token-by-token responses as the model generates them — no waiting for the full answer. Ask anything: debug errors, explain concepts, write code, or just think out loud.
+
+### Knowledge Base (RAG)
+Upload PDFs, paste URLs to scrape, or write notes. The AI references your documents in answers and cites the source. Build a personal knowledge base that actually talks back.
+
+### Learning Path
+Generate a day-by-day learning roadmap tailored to your goals — built by AI, structured for consistency.
+
+### Quest Board
+Kanban-style task board with AI auto-detection of tasks from chat. Your conversations automatically surface action items — no manual tracking needed.
+
+### Terminal Stats
+Study hours, streaks, consistency score, and skills progress — all tracked locally so you can see how much you're actually learning.
+
+### API Key Manager
+Register multiple Gemini API keys from different Google accounts. When one hits its rate limit, DevHunt automatically rotates to the next available key. No downtime, no manual switching.
+
+### Backup & Restore
+Export everything — chat history, encrypted API keys, profile, settings, and learning path — as a single JSON file. Import it back on any machine.
+
+### System Logs
+Live log viewer with filters by level (INFO / SUCCESS / WARN / ERROR) and category (api_call / key_event / chat / rag / backup).
 
 ---
 
@@ -39,6 +48,19 @@ A local-first, self-hosted AI assistant for problem solving, debugging, learning
 | Embeddings | `gemini-embedding-2` |
 | Database | SQLite (local, zero-config) |
 | Frontend | Vanilla HTML / CSS / JS — no framework, no build step |
+
+---
+
+## Free Tier Model Limits
+
+| Model | Use Case | RPM | Daily Limit |
+|---|---|---|---|
+| `gemini-3.1-flash-lite` | All regular chat (default) | 15 | 500/day |
+| `gemini-2.5-flash` | RAG queries | 5 | 20/day |
+| `gemma-4-26b-a4b-it` | Heavy reasoning | 15 | 1,500/day |
+| `gemini-embedding-2` | Vector embeddings | 100 | 1,000/day |
+
+Add multiple API keys from different Google accounts — DevHunt automatically rotates them when rate limits are hit.
 
 ---
 
@@ -87,7 +109,7 @@ Local-AI/
 - Python 3.10 or higher
 - A Google Gemini API key (free) — get one at [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
 
-### 1. Get the project
+### 1. Clone the repo
 
 ```bash
 git clone <your-repo-url>
@@ -132,45 +154,13 @@ cd backend && venv\Scripts\python app.py
 cd backend && venv/bin/python app.py
 ```
 
-The server starts at **http://localhost:5000** and the launcher scripts automatically detect and open your browser.
+The server starts at **http://localhost:5000** — the launcher scripts automatically open your browser.
 
 ### 4. Add your API key
 
 1. Open **http://localhost:5000**
 2. Go to **Settings & Nodes** in the sidebar
 3. Paste your Gemini API key and click **+ Register Key**
-
----
-
-## Free Tier Model Limits
-
-| Model | Use case | RPM | Daily limit |
-|---|---|---|---|
-| `gemini-3.1-flash-lite` | All regular chat (default) | 15 | 500/day |
-| `gemini-2.5-flash` | RAG queries | 5 | 20/day |
-| `gemma-4-26b-a4b-it` | Heavy reasoning | 15 | 1,500/day |
-| `gemini-embedding-2` | Vector embeddings | 100 | 1,000/day |
-
-Add multiple API keys from different Google accounts — DevHunt automatically rotates them when rate limits are hit.
-
----
-
-## Key Features
-
-### Streaming Chat
-Responses appear token-by-token as the model generates them — no waiting for the full response.
-
-### Knowledge Base
-Upload PDF files, paste URLs to scrape, or write notes. The AI references them in answers and cites the source.
-
-### API Key Rotation
-Multiple keys can be registered. When one hits its rate limit, the system automatically switches to the next available key.
-
-### Backup & Restore
-Export everything — chat history, API keys (encrypted), profile, settings, and learning path — as a single JSON file. Import it back on any machine.
-
-### System Logs
-Live log viewer at `/logs` with filters by level (INFO / SUCCESS / WARN / ERROR) and category (api_call / key_event / chat / rag / backup).
 
 ---
 
@@ -217,10 +207,32 @@ Live log viewer at `/logs` with filters by level (INFO / SUCCESS / WARN / ERROR)
 
 ---
 
+## Contribute
+
+DevHunt is open for collaboration. If you're a developer who cares about privacy-first tooling, local AI, or just building useful things — you're welcome here.
+
+**Ways to contribute:**
+- Fix bugs or improve existing features
+- Add new integrations (models, document types, exporters)
+- Improve the frontend UI/UX
+- Write tests or improve documentation
+- Share feedback, ideas, or feature requests via Issues
+
+To get started, fork the repo, make your changes, and open a pull request. For larger features, open an Issue first to discuss the direction.
+
+All skill levels welcome — whether you're fixing a typo or building a new module.
+
+---
+
 ## License
 
 MIT — free to use, modify, and distribute.
 
 ---
 
-*Built by [Hitesh Solanki](https://hiteshsolanki.in)*
+## Created By
+
+**Hitesh Solanki**
+- Website: [hiteshsolanki.in](https://hiteshsolanki.in)
+- Email: solankihiteshpankajbhai7@gmail.com
+- Mobile: +91 9327810431
