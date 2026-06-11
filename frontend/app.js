@@ -99,6 +99,7 @@ function switchPanel(panelId) {
   if (panelId === 'quests') loadTodos();
   if (panelId === 'vault') loadSources();
   if (panelId === 'history') loadHistoryPanel();
+  if (panelId === 'terminal') initTerminal();
   if (panelId === 'stats') {
     loadProfileAndSettings();
     loadAnalytics();
@@ -1351,3 +1352,225 @@ window.clearAllData = async () => {
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">✕ Error: ${e.message}</span>`;
   }
 };
+
+/* ========== Hunt Terminal Engine ========== */
+let terminalCwd = "";
+const terminalHistory = [];
+let terminalHistoryIndex = -1;
+let terminalInitialized = false;
+
+const HUNT_COMMANDS = [
+  "hunt help", "hunt neofetch", "hunt pwd", "hunt ls", "hunt cd",
+  "hunt cat", "hunt mkdir", "hunt rm", "hunt ping", "hunt dns",
+  "hunt dig", "hunt whois", "hunt ssl", "hunt headers", "hunt port",
+  "hunt portscan", "hunt localports", "hunt myip", "hunt trace",
+  "hunt subdomains", "hunt git", "hunt python", "hunt calc", "clear"
+];
+
+function initTerminal() {
+  const container = document.querySelector('.terminal-container');
+  const inputEl = document.getElementById('terminal-input');
+  const outputEl = document.getElementById('terminal-output');
+  const promptEl = document.getElementById('terminal-prompt');
+  const osEl = document.getElementById('terminal-detected-os');
+  const bodyEl = document.getElementById('terminal-body');
+
+  if (!inputEl || !outputEl) return;
+
+  // Focus input
+  inputEl.focus();
+
+  // If clicked inside body, auto-focus input
+  if (bodyEl) {
+    bodyEl.addEventListener('click', () => {
+      inputEl.focus();
+    });
+  }
+
+  if (terminalInitialized) return;
+  terminalInitialized = true;
+
+  // Perform initial ping/system check to populate OS and cwd
+  (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/terminal/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: "hunt neofetch", cwd: "" })
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Find CWD
+        terminalCwd = data.cwd;
+        updatePrompt(promptEl);
+        
+        // Find OS in output or extract it
+        if (osEl) {
+          const raw = data.output;
+          let osName = "Unknown Node";
+          if (raw.includes("Windows")) osName = "Windows Node";
+          else if (raw.includes("Linux")) osName = "Linux Node";
+          else if (raw.includes("Darwin")) osName = "macOS Node";
+          osEl.innerHTML = `<span class="ansi-yellow">${osName}</span>`;
+        }
+      }
+    } catch (e) {
+      console.error("Failed terminal greetings:", e);
+      if (osEl) osEl.textContent = "Offline Node (Connection error)";
+    }
+  })();
+
+  // Handle keys
+  inputEl.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      const cmd = inputEl.value;
+      if (!cmd.trim()) return;
+
+      inputEl.value = "";
+      
+      // Append prompt and command to history output
+      const linePrompt = document.createElement('div');
+      linePrompt.className = 'terminal-line';
+      linePrompt.innerHTML = `<span class="terminal-prompt">${promptEl.textContent}</span> <span class="ansi-cyan">${mdEscape(cmd)}</span>`;
+      outputEl.appendChild(linePrompt);
+
+      // Save to history
+      terminalHistory.push(cmd);
+      terminalHistoryIndex = terminalHistory.length;
+
+      // Handle local commands
+      const trimmed = cmd.trim();
+      if (trimmed.toLowerCase() === "clear" || trimmed.toLowerCase() === "hunt clear") {
+        outputEl.innerHTML = "";
+        scrollToBottom(bodyEl);
+        return;
+      }
+
+      // Show loader
+      const lineLoader = document.createElement('div');
+      lineLoader.className = 'terminal-line ansi-muted';
+      lineLoader.innerHTML = `// running task...`;
+      outputEl.appendChild(lineLoader);
+      scrollToBottom(bodyEl);
+
+      try {
+        const res = await fetch(`${API_BASE}/terminal/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: cmd, cwd: terminalCwd })
+        });
+        const data = await res.json();
+        
+        // Remove loader
+        if (outputEl.contains(lineLoader)) {
+          outputEl.removeChild(lineLoader);
+        }
+
+        const lineResult = document.createElement('div');
+        lineResult.className = 'terminal-line';
+
+        if (data.success) {
+          if (data.output === "CLEAR_SIGNAL") {
+            outputEl.innerHTML = "";
+          } else {
+            lineResult.innerHTML = data.output;
+            outputEl.appendChild(lineResult);
+          }
+          if (data.cwd) {
+            terminalCwd = data.cwd;
+            updatePrompt(promptEl);
+          }
+        } else {
+          lineResult.innerHTML = `<span class="ansi-red">Error: ${mdEscape(data.error)}</span>`;
+          outputEl.appendChild(lineResult);
+        }
+      } catch (err) {
+        if (outputEl.contains(lineLoader)) {
+          outputEl.removeChild(lineLoader);
+        }
+        const lineResult = document.createElement('div');
+        lineResult.className = 'terminal-line ansi-red';
+        lineResult.innerHTML = `Error: Connection lost to DevHunt core backend node.`;
+        outputEl.appendChild(lineResult);
+      }
+      scrollToBottom(bodyEl);
+    } 
+    
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (terminalHistory.length === 0) return;
+      if (terminalHistoryIndex > 0) {
+        terminalHistoryIndex--;
+        inputEl.value = terminalHistory[terminalHistoryIndex];
+      }
+    } 
+    
+    else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (terminalHistoryIndex < terminalHistory.length - 1) {
+        terminalHistoryIndex++;
+        inputEl.value = terminalHistory[terminalHistoryIndex];
+      } else {
+        terminalHistoryIndex = terminalHistory.length;
+        inputEl.value = "";
+      }
+    } 
+    
+    else if (e.key === 'Tab') {
+      e.preventDefault();
+      const val = inputEl.value;
+      if (!val) {
+        // Print all available commands if empty tab
+        printHelpAutocomplete(outputEl, HUNT_COMMANDS);
+        scrollToBottom(bodyEl);
+        return;
+      }
+      
+      const matches = HUNT_COMMANDS.filter(c => c.startsWith(val.toLowerCase()));
+      if (matches.length === 1) {
+        inputEl.value = matches[0] + " ";
+      } else if (matches.length > 1) {
+        // print matched choices
+        printHelpAutocomplete(outputEl, matches);
+        scrollToBottom(bodyEl);
+      }
+    }
+  });
+}
+
+function updatePrompt(promptEl) {
+  if (!promptEl) return;
+  // Format CWD cleanly: show ~ if inside workspace root
+  let displayCwd = terminalCwd;
+  
+  // Try to find the root folder path and substitute with ~
+  const rootIndex = terminalCwd.indexOf("Local-AI");
+  if (rootIndex !== -1) {
+    const subPath = terminalCwd.substring(rootIndex + 8).replace(/\\/g, '/');
+    displayCwd = "~" + subPath;
+  } else {
+    // If not matching, just display basename
+    const parts = terminalCwd.split(/[\\/]/);
+    displayCwd = parts[parts.length - 1] || terminalCwd;
+  }
+  
+  promptEl.textContent = `guest@devhunt:${displayCwd || '/'}$`;
+}
+
+function printHelpAutocomplete(outputEl, list) {
+  const line = document.createElement('div');
+  line.className = 'terminal-line ansi-muted';
+  line.innerHTML = `Possible commands:\n  ${list.join('    ')}`;
+  outputEl.appendChild(line);
+}
+
+function scrollToBottom(el) {
+  if (el) {
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+function mdEscape(src) {
+  if (!src) return "";
+  return src.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}

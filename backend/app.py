@@ -16,9 +16,11 @@ from core.learning_path import LearningPath
 from core.profile_manager import ProfileManager
 from core.analytics import Analytics
 from core import logger
+from core.terminal_engine import TerminalEngine
 
 app = Flask(__name__, static_folder='../frontend', static_url_path='')
 CORS(app, resources={r"/api/*": {"origins": "*"}})
+terminal_engine = TerminalEngine()
 
 # ── Static pages ──────────────────────────────────────────────────────────────
 @app.route('/')
@@ -447,6 +449,20 @@ def clear_system_logs():
         conn.close()
         logger.info("system", "Logs cleared by user")
         return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# ── TERMINAL ──────────────────────────────────────────────────────────────────
+@app.route('/api/terminal/run', methods=['POST'])
+def run_terminal_command():
+    data = request.get_json() or {}
+    command = data.get('command', '').strip()
+    cwd = data.get('cwd', '').strip()
+    if not command:
+        return jsonify({"success": False, "error": "Command is required"}), 400
+    try:
+        output, new_cwd = terminal_engine.execute(command, cwd)
+        return jsonify({"success": True, "output": output, "cwd": new_cwd})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

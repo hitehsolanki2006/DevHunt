@@ -37,6 +37,7 @@
       <a class="nav-item" data-panel="vault"><span class="ico">◉</span> Intel Vault</a>
       <a class="nav-item" data-panel="history"><span class="ico">⧖</span> Chat History</a>
       <a class="nav-item" data-panel="stats"><span class="ico">▰</span> Terminal Stats</a>
+      <a class="nav-item" data-panel="terminal"><span class="ico">⚡</span> Hunt Terminal</a>
       <a class="nav-item" data-panel="settings"><span class="ico">⚙</span> Settings &amp; Nodes</a>
       <a class="nav-item" href="/logs" target="_blank" style="margin-top:auto;border-top:1px solid var(--border);padding-top:10px"><span class="ico">◎</span> System Logs ↗</a>
     </nav>
@@ -252,6 +253,41 @@
         </div>
         <div id="history-stats" style="display:flex;gap:16px;font-size:11px;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:12px"></div>
         <div id="history-feed" style="display:flex;flex-direction:column;gap:10px;max-height:70vh;overflow-y:auto"></div>
+      </div>
+    </section>
+
+    <!-- 8. HUNT TERMINAL -->
+    <section class="panel" id="panel-terminal">
+      <div class="card terminal-card" style="padding: 0; overflow: hidden; border-color: var(--border-hot);">
+        <div class="card-head" style="padding: 16px 18px 0px 18px; margin-bottom: 8px;">
+          <h2>Hunt Node Terminal</h2>
+          <div class="hud">
+            <span class="hud-pill"><i class="dot dot-green"></i> ENGINE ONLINE</span>
+            <span class="hud-pill"><i class="dot dot-cyan"></i> CROSS-PLATFORM</span>
+          </div>
+        </div>
+        <div class="terminal-container">
+          <div class="terminal-header">
+            <div class="terminal-buttons">
+              <span class="t-btn close-btn"></span>
+              <span class="t-btn min-btn"></span>
+              <span class="t-btn max-btn"></span>
+            </div>
+            <div class="terminal-title">guest@devhunt:~</div>
+          </div>
+          <div class="terminal-body" id="terminal-body">
+            <div class="terminal-output" id="terminal-output">
+              <div class="terminal-line"><span class="ansi-cyan">DevHunt Terminal Core v1.0</span></div>
+              <div class="terminal-line">Detected Environment: <span class="ansi-yellow" id="terminal-detected-os">Detecting platform...</span></div>
+              <div class="terminal-line">Type <span class="ansi-green">hunt help</span> to see all available commands.</div>
+              <div class="terminal-line"><span class="ansi-muted">------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</span></div>
+            </div>
+            <div class="terminal-input-line">
+              <span class="terminal-prompt" id="terminal-prompt">guest@devhunt:~$</span>
+              <input type="text" class="terminal-input" id="terminal-input" autocomplete="off" spellcheck="false" placeholder="Enter hunt command..." />
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   </main>
