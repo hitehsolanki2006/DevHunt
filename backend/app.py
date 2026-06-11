@@ -39,12 +39,12 @@ rag_pipeline   = RAGPipeline(key_manager)
 chat_engine    = ChatEngine(key_manager, rag_pipeline)
 learning_path  = LearningPath(key_manager)
 
-# Run initial memory refinement on startup in a background thread
+# Run initial memory refinement on startup in a background thread if needed
 try:
     from core.memory_manager import MemoryManager
     import threading
     mm = MemoryManager(key_manager)
-    threading.Thread(target=mm.refine_memories, args=("default_session",), daemon=True).start()
+    threading.Thread(target=mm.auto_consolidate_if_needed, args=("default_session",), daemon=True).start()
 except Exception as e:
     print(f"Failed to start startup memory refinement: {e}")
 

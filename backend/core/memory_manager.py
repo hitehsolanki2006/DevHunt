@@ -109,18 +109,38 @@ class MemoryManager:
 
     def auto_consolidate_if_needed(self, session_id: str = "default_session"):
         """
-        Checks if the memories are outdated (older than 24 hours or never run)
-        and runs refinement if needed.
+        Checks if the memories are outdated (older than 1 hour or never run)
+        and if there are new messages since the last consolidation, then runs refinement if needed.
         """
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
+            
+            # Check if there are any messages sent since the last consolidation
+            cursor.execute(
+                """SELECT COUNT(*) as new_count FROM messages 
+                   WHERE session_id = ? 
+                   AND (
+                       (SELECT COUNT(*) FROM user_memories WHERE session_id = ?) = 0
+                       OR 
+                       timestamp > (SELECT last_updated FROM user_memories WHERE session_id = ?)
+                   )""",
+                (session_id, session_id, session_id)
+            )
+            new_messages = cursor.fetchone()['new_count']
+            
+            if new_messages == 0:
+                logger.info("system", f"Memory Consolidation: No new messages since last update for session '{session_id}'. Skipping.")
+                conn.close()
+                return
+
             cursor.execute("SELECT last_updated FROM user_memories WHERE session_id = ?", (session_id,))
             row = cursor.fetchone()
             conn.close()
 
             if not row:
-                # Never run before, trigger now
+                # Never run before and has messages, trigger now
+                logger.info("system", f"Memory Consolidation: First-time consolidation for session '{session_id}'.")
                 self.refine_memories(session_id)
                 return
 
@@ -129,13 +149,14 @@ class MemoryManager:
             last_dt = datetime.strptime(last_updated_str, "%Y-%m-%d %H:%M:%S")
             delta = datetime.utcnow() - last_dt
 
-            # Consolidate memory if older than 24 hours
-            if delta.total_seconds() > 24 * 3600:
-                logger.info("system", f"Memory for session '{session_id}' is stale. Consolidating...")
+            # Consolidate memory if older than 1 hour (3600 seconds)
+            if delta.total_seconds() > 3600:
+                logger.info("system", f"Memory for session '{session_id}' is stale (> 1 hour). Consolidating...")
                 self.refine_memories(session_id)
             else:
-                logger.info("system", f"Memory for session '{session_id}' is up-to-date. (Last updated: {last_updated_str})")
+                logger.info("system", f"Memory for session '{session_id}' is up-to-date within the last 1 hour. (Last updated: {last_updated_str})")
         except Exception as e:
             logger.error("system", f"auto_consolidate_if_needed failed: {str(e)}")
             # Fallback to refining just in case
             self.refine_memories(session_id)
+
