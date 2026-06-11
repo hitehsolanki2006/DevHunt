@@ -182,6 +182,10 @@ class TerminalEngine:
             "history": (
                 "Usage: hunt history [limit]\n\n"
                 "Prints raw logs of the active conversation session."
+            ),
+            "notifications": (
+                "Usage: hunt notifications [list | read [all | <id>] | detail <id>]\n\n"
+                "Manages system messages, remote announcements, and warnings."
             )
         }
         return list(helps.get(cmd, f"No detailed help available for '{cmd}'.").split("\n")) if isinstance(helps.get(cmd), list) else helps.get(cmd, f"No detailed help available for '{cmd}'.")
@@ -264,6 +268,7 @@ class TerminalEngine:
             f"  {self.format_green('hunt memory')}              - View long-term AI memories.\n"
             f"  {self.format_green('hunt backup')}              - Run full system backup exports.\n"
             f"  {self.format_green('hunt history')}              - Print raw logs of chat session.\n"
+            f"  {self.format_green('hunt notifications')}        - Manage system alerts and announcements.\n"
         )
         return help_menu, current_dir
 
@@ -1499,3 +1504,171 @@ class TerminalEngine:
             return "\n".join(output), current_dir
         except Exception as e:
             return self.format_red(f"Error: {e}"), current_dir
+
+    def cmd_notifications(self, args, current_dir):
+        from core.db import get_db_connection
+        from core.profile_manager import ProfileManager
+        from core.logger import get_logs
+        from core.update_manager import UpdateManager
+        import json
+        import requests
+        import datetime
+        
+        settings = ProfileManager.get_settings()
+        read_notifications = settings.get("read_notifications", [])
+        notifications = []
+        
+        # 1. Remote announcements
+        try:
+            res = requests.get(
+                "https://raw.githubusercontent.com/hitehsolanki2006/DevHunt/main/notifications.json",
+                timeout=1.5
+            )
+            if res.status_code == 200:
+                remote_data = res.json()
+                if isinstance(remote_data, list):
+                    for item in remote_data:
+                        notifications.append({
+                            "id": item.get("id"),
+                            "title": item.get("title", "Announcement"),
+                            "message": item.get("message", ""),
+                            "type": item.get("type", "release"),
+                            "timestamp": item.get("timestamp", "")
+                        })
+        except Exception:
+            pass
+            
+        # Fallback announcement
+        if not any(n["type"] in ["release", "news"] for n in notifications):
+            notifications.append({
+                "id": "announcement-welcome",
+                "title": "Welcome to DevHunt!",
+                "message": "Welcome to your premium developer dashboard. System Messages consolidates software updates, remote release announcements, and local warnings.",
+                "type": "info",
+                "timestamp": "2026-06-11 12:00:00"
+            })
+            
+        # 2. Git update
+        try:
+            update_status = UpdateManager.check_for_updates()
+            if update_status.get("success") and update_status.get("update_available"):
+                latest_commit = update_status.get("latest_commit")
+                commit_msg_list = [c["message"] for c in update_status.get("commits", [])]
+                commit_msgs = "; ".join(commit_msg_list) if commit_msg_list else "New changes available."
+                notifications.append({
+                    "id": f"git-update-{latest_commit}",
+                    "title": "⚡ Software Update Available",
+                    "message": f"New commit: {latest_commit}. Changes: {commit_msgs}",
+                    "type": "update",
+                    "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+        except Exception:
+            pass
+            
+        # 3. Logs
+        try:
+            system_errors = get_logs(limit=100, level="ERROR")
+            system_warnings = get_logs(limit=100, level="WARN")
+            merged_logs = system_errors + system_warnings
+            merged_logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            for log_entry in merged_logs[:100]:
+                notifications.append({
+                    "id": f"log-{log_entry['id']}",
+                    "title": f"⚠️ System Log: {log_entry['category'].upper()} ({log_entry['level']})",
+                    "message": log_entry["message"],
+                    "type": "log_error" if log_entry["level"] == "ERROR" else "log_warn",
+                    "timestamp": log_entry.get("timestamp", ""),
+                    "metadata": log_entry.get("metadata", {})
+                })
+        except Exception:
+            pass
+            
+        # Sort by timestamp descending
+        def get_notification_time(n):
+            t = n.get("timestamp", "")
+            return t if t else "1970-01-01 00:00:00"
+        notifications.sort(key=get_notification_time, reverse=True)
+        
+        # Sub-command routing
+        if not args or args[0].lower() == "list":
+            output = [self.format_bold("--- SYSTEM MESSAGES & NOTIFICATIONS ---")]
+            for n in notifications:
+                is_unread = n["id"] not in read_notifications
+                unread_marker = self.format_red(" [UNREAD] ") if is_unread else " "
+                
+                # Format level badge
+                if n["type"] in ["release", "news", "info"]:
+                    type_label = self.format_green(f"[{n['type'].upper()}]")
+                elif n["type"] == "update":
+                    type_label = self.format_yellow("[UPDATE]")
+                elif n["type"] == "log_error":
+                    type_label = self.format_red("[ERROR]")
+                else:
+                    type_label = self.format_yellow("[WARNING]")
+                    
+                output.append(f"{type_label}{unread_marker}{self.format_cyan(n['id'])} - {n['title']}")
+                output.append(f"  {self.format_muted(n['timestamp'])} - {n['message'][:80]}...")
+                output.append("")
+            return "\n".join(output), current_dir
+            
+        sub_cmd = args[0].lower()
+        if sub_cmd == "read":
+            if len(args) < 2:
+                return self.format_red("Usage: hunt notifications read [all | <id>]"), current_dir
+            target_id = args[1]
+            if target_id.lower() == "all":
+                all_ids = [n["id"] for n in notifications]
+                merged = list(set(read_notifications + all_ids))
+                ProfileManager.update_settings({"read_notifications": merged})
+                return self.format_green("All notifications marked as read."), current_dir
+            else:
+                # Find matching notification
+                matched = False
+                for n in notifications:
+                    if n["id"] == target_id:
+                        matched = True
+                        break
+                if not matched:
+                    return self.format_red(f"Error: Notification with ID '{target_id}' not found."), current_dir
+                merged = list(set(read_notifications + [target_id]))
+                ProfileManager.update_settings({"read_notifications": merged})
+                return self.format_green(f"Notification '{target_id}' marked as read."), current_dir
+                
+        elif sub_cmd == "detail":
+            if len(args) < 2:
+                return self.format_red("Usage: hunt notifications detail <id>"), current_dir
+            target_id = args[1]
+            # Find matching notification
+            target_notif = None
+            for n in notifications:
+                if n["id"] == target_id:
+                    target_notif = n
+                    break
+            if not target_notif:
+                return self.format_red(f"Error: Notification with ID '{target_id}' not found."), current_dir
+                
+            # Mark it read
+            if target_id not in read_notifications:
+                merged = list(set(read_notifications + [target_id]))
+                ProfileManager.update_settings({"read_notifications": merged})
+                
+            output = [
+                self.format_bold("=== NOTIFICATION DETAIL ==="),
+                f"{self.format_bold('ID:')}        {target_notif['id']}",
+                f"{self.format_bold('Type:')}      {target_notif['type']}",
+                f"{self.format_bold('Time:')}      {target_notif['timestamp']}",
+                f"{self.format_bold('Title:')}     {target_notif['title']}",
+                f"{self.format_bold('Content:')}",
+                f"  {target_notif['message']}"
+            ]
+            
+            # Print metadata if exists
+            metadata = target_notif.get("metadata")
+            if metadata:
+                output.append(f"{self.format_bold('Metadata:')}")
+                output.append(f"  {json.dumps(metadata, indent=4)}")
+                
+            return "\n".join(output), current_dir
+            
+        return self.format_red("Usage: hunt notifications [list | read [all | <id>] | detail <id>]"), current_dir
+

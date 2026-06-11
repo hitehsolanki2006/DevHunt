@@ -395,6 +395,30 @@
     </div>
   </div>
 
+  <!-- Notification Details modal -->
+  <div class="modal-overlay" id="notification-detail-modal">
+    <div class="modal" style="width: 550px;">
+      <div class="modal-head">
+        <h3 id="notif-detail-title" style="color:var(--green); text-shadow:0 0 10px rgba(0,255,163,0.3);">Notification Details</h3>
+        <button id="close-notif-detail-modal" class="icon-btn">✕</button>
+      </div>
+      <div id="notif-detail-meta" style="font-size:11px; color:var(--muted); margin-bottom:14px; font-family:var(--mono);">
+        Type: news | Date: --
+      </div>
+      <div style="background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; padding:14px; margin-bottom:16px;">
+        <div id="notif-detail-message" style="font-size:12.5px; line-height:1.6; color:var(--text); white-space:pre-wrap; max-height:220px; overflow-y:auto; font-family:var(--mono);"></div>
+        <div id="notif-detail-metadata-container" style="display:none; margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
+          <div style="font-size:10px; font-weight:bold; color:var(--cyan); margin-bottom:6px; letter-spacing:1px; font-family:var(--mono);">LOG METADATA (RAW JSON):</div>
+          <pre id="notif-detail-metadata" style="margin:0; font-family:var(--mono); font-size:11px; color:var(--muted); overflow-x:auto; background:rgba(0,0,0,0.2); padding:10px; border-radius:4px; max-height:150px; overflow-y:auto;"></pre>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn-ghost" id="btn-close-notif-detail">Close</button>
+        <button class="btn-primary" id="btn-action-notif-detail" style="display:none;">Action</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

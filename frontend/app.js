@@ -1374,7 +1374,7 @@ const HUNT_COMMANDS = [
   "hunt dig", "hunt whois", "hunt ssl", "hunt headers", "hunt port",
   "hunt portscan", "hunt localports", "hunt myip", "hunt trace",
   "hunt subdomains", "hunt git", "hunt python", "hunt calc",
-  "hunt quest", "hunt keys", "hunt memory", "hunt backup", "hunt history",
+  "hunt quest", "hunt keys", "hunt memory", "hunt backup", "hunt history", "hunt notifications",
   "clear"
 ];
 
@@ -1921,6 +1921,16 @@ async function loadAIMemory() {
         }
       });
     }
+
+    // Closing notification detail modal
+    const closeNotifDetailBtn = document.getElementById('close-notif-detail-modal');
+    if (closeNotifDetailBtn) {
+      closeNotifDetailBtn.addEventListener('click', closeNotificationDetailModal);
+    }
+    const closeNotifDetailBtn2 = document.getElementById('btn-close-notif-detail');
+    if (closeNotifDetailBtn2) {
+      closeNotifDetailBtn2.addEventListener('click', closeNotificationDetailModal);
+    }
   });
 })();
 
@@ -1982,7 +1992,7 @@ async function loadNotifications(autoMarkRead = false) {
       }
 
       return `
-        <div class="notification-item ${isUnread ? 'unread' : ''} type-${n.type}">
+        <div class="notification-item ${isUnread ? 'unread' : ''} type-${n.type}" onclick="openNotificationDetail('${n.id}', event)">
           <div class="notification-header">
             <div>
               <span class="notification-tag">${typeTag}</span>
@@ -1995,6 +2005,21 @@ async function loadNotifications(autoMarkRead = false) {
         </div>
       `;
     }).join('');
+
+    // Auto trigger popups on startup/page load (once per browser tab session)
+    if (!sessionStorage.getItem('notif_popup_shown')) {
+      sessionStorage.setItem('notif_popup_shown', 'true');
+      
+      const importantUnread = currentNotificationsList.find(n => !readIds.includes(n.id) && (n.type === 'update' || n.type === 'release' || n.type === 'news'));
+      if (importantUnread) {
+        if (importantUnread.type === 'update') {
+          const updateBadge = document.getElementById('header-update-badge');
+          if (updateBadge) updateBadge.click();
+        } else {
+          openNotificationDetail(importantUnread.id);
+        }
+      }
+    }
 
   } catch (e) {
     container.innerHTML = `<div style="color:var(--red); text-align:center; padding:20px;">Network error loading messages: ${e.message}</div>`;
@@ -2030,7 +2055,91 @@ function triggerUpdateFromNotification() {
   }
 }
 
+function openNotificationDetail(id, event) {
+  // Prevent click on action button from opening detail overlay twice
+  if (event && event.target && event.target.tagName.toLowerCase() === 'button') {
+    return;
+  }
+  
+  const notif = currentNotificationsList.find(n => n.id === id);
+  if (!notif) return;
+  
+  const modal = document.getElementById('notification-detail-modal');
+  const titleEl = document.getElementById('notif-detail-title');
+  const metaEl = document.getElementById('notif-detail-meta');
+  const msgEl = document.getElementById('notif-detail-message');
+  const metaContainer = document.getElementById('notif-detail-metadata-container');
+  const metaPre = document.getElementById('notif-detail-metadata');
+  const actionBtn = document.getElementById('btn-action-notif-detail');
+  
+  if (!modal) return;
+  
+  titleEl.textContent = notif.title;
+  metaEl.textContent = `Category: ${notif.type.toUpperCase()} | Timestamp: ${notif.timestamp || 'N/A'}`;
+  msgEl.textContent = notif.message;
+  
+  if (notif.metadata && Object.keys(notif.metadata).length > 0) {
+    metaContainer.style.display = 'block';
+    metaPre.textContent = JSON.stringify(notif.metadata, null, 2);
+  } else {
+    metaContainer.style.display = 'none';
+    metaPre.textContent = '';
+  }
+  
+  if (notif.type === 'update') {
+    actionBtn.style.display = 'inline-block';
+    actionBtn.textContent = 'Update Now';
+    actionBtn.onclick = () => {
+      closeNotificationDetailModal();
+      triggerUpdateFromNotification();
+    };
+  } else {
+    actionBtn.style.display = 'none';
+    actionBtn.onclick = null;
+  }
+  
+  modal.classList.add('show');
+  
+  // Mark read in background
+  const badge = document.getElementById('notification-unread-count');
+  fetch(`${API_BASE}/profile`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        const readIds = data.settings.read_notifications || [];
+        if (!readIds.includes(id)) {
+          markNotificationsAsRead([id], readIds).then(() => {
+            // Un-mark unread class locally
+            const items = document.querySelectorAll('.notification-item');
+            items.forEach(el => {
+              if (el.getAttribute('onclick') && el.getAttribute('onclick').includes(id)) {
+                el.classList.remove('unread');
+              }
+            });
+            // Recalculate badge
+            const unreadItems = currentNotificationsList.filter(item => item.id !== id && !readIds.includes(item.id));
+            if (badge) {
+              if (unreadItems.length > 0) {
+                badge.textContent = unreadItems.length;
+                badge.style.display = 'inline-block';
+              } else {
+                badge.style.display = 'none';
+              }
+            }
+          });
+        }
+      }
+    });
+}
+
+function closeNotificationDetailModal() {
+  const modal = document.getElementById('notification-detail-modal');
+  if (modal) modal.classList.remove('show');
+}
+
 // Bind globally for inline HTML click handlers
 window.triggerUpdateFromNotification = triggerUpdateFromNotification;
 window.loadNotifications = loadNotifications;
+window.openNotificationDetail = openNotificationDetail;
+window.closeNotificationDetailModal = closeNotificationDetailModal;
 

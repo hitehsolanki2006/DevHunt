@@ -353,6 +353,12 @@ body.collapsed .nav-item{justify-content:center}
   flex-direction: column;
   gap: 6px;
   backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+.notification-item:hover {
+  border-color: var(--border-hot);
+  background: rgba(0, 255, 163, 0.04);
+  box-shadow: 0 0 10px rgba(0, 255, 163, 0.1);
 }
 .notification-item::before {
   content: "";

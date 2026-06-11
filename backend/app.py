@@ -764,17 +764,18 @@ def get_system_notifications():
             
         # 3. Local System Log Warning/Error Alerts
         try:
-            system_errors = get_logs(limit=15, level="ERROR")
-            system_warnings = get_logs(limit=15, level="WARN")
+            system_errors = get_logs(limit=100, level="ERROR")
+            system_warnings = get_logs(limit=100, level="WARN")
             merged_logs = system_errors + system_warnings
             merged_logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-            for log_entry in merged_logs[:15]:
+            for log_entry in merged_logs[:100]:
                 notifications.append({
                     "id": f"log-{log_entry['id']}",
                     "title": f"⚠️ System Log: {log_entry['category'].upper()} ({log_entry['level']})",
                     "message": log_entry["message"],
                     "type": "log_error" if log_entry["level"] == "ERROR" else "log_warn",
-                    "timestamp": log_entry.get("timestamp", "")
+                    "timestamp": log_entry.get("timestamp", ""),
+                    "metadata": log_entry.get("metadata", {})
                 })
         except Exception:
             pass
