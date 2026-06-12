@@ -27,13 +27,21 @@ class ChatEngine:
                 pass
         return False
 
-    def _build_system_instruction(self, user_message: str, active_rag_docs: list, session_id: str) -> str:
-        system_instruction = (
-            "You are DevHunt AI, a smart personal assistant that helps with problem solving, debugging, learning, and answering questions on any topic.\n"
-            "You provide clear, structured, and example-rich answers. Always use clear headings, "
-            "bullet points, and code blocks where appropriate.\n"
-            "If the user asks about a learning roadmap or topic, guide them step-by-step.\n"
-        )
+    def _build_system_instruction(self, user_message: str, active_rag_docs: list, session_id: str, source_id: int = None) -> str:
+        if source_id is not None:
+            system_instruction = (
+                "You are DevHunt AI, currently acting as a Document Analyst. The user has opened a specific document in their viewer.\n"
+                "Your primary task is to explain, summarize, and answer any questions about the document context provided below.\n"
+                "Ground your answers strictly in the document content. If you cannot find the answer in the document, mention that, but you can also provide a helpful general answer if relevant.\n"
+                "Keep answers very focused on this document.\n"
+            )
+        else:
+            system_instruction = (
+                "You are DevHunt AI, a smart personal assistant that helps with problem solving, debugging, learning, and answering questions on any topic.\n"
+                "You provide clear, structured, and example-rich answers. Always use clear headings, "
+                "bullet points, and code blocks where appropriate.\n"
+                "If the user asks about a learning roadmap or topic, guide them step-by-step.\n"
+            )
 
         if self._get_english_mode():
             system_instruction += (
@@ -207,16 +215,17 @@ class ChatEngine:
 
         return clean_text, todo_detected
 
-    def send_message(self, session_id: str, user_message: str, model_override: str = None) -> dict:
+    def send_message(self, session_id: str, user_message: str, model_override: str = None, source_id: int = None) -> dict:
         # 1. Fetch relevant content from RAG
-        rag_results = self.rag_pipeline.search_similarity(user_message, top_k=3)
-        has_rag = len(rag_results) > 0 and any(r['similarity'] > 0.45 for r in rag_results)
-        active_rag_docs = [r for r in rag_results if r['similarity'] > 0.45]
+        rag_results = self.rag_pipeline.search_similarity(user_message, top_k=6 if source_id is not None else 3, source_id=source_id)
+        min_similarity = 0.35 if source_id is not None else 0.45
+        active_rag_docs = [r for r in rag_results if r['similarity'] > min_similarity]
+        has_rag = len(active_rag_docs) > 0
 
         # 2. Classify query / select model
         model_name = model_override
         if not model_name:
-            model_name = classify_query(user_message, has_rag_docs=len(active_rag_docs) > 0)
+            model_name = classify_query(user_message, has_rag_docs=has_rag)
 
         # 3. Retrieve session history from DB (shorter limit since we have consolidated long-term memory)
         conn = get_db_connection()
@@ -232,7 +241,7 @@ class ChatEngine:
         history = list(reversed(history_rows))
 
         # 4. Construct System Instruction
-        system_instruction = self._build_system_instruction(user_message, active_rag_docs, session_id)
+        system_instruction = self._build_system_instruction(user_message, active_rag_docs, session_id, source_id)
 
         # 5. Key rotation retry loop
         all_keys = self.key_manager.get_keys_list()
@@ -362,7 +371,7 @@ class ChatEngine:
             "todo_detected": todo_detected
         }
 
-    def stream_message(self, session_id: str, user_message: str, model_override: str = None):
+    def stream_message(self, session_id: str, user_message: str, model_override: str = None, source_id: int = None):
         """
         Generator that yields SSE chunks as the model streams tokens.
         Yields dicts: {type: 'token', text: '...'} or {type: 'done', ...meta} or {type: 'error', error: '...'}
@@ -370,8 +379,9 @@ class ChatEngine:
         import json
 
         # RAG
-        rag_results = self.rag_pipeline.search_similarity(user_message, top_k=3)
-        active_rag_docs = [r for r in rag_results if r['similarity'] > 0.45]
+        rag_results = self.rag_pipeline.search_similarity(user_message, top_k=6 if source_id is not None else 3, source_id=source_id)
+        min_similarity = 0.35 if source_id is not None else 0.45
+        active_rag_docs = [r for r in rag_results if r['similarity'] > min_similarity]
         has_rag = len(active_rag_docs) > 0
 
         # Model
@@ -388,7 +398,7 @@ class ChatEngine:
         conn.close()
 
         # System prompt
-        system_instruction = self._build_system_instruction(user_message, active_rag_docs, session_id)
+        system_instruction = self._build_system_instruction(user_message, active_rag_docs, session_id, source_id)
 
         # 5. Key rotation retry loop for stream
         all_keys = self.key_manager.get_keys_list()

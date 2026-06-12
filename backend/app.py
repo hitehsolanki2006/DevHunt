@@ -56,12 +56,19 @@ def send_chat_message():
     message      = data.get('message', '').strip()
     session_id   = data.get('session_id', 'default_session')
     model_override = data.get('model_override')
+    source_id    = data.get('source_id')
+    if source_id is not None:
+        try:
+            source_id = int(source_id)
+        except ValueError:
+            source_id = None
+            
     if not message:
         return jsonify({"success": False, "error": "Message content is required"}), 400
     try:
         ProfileManager.increment_streak()
         logger.info("chat", f"User: {message[:120]}...", {"session_id": session_id})
-        result = chat_engine.send_message(session_id, message, model_override)
+        result = chat_engine.send_message(session_id, message, model_override, source_id=source_id)
         if result.get("success") and result.get("response"):
             learning_path.auto_adjust_path(f"User: {message}\nAI: {result['response']}")
             logger.success("chat", f"AI: {result['response'][:120]}...", {"session_id": session_id, "model": result.get("model")})
@@ -77,6 +84,13 @@ def stream_chat_message():
     message      = data.get('message', '').strip()
     session_id   = data.get('session_id', 'default_session')
     model_override = data.get('model_override')
+    source_id    = data.get('source_id')
+    if source_id is not None:
+        try:
+            source_id = int(source_id)
+        except ValueError:
+            source_id = None
+            
     if not message:
         return jsonify({"success": False, "error": "Message content is required"}), 400
 
@@ -85,7 +99,7 @@ def stream_chat_message():
             ProfileManager.increment_streak()
             logger.info("chat", f"User (stream): {message[:120]}...", {"session_id": session_id})
             full_response = []
-            for chunk in chat_engine.stream_message(session_id, message, model_override):
+            for chunk in chat_engine.stream_message(session_id, message, model_override, source_id=source_id):
                 if isinstance(chunk, dict):
                     content = chunk.get('content') or chunk.get('text') or ""
                     if content:
@@ -392,6 +406,28 @@ def index_note_knowledge():
 def delete_knowledge_source(source_id):
     try:
         return jsonify({"success": rag_pipeline.delete_source(source_id)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/knowledge/<int:source_id>/content', methods=['GET'])
+def get_knowledge_source_content(source_id):
+    try:
+        from core.db import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM knowledge_sources WHERE id = ?", (source_id,))
+        source = cursor.fetchone()
+        if not source:
+            conn.close()
+            return jsonify({"success": False, "error": "Source not found"}), 404
+        
+        cursor.execute("SELECT content FROM knowledge_chunks WHERE source_id = ? ORDER BY id ASC", (source_id,))
+        chunks = cursor.fetchall()
+        conn.close()
+        
+        full_content = "\n\n".join(c['content'] for c in chunks)
+        return jsonify({"success": True, "name": source['name'], "content": full_content})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

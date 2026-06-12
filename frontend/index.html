@@ -137,7 +137,8 @@
 
     <!-- 4. INTEL VAULT -->
     <section class="panel" id="panel-vault">
-      <div class="vault-grid">
+      <!-- Upload/Scrape Grid -->
+      <div class="vault-grid" id="vault-grid">
         <div class="card">
           <div class="card-head"><h3>Drop Files</h3></div>
           <div class="dropzone" id="dropzone">
@@ -157,6 +158,33 @@
         <div class="card vault-table-wrap">
           <div class="card-head"><h3>Indexed Sources</h3></div>
           <table class="data-table" id="vault-table"></table>
+        </div>
+      </div>
+
+      <!-- Split Document Viewer & Chat Analyst (Hidden by default) -->
+      <div class="vault-viewer-grid" id="vault-viewer-grid" style="display: none;">
+        <div class="card doc-reader-card" style="display: flex; flex-direction: column; height: calc(100vh - 160px);">
+          <div class="card-head" style="border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+            <h2 id="doc-viewer-title" style="margin: 0; font-family: var(--display); color: var(--green);">Document Viewer</h2>
+            <button class="btn-ghost" onclick="closeDocViewer()">✕ Close Analyst</button>
+          </div>
+          <div class="doc-viewer-body" id="doc-viewer-content" style="flex: 1; overflow-y: auto; padding: 14px 0; font-family: var(--mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; color: var(--text);">
+            <!-- Concatenated document chunks -->
+          </div>
+        </div>
+
+        <div class="card doc-chat-card" style="display: flex; flex-direction: column; height: calc(100vh - 160px);">
+          <div class="card-head" style="border-bottom: 1px solid var(--border); padding-bottom: 10px; justify-content: space-between;">
+            <h3 style="margin: 0; font-family: var(--display); color: var(--cyan);">Document Analyst Chat</h3>
+            <button class="btn-ghost" id="doc-chat-clear" style="font-size: 10px; color: var(--red); border-color: rgba(255,77,109,.3);">✕ Clear Chat</button>
+          </div>
+          <div class="doc-chat-feed" id="doc-chat-feed" style="flex: 1; overflow-y: auto; padding: 14px 0; display: flex; flex-direction: column; gap: 12px;">
+            <!-- Specific doc chat feed -->
+          </div>
+          <div class="chat-input" style="border-top: 1px solid var(--border); padding-top: 10px; display: flex; gap: 8px;">
+            <textarea id="doc-chat-input" placeholder="Ask anything about this document..." rows="2" style="flex: 1; resize: none; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-family: inherit; font-size: 12px; color: var(--text);"></textarea>
+            <button class="btn-primary" id="doc-chat-send" style="padding: 0 16px; font-weight: bold; font-size: 11px;">TRANSMIT →</button>
+          </div>
         </div>
       </div>
     </section>

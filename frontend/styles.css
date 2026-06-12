@@ -204,6 +204,19 @@ label input,label textarea,label select{margin-top:5px}
 .dropzone:hover,.dropzone.drag{border-color:var(--green);background:rgba(0,255,163,.04);color:var(--green)}
 .dz-icon{font-size:36px;color:var(--cyan);margin-bottom:8px}
 
+.vault-viewer-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;animation:vaultDetailsFadeIn .3s ease}
+@keyframes vaultDetailsFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.doc-reader-card, .doc-chat-card{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:18px}
+.doc-viewer-body::-webkit-scrollbar{width:6px}
+.doc-viewer-body::-webkit-scrollbar-track{background:rgba(0,0,0,0.2)}
+.doc-viewer-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.doc-chat-feed{display:flex;flex-direction:column;gap:12px;overflow-y:auto;max-height:calc(100vh - 360px)}
+.doc-chat-feed::-webkit-scrollbar{width:6px}
+.doc-chat-feed::-webkit-scrollbar-track{background:rgba(0,0,0,0.2)}
+.doc-chat-feed::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.doc-link{color:var(--text);transition:color .2s;cursor:pointer}
+.doc-link:hover{color:var(--green);text-shadow:0 0 8px rgba(0,255,163,0.35)}
+
 /* Table */
 .data-table{width:100%;border-collapse:collapse;font-size:12px}
 .data-table th{text-align:left;padding:8px 10px;color:var(--cyan);font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:1.5px;border-bottom:1px solid var(--border)}

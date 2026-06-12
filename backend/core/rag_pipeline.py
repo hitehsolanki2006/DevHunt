@@ -145,7 +145,7 @@ class RAGPipeline:
             
         return self.index_text_content(filename, 'pdf', full_text, path=file_path)
 
-    def search_similarity(self, query: str, top_k: int = 4) -> list:
+    def search_similarity(self, query: str, top_k: int = 4, source_id: int = None) -> list:
         """
         Searches the local SQLite vector store using Cosine Similarity in Python.
         """
@@ -159,7 +159,10 @@ class RAGPipeline:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute("SELECT id, source_id, content, embedding, metadata FROM knowledge_chunks")
+        if source_id is not None:
+            cursor.execute("SELECT id, source_id, content, embedding, metadata FROM knowledge_chunks WHERE source_id = ?", (source_id,))
+        else:
+            cursor.execute("SELECT id, source_id, content, embedding, metadata FROM knowledge_chunks")
         rows = cursor.fetchall()
         conn.close()
         

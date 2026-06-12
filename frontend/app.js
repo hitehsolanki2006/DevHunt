@@ -829,7 +829,7 @@ async function loadSources() {
       <tbody>
         ${list.map(s => `
           <tr>
-            <td><b>${s.name}</b></td>
+            <td><a class="doc-link" onclick="openDocViewer(event, ${s.id})"><b>${s.name}</b></a></td>
             <td><span class="badge">${s.type.toUpperCase()}</span></td>
             <td>${s.chunk_count}</td>
             <td>
@@ -857,6 +857,197 @@ window.deleteSource = async (id) => {
     console.error('Source delete failure', error);
   }
 };
+
+/* ========== Document Viewer & Analyst Chat ========== */
+window.activeDocSourceId = null;
+window.activeDocSessionId = null;
+
+function addDocMsg(role, text) {
+  const docFeed = document.getElementById('doc-chat-feed');
+  if (!docFeed) return;
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'assistant' ? 'ai' : role);
+  div.innerHTML = md(text);
+  docFeed.appendChild(div);
+  docFeed.scrollTop = docFeed.scrollHeight;
+}
+
+window.openDocViewer = async (event, sourceId) => {
+  if (event) event.preventDefault();
+  
+  const vaultGrid = document.getElementById('vault-grid');
+  const viewerGrid = document.getElementById('vault-viewer-grid');
+  const docTitle = document.getElementById('doc-viewer-title');
+  const docContent = document.getElementById('doc-viewer-content');
+  const docFeed = document.getElementById('doc-chat-feed');
+  
+  if (!viewerGrid || !vaultGrid) return;
+  
+  docContent.innerHTML = `<span class="muted">// retrieving document from local vaults...</span>`;
+  docFeed.innerHTML = '';
+  
+  vaultGrid.style.display = 'none';
+  viewerGrid.style.display = 'grid';
+  
+  window.activeDocSourceId = sourceId;
+  window.activeDocSessionId = `doc_chat_${sourceId}`;
+  
+  try {
+    const res = await fetch(`${API_BASE}/knowledge/${sourceId}/content`);
+    const data = await res.json();
+    
+    if (data.success) {
+      docTitle.textContent = data.name;
+      docContent.textContent = data.content || '// Document has no text content.';
+    } else {
+      docContent.innerHTML = `<span style="color:var(--red);">Error: ${data.error || 'failed to load document content'}</span>`;
+    }
+  } catch (err) {
+    console.error(err);
+    docContent.innerHTML = `<span style="color:var(--red);">Error: Failed to fetch document content.</span>`;
+  }
+  
+  try {
+    const res = await fetch(`${API_BASE}/chat/history?session_id=${window.activeDocSessionId}`);
+    const data = await res.json();
+    if (data.success && data.history) {
+      if (data.history.length === 0) {
+        addDocMsg('assistant', `### Document Analyst Active 🧐\nI've loaded this document and am ready to answer any questions you have about it! Ask me anything.`);
+      } else {
+        data.history.forEach(m => {
+          addDocMsg(m.role, m.content);
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load doc chat history', err);
+  }
+};
+
+window.closeDocViewer = () => {
+  const vaultGrid = document.getElementById('vault-grid');
+  const viewerGrid = document.getElementById('vault-viewer-grid');
+  if (vaultGrid && viewerGrid) {
+    viewerGrid.style.display = 'none';
+    vaultGrid.style.display = 'grid';
+  }
+  window.activeDocSourceId = null;
+  window.activeDocSessionId = null;
+};
+
+window.sendDocChatMessage = async () => {
+  const input = document.getElementById('doc-chat-input');
+  const docFeed = document.getElementById('doc-chat-feed');
+  if (!input || !docFeed || !window.activeDocSourceId) return;
+  
+  const message = input.value.trim();
+  if (!message) return;
+  
+  addDocMsg('user', message);
+  input.value = '';
+  
+  const aiDiv = document.createElement('div');
+  aiDiv.className = 'msg ai';
+  aiDiv.innerHTML = `<span class="muted streaming-cursor">// consulting document segments...</span>`;
+  docFeed.appendChild(aiDiv);
+  docFeed.scrollTop = docFeed.scrollHeight;
+  
+  let fullText = '';
+  
+  try {
+    const response = await fetch(`${API_BASE}/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        session_id: window.activeDocSessionId,
+        source_id: window.activeDocSourceId
+      })
+    });
+    
+    if (!response.ok) {
+      aiDiv.innerHTML = `⚠️ **Server error**: ${response.status}`;
+      return;
+    }
+    
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let firstToken = true;
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'token') {
+            if (firstToken) {
+              aiDiv.innerHTML = '';
+              firstToken = false;
+            }
+            fullText += data.text;
+            aiDiv.innerHTML = md(fullText) + '<span class="streaming-cursor">▌</span>';
+            docFeed.scrollTop = docFeed.scrollHeight;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+    
+    aiDiv.innerHTML = md(fullText);
+    docFeed.scrollTop = docFeed.scrollHeight;
+  } catch (err) {
+    console.error('Doc chat stream failure', err);
+    aiDiv.innerHTML = `⚠️ **Connection failed**: ${err.message}`;
+  }
+};
+
+window.clearDocChatHistory = async () => {
+  if (!window.activeDocSessionId) return;
+  if (confirm('Clear chat history for this document?')) {
+    try {
+      const res = await fetch(`${API_BASE}/chat/history?session_id=${window.activeDocSessionId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        const docFeed = document.getElementById('doc-chat-feed');
+        if (docFeed) {
+          docFeed.innerHTML = '';
+          addDocMsg('assistant', `### History Cleared\nAsk me anything about this document.`);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+};
+
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'doc-chat-send') {
+    window.sendDocChatMessage();
+  }
+  if (e.target && e.target.id === 'doc-chat-clear') {
+    window.clearDocChatHistory();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.id === 'doc-chat-input') {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      window.sendDocChatMessage();
+    }
+  }
+});
 
 // URL Scraping
 const urlBtn = document.getElementById('url-btn');
