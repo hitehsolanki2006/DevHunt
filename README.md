@@ -142,6 +142,21 @@ Local-AI/
 
 ---
 
+## 📖 Module & Functions Documentation
+
+Comprehensive documentation describing every single function, parameters, outputs, and internal execution pipelines is available in the [docs/](file:///d:/My%20projects/Local-AI/docs/) directory:
+
+*   [check_requirements.py](file:///d:/My%20projects/Local-AI/docs/check_requirements.md): Package version matching & system path verification.
+*   [todo_manager.py](file:///d:/My%20projects/Local-AI/docs/todo_manager.md): CRUD transactions for Quest Board tasks.
+*   [chat_engine.py](file:///d:/My%20projects/Local-AI/docs/chat_engine.md): SSE streaming, key rotation, and context aggregation.
+*   [terminal_engine.py](file:///d:/My%20projects/Local-AI/docs/terminal_engine.md): Hunt Terminal CLI pipeline and subcommand handlers.
+*   [update_manager.py](file:///d:/My%20projects/Local-AI/docs/update_manager.md): Auto-updater checks and git operations.
+*   [memory_manager.py](file:///d:/My%20projects/Local-AI/docs/memory_manager.md): Asynchronous AI core memory consolidator.
+*   [auxiliary_core.md](file:///d:/My%20projects/Local-AI/docs/auxiliary_core.md): Profile metrics, local analytics, key masking, and database pools.
+*   [app_endpoints.md](file:///d:/My%20projects/Local-AI/docs/app_endpoints.md): Full listing of all HTTP endpoints in the backend.
+
+---
+
 ## 🤝 How to Contribute
 
 We welcome contributions of all forms: bug fixes, UI enhancements, features, and documentation updates.
