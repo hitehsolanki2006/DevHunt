@@ -56,6 +56,17 @@ class TodoManager:
         conn.commit()
         conn.close()
         
+        try:
+            from core import logger
+            logger.success("todo", f"Created quest: '{title}' (Priority: {priority}, Source: {source})", {
+                "todo_id": todo_id,
+                "title": title,
+                "priority": priority,
+                "source": source
+            })
+        except Exception:
+            pass
+            
         return {
             "id": todo_id,
             "title": title,
@@ -103,6 +114,16 @@ class TodoManager:
         rowcount = cursor.rowcount
         conn.close()
         
+        if rowcount > 0:
+            try:
+                from core import logger
+                if updates.get("status") == "done":
+                    logger.success("todo", f"Completed quest ID {todo_id}", {"todo_id": todo_id, "updates": updates})
+                else:
+                    logger.info("todo", f"Updated quest ID {todo_id}: {updates}", {"todo_id": todo_id, "updates": updates})
+            except Exception:
+                pass
+                
         return rowcount > 0
 
     @staticmethod
@@ -113,6 +134,14 @@ class TodoManager:
         conn.commit()
         rowcount = cursor.rowcount
         conn.close()
+        
+        if rowcount > 0:
+            try:
+                from core import logger
+                logger.warn("todo", f"Deleted quest ID {todo_id}", {"todo_id": todo_id})
+            except Exception:
+                pass
+                
         return rowcount > 0
 
     @staticmethod

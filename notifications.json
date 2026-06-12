@@ -1,5 +1,12 @@
 [
   {
+    "id": "announcement-v1-1-updates",
+    "title": "⚡ Version 1.1: Launcher Self-Healing & Comprehensive Logging",
+    "message": "DevHunt v1.1 is now live! Major updates in this release:\n\n1. Robust Self-Healing Setup: Automated Python 3.10+ path check, virtual environment health checks, and self-repair (auto-deletes and recreates broken venvs).\n2. Super-fast Startups: Bypasses pip installation overhead using backend/check_requirements.py to verify satisfied packages locally.\n3. Detailed Activity logs: Every chat message, Quest Board change (creation, completion, deletion), and executed terminal command is now captured in SQLite logs.\n4. Log Dashboard Filters: Filter logs by updates, todo, terminal, chat, key_event, and system on the DevHunt Logs dashboard.",
+    "type": "release",
+    "timestamp": "2026-06-12 21:55:00"
+  },
+  {
     "id": "announcement-beta-launch",
     "title": "Welcome to the DevHunt Beta!",
     "message": "I am happy to share that this journey has started, and we are officially in the Beta version of the app! Stay tuned for updates.",

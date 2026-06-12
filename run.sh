@@ -15,9 +15,19 @@ echo "  Mobile     : +91 9327810431"
 echo "  ----------------------------------------"
 echo ""
 
-# 1. Check Python version and installation
+# 1. Check Python installation
 if ! command -v python3 &> /dev/null && ! command -v python &> /dev/null; then
-    echo "[ERROR] Python is not installed. Please install Python 3 and try again."
+    echo "[ERROR] Python is not installed or not in PATH."
+    echo ""
+    echo "-------------------------------------------------------------"
+    echo "Troubleshooting:"
+    echo "1. Download and install Python 3.10+ from the official site:"
+    echo "   https://www.python.org/downloads/"
+    echo "2. Or use your system's package manager, e.g.:"
+    echo "   - macOS: brew install python"
+    echo "   - Ubuntu/Debian: sudo apt update && sudo apt install python3 python3-pip python3-venv"
+    echo "3. Ensure Python is added to your environment PATH."
+    echo "-------------------------------------------------------------"
     exit 1
 fi
 
@@ -26,32 +36,85 @@ if ! command -v python3 &> /dev/null; then
     PYTHON_CMD="python"
 fi
 
-# 2. Check if virtual environment exists, if not create it
-if [ ! -d "$BACKEND_DIR/venv" ]; then
-    echo "[INFO] Creating Python virtual environment..."
-    $PYTHON_CMD -m venv "$BACKEND_DIR/venv"
-    if [ $? -ne 0 ]; then
-        echo "[ERROR] Failed to create virtual environment."
-        exit 1
+# 2. Check Python version (requires >= 3.10)
+if ! "$PYTHON_CMD" -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" &> /dev/null; then
+    echo "[ERROR] Incompatible Python version detected."
+    echo ""
+    echo "-------------------------------------------------------------"
+    echo "Troubleshooting:"
+    echo "DevHunt requires Python 3.10 or higher."
+    echo "Your current Python version is:"
+    "$PYTHON_CMD" --version
+    echo "Please upgrade Python at: https://www.python.org/downloads/"
+    echo "-------------------------------------------------------------"
+    exit 1
+fi
+
+# 3. Check if virtual environment exists and is working
+VENV_OK=0
+if [ -f "$BACKEND_DIR/venv/bin/python" ]; then
+    if "$BACKEND_DIR/venv/bin/python" -c "import sys" &> /dev/null; then
+        VENV_OK=1
+    else
+        echo "[WARN] Existing virtual environment is broken or Python path has changed."
+        echo "[INFO] Deleting the broken virtual environment and recreating..."
+        rm -rf "$BACKEND_DIR/venv"
     fi
 fi
 
-# 3. Install required libraries
-echo "[INFO] Installing required libraries from requirements.txt..."
-if ! "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"; then
-    echo ""
-    echo "[WARN] Dependency installation failed. This might be a pip version issue."
-    read -p "May I update pip? (Y/N): " choice
-    if [[ "$choice" =~ ^[Yy]$ ]]; then
-        echo "[INFO] Updating pip..."
-        "$BACKEND_DIR/venv/bin/python" -m pip install --upgrade pip
+IS_FRESH=0
+if [ $VENV_OK -ne 1 ]; then
+    echo "[INFO] Creating Python virtual environment..."
+    "$PYTHON_CMD" -m venv "$BACKEND_DIR/venv"
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] Failed to create virtual environment."
+        echo ""
+        echo "-------------------------------------------------------------"
+        echo "Troubleshooting:"
+        echo "1. Make sure you have write permissions for:"
+        echo "   $BACKEND_DIR"
+        echo "2. On Ubuntu/Debian, you may need to install the venv module:"
+        echo "   sudo apt install python3-venv"
+        echo "-------------------------------------------------------------"
+        exit 1
+    fi
+    IS_FRESH=1
+fi
+
+# 4. Manage dependencies
+if [ $IS_FRESH -eq 1 ]; then
+    echo "[INFO] Fresh environment detected. Installing required libraries..."
+    INSTALL_DEPS=1
+else
+    echo "[INFO] Verifying existing library installations..."
+    if "$BACKEND_DIR/venv/bin/python" "$BACKEND_DIR/check_requirements.py" &> /dev/null; then
+        echo "[INFO] All dependencies are already satisfied."
+        INSTALL_DEPS=0
+    else
+        echo "[INFO] Some dependencies are missing or outdated. Installing updates..."
+        INSTALL_DEPS=1
+    fi
+fi
+
+if [ $INSTALL_DEPS -eq 1 ]; then
+    if ! "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"; then
+        echo ""
+        echo "[WARN] Dependency installation failed. Trying to upgrade pip..."
+        "$BACKEND_DIR/venv/bin/python" -m pip install --upgrade pip &> /dev/null
         echo "[INFO] Retrying dependency installation..."
         if ! "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"; then
-            echo "[ERROR] Dependency installation failed again. Please check your internet connection or package compatibility."
+            echo ""
+            echo "[ERROR] Dependency installation failed again."
+            echo ""
+            echo "-------------------------------------------------------------"
+            echo "Troubleshooting:"
+            echo "1. Check your internet connection."
+            echo "2. Ensure pip has permissions to install. You may need to run:"
+            echo "   $BACKEND_DIR/venv/bin/pip install -r $BACKEND_DIR/requirements.txt"
+            echo "   manually to inspect full log outputs."
+            echo "-------------------------------------------------------------"
             exit 1
         fi
-    else
-        echo "[WARN] Skipping pip update. Trying to run the code anyway..."
     fi
 fi
 

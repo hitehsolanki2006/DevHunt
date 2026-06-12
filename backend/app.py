@@ -60,11 +60,14 @@ def send_chat_message():
         return jsonify({"success": False, "error": "Message content is required"}), 400
     try:
         ProfileManager.increment_streak()
+        logger.info("chat", f"User: {message[:120]}...", {"session_id": session_id})
         result = chat_engine.send_message(session_id, message, model_override)
         if result.get("success") and result.get("response"):
             learning_path.auto_adjust_path(f"User: {message}\nAI: {result['response']}")
+            logger.success("chat", f"AI: {result['response'][:120]}...", {"session_id": session_id, "model": result.get("model")})
         return jsonify(result)
     except Exception as e:
+        logger.error("chat", f"Chat failed: {e}", {"session_id": session_id})
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -80,9 +83,19 @@ def stream_chat_message():
     def generate():
         try:
             ProfileManager.increment_streak()
+            logger.info("chat", f"User (stream): {message[:120]}...", {"session_id": session_id})
+            full_response = []
             for chunk in chat_engine.stream_message(session_id, message, model_override):
+                if isinstance(chunk, dict):
+                    content = chunk.get('content') or chunk.get('text') or ""
+                    if content:
+                        full_response.append(content)
                 yield f"data: {json.dumps(chunk)}\n\n"
+            
+            resp_str = "".join(full_response)
+            logger.success("chat", f"AI (stream response complete): {resp_str[:120]}...", {"session_id": session_id})
         except Exception as e:
+            logger.error("chat", f"Chat stream failed: {e}", {"session_id": session_id})
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
 
     return Response(stream_with_context(generate()), mimetype='text/event-stream',
@@ -297,7 +310,10 @@ def trigger_path_update():
     if day_num is None or not status:
         return jsonify({"success": False, "error": "'day' and 'status' required"}), 400
     try:
-        return jsonify({"success": learning_path.update_day_status(day_num, status)})
+        res = learning_path.update_day_status(day_num, status)
+        if res:
+            logger.success("system", f"Updated learning path day {day_num} status to '{status}'")
+        return jsonify({"success": res})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -545,8 +561,10 @@ def run_terminal_command():
         return jsonify({"success": False, "error": "Command is required"}), 400
     try:
         output, new_cwd = terminal_engine.execute(command, cwd)
+        logger.info("terminal", f"Executed command: {command}", {"cwd": cwd, "new_cwd": new_cwd})
         return jsonify({"success": True, "output": output, "cwd": new_cwd})
     except Exception as e:
+        logger.error("terminal", f"Command failed: {command} - {e}", {"cwd": cwd, "error": str(e)})
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -732,6 +750,27 @@ def get_system_notifications():
                             "type": item.get("type", "release"),
                             "timestamp": item.get("timestamp", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                         })
+        except Exception:
+            pass
+            
+        # Load Local Announcements to merge
+        try:
+            backend_dir = os.path.dirname(os.path.abspath(__file__))
+            local_notif_path = os.path.join(os.path.dirname(backend_dir), "notifications.json")
+            if os.path.exists(local_notif_path):
+                with open(local_notif_path, "r", encoding="utf-8") as f:
+                    local_data = json.load(f)
+                    if isinstance(local_data, list):
+                        existing_ids = {n["id"] for n in notifications}
+                        for item in local_data:
+                            if item.get("id") not in existing_ids:
+                                notifications.append({
+                                    "id": item.get("id"),
+                                    "title": item.get("title", "Announcement"),
+                                    "message": item.get("message", ""),
+                                    "type": item.get("type", "release"),
+                                    "timestamp": item.get("timestamp", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                                })
         except Exception:
             pass
             

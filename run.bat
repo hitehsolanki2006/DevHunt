@@ -11,47 +11,115 @@ echo  Mobile      : +91 9327810431
 echo  ----------------------------------------
 echo.
 
-:: 1. Check Python version and installation
+:: 1. Check Python installation
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Python is not installed or not in PATH. Please install Python 3.10+ and try again.
+    echo [ERROR] Python is not installed or not in PATH.
+    echo.
+    echo -------------------------------------------------------------
+    echo Troubleshooting:
+    echo 1. Download Python 3.10 or higher from the official website:
+    echo    https://www.python.org/downloads/
+    echo 2. Run the installer and check the box: "Add Python to PATH"
+    echo    This is crucial for the command line to find Python.
+    echo 3. Restart your terminal or command prompt and run this script again.
+    echo -------------------------------------------------------------
     pause
     exit /b 1
 )
 
-:: 2. Check if virtual environment exists, if not create it
-if not exist "backend\venv\Scripts\python.exe" (
+:: 2. Check Python version (requires >= 3.10)
+python -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] Incompatible Python version detected.
+    echo.
+    echo -------------------------------------------------------------
+    echo Troubleshooting:
+    echo DevHunt requires Python 3.10 or higher.
+    echo Your current Python version is:
+    python --version
+    echo Please install a compatible Python version from:
+    echo    https://www.python.org/downloads/
+    echo -------------------------------------------------------------
+    pause
+    exit /b 1
+)
+
+:: 3. Check if virtual environment exists and is working
+set VENV_OK=0
+if exist "backend\venv\Scripts\python.exe" (
+    backend\venv\Scripts\python.exe -c "import sys" >nul 2>&1
+    if %errorlevel% == 0 (
+        set VENV_OK=1
+    ) else (
+        echo [WARN] Existing virtual environment is broken or Python path has changed.
+        echo [INFO] Deleting the broken virtual environment and recreating it...
+        rd /s /q "backend\venv" >nul 2>&1
+    )
+)
+
+set IS_FRESH=0
+if %VENV_OK% neq 1 (
     echo [INFO] Creating Python virtual environment...
     python -m venv backend\venv
     if %errorlevel% neq 0 (
         echo [ERROR] Failed to create virtual environment.
+        echo.
+        echo -------------------------------------------------------------
+        echo Troubleshooting:
+        echo 1. Verify you have write permissions for the directory:
+        echo    %cd%
+        echo 2. Try running this script as Administrator.
+        echo 3. Check if your Python installation is complete. If needed,
+        echo    reinstall Python from https://www.python.org/downloads/
+        echo -------------------------------------------------------------
+        pause
+        exit /b 1
+    )
+    set IS_FRESH=1
+)
+
+:: 4. Manage dependencies (check if old, directly install if fresh)
+if %IS_FRESH% == 1 (
+    echo [INFO] Fresh environment detected. Installing required libraries...
+    goto :install_reqs
+) else (
+    echo [INFO] Verifying existing library installations...
+    backend\venv\Scripts\python.exe backend\check_requirements.py >nul 2>&1
+    if %errorlevel% == 0 (
+        echo [INFO] All dependencies are already satisfied.
+        goto :run_server
+    ) else (
+        echo [INFO] Some dependencies are missing or outdated. Installing updates...
+        goto :install_reqs
+    )
+)
+
+:install_reqs
+backend\venv\Scripts\pip install -r backend\requirements.txt
+if %errorlevel% neq 0 (
+    echo.
+    echo [WARN] Dependency installation failed. Trying to upgrade pip...
+    backend\venv\Scripts\python.exe -m pip install --upgrade pip >nul 2>&1
+    echo [INFO] Retrying dependency installation...
+    backend\venv\Scripts\pip install -r backend\requirements.txt
+    if %errorlevel% neq 0 (
+        echo.
+        echo [ERROR] Dependency installation failed.
+        echo.
+        echo -------------------------------------------------------------
+        echo Troubleshooting:
+        echo 1. Check your internet connection.
+        echo 2. Verify that there are no conflicting packages.
+        echo 3. Try running: backend\venv\Scripts\pip install -r backend\requirements.txt
+        echo    manually to see full error logs.
+        echo -------------------------------------------------------------
         pause
         exit /b 1
     )
 )
 
-:: 3. Install required libraries
-echo [INFO] Installing required libraries from requirements.txt...
-backend\venv\Scripts\pip install -r backend\requirements.txt
-if %errorlevel% neq 0 (
-    echo.
-    echo [WARN] Dependency installation failed. This might be a pip version issue.
-    set /p update_pip="May I update pip? (Y/N): "
-    if /i "%update_pip%"=="Y" (
-        echo [INFO] Updating pip...
-        backend\venv\Scripts\python.exe -m pip install --upgrade pip
-        echo [INFO] Retrying dependency installation...
-        backend\venv\Scripts\pip install -r backend\requirements.txt
-        if %errorlevel% neq 0 (
-            echo [ERROR] Dependency installation failed again. Please check your internet connection or package compatibility.
-            pause
-            exit /b 1
-        )
-    ) else (
-        echo [WARN] Skipping pip update. Trying to run the code anyway...
-    )
-)
-
+:run_server
 :: Move to backend directory
 cd /d "%~dp0backend"
 
