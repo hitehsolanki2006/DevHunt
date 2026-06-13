@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DevHunt — Documentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0f14; --surface: #111820; --border: #1e2d3d;
+    --green: #00ffa3; --cyan: #00d4ff; --red: #ff4d6a;
+    --amber: #ffb547; --muted: #4a6070; --text: #c8d8e4;
+    --display: 'Orbitron', sans-serif; --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13.5px; min-height: 100vh; overflow: hidden; }
+
+  /* Top Bar */
+  .topbar {
+    display: flex; align-items: center; gap: 20px;
+    padding: 10px 24px; border-bottom: 1px solid var(--border);
+    background: rgba(11, 15, 20, 0.95); backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 100; height: 50px;
+  }
+  .topbar h1 { font-family: var(--display); font-size: 14px; color: var(--green); letter-spacing: 3px; display: flex; align-items: center; gap: 8px; }
+  .topbar h1 span { font-size: 11px; color: var(--muted); font-family: var(--sans); letter-spacing: 1px; font-weight: normal; }
+
+  /* Search Container in Top Bar */
+  .search-box-container {
+    display: flex; align-items: center; background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
+    width: 320px; max-width: 400px; cursor: pointer; transition: all 0.2s;
+  }
+  .search-box-container:hover { border-color: var(--cyan); box-shadow: 0 0 10px rgba(0, 212, 255, 0.15); }
+  .search-box-container input {
+    background: transparent; border: none; outline: none; color: var(--text);
+    font-family: var(--mono); font-size: 11.5px; flex: 1; pointer-events: none;
+  }
+  .search-kbd {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    color: var(--muted); font-family: var(--mono); font-size: 9px;
+    padding: 2px 5px; border-radius: 4px; display: inline-block; font-weight: bold;
+  }
+
+  .topbar-links { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+  .topbar-links a { color: var(--cyan); text-decoration: none; font-size: 11.5px; font-family: var(--mono); font-weight: 500; transition: color 0.15s; }
+  .topbar-links a:hover { color: var(--green); }
+
+  /* Layout Structure */
+  .layout { display: flex; height: calc(100vh - 50px); }
+
+  /* Sidebar Navigation (Left) */
+  .left-sidebar {
+    width: 260px; flex-shrink: 0; background: rgba(0,0,0,0.15);
+    border-right: 1px solid var(--border); padding: 16px;
+    display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
+  }
+  .sidebar-filter-wrapper { position: relative; }
+  .sidebar-filter-wrapper input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--sans); font-size: 12px;
+    padding: 6px 10px; border-radius: 5px; outline: none; transition: border-color 0.2s;
+  }
+  .sidebar-filter-wrapper input:focus { border-color: var(--green); }
+  
+  .sidebar-menu { display: flex; flex-direction: column; gap: 4px; }
+  .sidebar-section-title {
+    font-family: var(--display); font-size: 9.5px; color: var(--muted);
+    margin: 14px 0 6px 8px; letter-spacing: 2px; font-weight: 700;
+  }
+  .sidebar-nav-link {
+    display: block; padding: 8px 12px; border-radius: 5px;
+    font-size: 12px; color: var(--muted); text-decoration: none;
+    transition: all 0.2s ease; cursor: pointer; border: 1px solid transparent;
+  }
+  .sidebar-nav-link:hover { background: rgba(255, 255, 255, 0.02); color: var(--text); }
+  .sidebar-nav-link.active {
+    background: rgba(0, 255, 163, 0.08); border-color: rgba(0, 255, 163, 0.15);
+    color: var(--green); font-weight: bold;
+  }
+
+  /* Content Area */
+  .content-pane { flex: 1; overflow-y: auto; padding: 32px 40px; background: rgba(0,0,0,0.08); scroll-behavior: smooth; }
+  
+  /* Breadcrumbs */
+  .breadcrumbs {
+    display: flex; gap: 8px; font-size: 11px; font-family: var(--mono);
+    color: var(--muted); margin-bottom: 20px; text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .breadcrumbs a { color: var(--muted); text-decoration: none; }
+  .breadcrumbs a:hover { color: var(--cyan); }
+
+  .doc-section { display: none; animation: docFadeIn 0.3s ease; }
+  .doc-section.active { display: block; }
+  @keyframes docFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Right Sidebar (Table of Contents) */
+  .right-sidebar {
+    width: 220px; flex-shrink: 0; border-left: 1px solid var(--border);
+    background: rgba(0,0,0,0.1); padding: 24px 16px; overflow-y: auto;
+  }
+  .toc-title {
+    font-family: var(--display); font-size: 9px; color: var(--cyan);
+    margin-bottom: 12px; letter-spacing: 2px; font-weight: 700;
+  }
+  .toc-menu { display: flex; flex-direction: column; gap: 8px; }
+  .toc-link {
+    display: block; font-size: 11.5px; color: var(--muted); text-decoration: none;
+    transition: all 0.15s; border-left: 2px solid transparent; padding-left: 10px;
+    line-height: 1.4;
+  }
+  .toc-link:hover { color: var(--text); }
+  .toc-link.active { color: var(--green); border-left-color: var(--green); font-weight: 500; }
+  .toc-link.sub-heading { padding-left: 20px; font-size: 11px; }
+
+  /* Article Details Styling */
+  .card-container { display: flex; flex-direction: column; gap: 28px; }
+  h1.section-title { font-family: var(--display); font-size: 20px; color: var(--green); margin-bottom: 14px; text-shadow: 0 0 12px rgba(0,255,163,0.1); }
+  h2.section-subtitle {
+    font-family: var(--display); font-size: 14px; color: var(--cyan);
+    margin-top: 32px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding-bottom: 8px; letter-spacing: 0.5px;
+  }
+  h3.section-inner-title { font-family: var(--sans); font-size: 13px; color: var(--text); margin-top: 24px; margin-bottom: 8px; font-weight: 600; }
+  p { line-height: 1.65; color: var(--text); margin-bottom: 14px; font-size: 13.5px; }
+  ul, ol { padding-left: 24px; margin-bottom: 14px; line-height: 1.65; color: var(--text); }
+  li { margin-bottom: 6px; font-size: 13.5px; }
+  code { font-family: var(--mono); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; color: var(--cyan); font-size: 12px; }
+  pre {
+    background: #060a0e; border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; overflow-x: auto; margin: 16px 0; font-family: var(--mono); font-size: 12px; line-height: 1.5;
+  }
+  .callout {
+    border-left: 3px solid var(--amber); background: rgba(255,181,71,0.03);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 18px 0;
+  }
+  .callout-title { font-weight: 700; color: var(--amber); margin-bottom: 4px; font-family: var(--display); font-size: 10.5px; letter-spacing: 1px; }
+
+  /* Tables */
+  .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .data-table th, .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: left; }
+  .data-table th { font-family: var(--display); font-size: 10.5px; color: var(--cyan); background: rgba(0,0,0,0.3); letter-spacing: 1px; }
+  .data-table td { font-size: 12.5px; }
+  .data-table tr:hover { background: rgba(255,255,255,0.01); }
+
+  /* Badges */
+  .badge {
+    display: inline-block; padding: 2px 6px; border-radius: 4px;
+    font-size: 10px; font-family: var(--mono); font-weight: bold; border: 1px solid transparent;
+  }
+  .badge-post { background: rgba(0,212,255,0.12); color: var(--cyan); border-color: rgba(0,212,255,0.3); }
+  .badge-get { background: rgba(0,255,163,0.12); color: var(--green); border-color: rgba(0,255,163,0.3); }
+  .badge-delete { background: rgba(255,77,106,0.12); color: var(--red); border-color: rgba(255,77,106,0.3); }
+
+  /* Grid details */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 18px 0; }
+  .grid-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px;
+    display: flex; flex-direction: column; justify-content: space-between; transition: border-color 0.2s;
+  }
+  .grid-card:hover { border-color: var(--cyan); }
+  .grid-card h4 { font-family: var(--display); font-size: 12.5px; color: var(--cyan); margin-bottom: 8px; }
+  .grid-card p { margin-bottom: 16px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+
+  /* Buttons */
+  .btn {
+    display: inline-block; text-decoration: none; padding: 8px 16px; border-radius: 5px;
+    font-family: var(--mono); font-size: 11px; cursor: pointer; border: 1px solid transparent;
+    letter-spacing: 1px; font-weight: bold; text-align: center; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--green); color: #0b0f14; }
+  .btn-primary:hover { background: #00d492; transform: translateY(-1px); }
+  .btn-ghost { background: transparent; border-color: rgba(0,212,255,0.4); color: var(--cyan); }
+  .btn-ghost:hover { background: rgba(0,212,255,0.05); transform: translateY(-1px); }
+
+  /* Algolia-like search modal */
+  .modal-overlay {
+    display: none; align-items: flex-start; padding-top: 10vh;
+    background: rgba(5,7,10,0.85); backdrop-filter: blur(4px);
+    position: fixed; inset: 0; z-index: 1000;
+  }
+  .modal-overlay.show { display: flex; }
+  .search-modal {
+    width: 600px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
+    max-height: 70vh; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+  .search-modal-header {
+    display: flex; align-items: center; padding: 14px;
+    border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2);
+  }
+  .search-modal-header input {
+    flex: 1; border: none; background: transparent; color: var(--text);
+    outline: none; font-family: var(--mono); font-size: 13.5px;
+  }
+  .search-modal-results { overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  
+  .search-result-item {
+    padding: 10px 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.02);
+    background: rgba(255,255,255,0.01); cursor: pointer; transition: all 0.15s;
+  }
+  .search-result-item:hover, .search-result-item.selected {
+    background: rgba(0, 255, 163, 0.04); border-color: rgba(0, 255, 163, 0.15);
+  }
+  .search-result-title { font-family: var(--display); font-size: 11px; color: var(--green); margin-bottom: 4px; }
+  .search-result-match { font-size: 12px; color: var(--text); line-height: 1.45; }
+  .search-result-match mark { background: rgba(0, 212, 255, 0.25); color: var(--cyan); font-weight: bold; border-radius: 2px; padding: 0 2px; }
+  
+  .search-modal-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 16px; border-top: 1px solid var(--border);
+    background: rgba(0,0,0,0.2); font-size: 10.5px; color: var(--muted);
+  }
+  .search-modal-footer span kbd { background: rgba(255,255,255,0.05); padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⬡ DEVHUNT DOCUMENTATION <span>v1.2.0</span></h1>
+  
+  <!-- Interactive Top Search -->
+  <div class="search-box-container" onclick="openSearchModal()">
+    <span style="color: var(--muted); font-size: 11.5px; margin-right: 8px;">🔍</span>
+    <input type="text" placeholder="Search documentation..." disabled />
+    <span class="search-kbd">Ctrl K</span>
+  </div>
+
+  <div class="topbar-links">
+    <a href="/">← Return to Dashboard</a>
+    <a href="https://github.com/hitehsolanki2006/DevHunt" target="_blank">GitHub Repo ↗</a>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- 1. LEFT SIDEBAR NAVIGATION -->
+  <div class="left-sidebar">
+    <!-- Filter sidebar input -->
+    <div class="sidebar-filter-wrapper">
+      <input type="text" id="sidebar-filter" placeholder="Filter sidebar..." oninput="filterSidebar()" />
+    </div>
+
+    <!-- Sidebar menu links -->
+    <div class="sidebar-menu">
+      <div class="sidebar-section-title">GETTING STARTED</div>
+      <a class="sidebar-nav-link active" data-sec-id="sec-overview">01. Overview</a>
+      <a class="sidebar-nav-link" data-sec-id="sec-architecture">02. Architecture &amp; Files</a>
+      <a class="sidebar-nav-link" data-sec-id="sec-setup">03. Setup &amp; Installation</a>
+      <a class="sidebar-nav-link" data-sec-id="sec-troubleshoot">04. Troubleshooting Guide</a>
+
+      <div class="sidebar-section-title">CORE MODULES</div>
+      <a class="sidebar-nav-link" data-sec-id="sec-api">05. REST API Spec</a>
+      <a class="sidebar-nav-link" data-sec-id="sec-forensics">06. Forensics Agents</a>
+      <a class="sidebar-nav-link" data-sec-id="sec-rule-based">07. Rule-Based Engine</a>
+      <a class="sidebar-nav-link" data-sec-id="sec-terminal">08. Hunt Terminal (CLI)</a>
+
+      <div class="sidebar-section-title">COMMUNITY</div>
+      <a class="sidebar-nav-link" data-sec-id="sec-git">09. Contributions &amp; Issue</a>
+    </div>
+  </div>
+
+  <!-- 2. MIDDLE CONTENT AREA -->
+  <div class="content-pane" id="content-pane">
+    <div class="breadcrumbs">
+      <a href="#">Developer</a> / <a href="#">DevHunt</a> / <a href="#" id="crumb-sec">Overview</a>
+    </div>
+
+    <div class="card-container">
+      
+      <!-- ==================== 01. OVERVIEW ==================== -->
+      <div class="doc-section active" id="sec-overview">
+        <h1 class="section-title">01. Welcome &amp; Overview</h1>
+        <p><strong>DevHunt</strong> is a local-first, developer-centric environment designed by developers, for developers. It functions as an integrated center displaying analytics, a terminal-like environment (Hunt Terminal), and a RAG-powered cognitive assistant.</p>
+        
+        <p>A core feature in this ecosystem is the <strong>Multi-Agent Document Intelligence and Forensics</strong> tool (Doc Forensics). This subsystem acts independently from the Intel Vault, giving developers a dedicated interface to scan and audit ticket invoices, documents, and cards for evidence of forgery or compliance issues.</p>
+        
+        <h2 class="section-subtitle" id="sec-overview-features">Key Platform Features</h2>
+        <p>DevHunt exposes multiple functional panes to consolidate all dev activities into a single premium interface:</p>
+        
+        <ul>
+          <li><strong>AI Assistant</strong>: Chat with the model powered by custom knowledge index (RAG) and grammar helpers to perfect writing.</li>
+          <li><strong>Hunt Path</strong>: Tracks daily streaks and progress through dynamically calculated topics.</li>
+          <li><strong>Quest Board</strong>: Interactive backlog table persistent in SQLite database for organizing quests.</li>
+          <li><strong>Intel Vault</strong>: Standard RAG indexing workspace supporting PDF/Text indexing.</li>
+          <li><strong>Doc Forensics</strong>: Tamper scanning checklist (ELA, digital signature checks, metadata verification).</li>
+          <li><strong>Hunt Terminal</strong>: Executable CLI interface running both system processes and sandbox utility commands.</li>
+          <li><strong>Music Player</strong>: Integrated local audio manager with global playback controllers and YouTube converter.</li>
+          <li><strong>Terminal Stats</strong>: High-fidelity telemetry metrics dashboard monitoring actual token volume and key distributions.</li>
+          <li><strong>Feature Toggles</strong>: Granular settings switches to dynamically enable or disable workspace panels.</li>
+          <li><strong>Game Arcade</strong>: Set of offline, flat-colored mini games to unwind during compile breaks.</li>
+        </ul>
+
+        <h2 class="section-subtitle" id="sec-overview-features-deep">In-Depth Features Walkthrough</h2>
+        
+        <h3 class="section-inner-title">◎ AI Cognitive Assistant</h3>
+        <p>The AI Assistant provides real-time chat with LLMs using a customized SSE (Server-Sent Events) streaming architecture. It incorporates document-specific knowledge sources automatically if a document context is active. It also utilizes a localized feedback helper to refine grammatical syntax and answer developer prompts. System parameters such as temperature, system instructions, and token limitations are adjustable, and chat sessions are preserved in the local SQLite database.</p>
+        
+        <h3 class="section-inner-title">◎ Hunt Path (Learning Track)</h3>
+        <p>The Hunt Path is a curriculum map tailored to developer activity. It dynamically builds sequence tracks (streaks, progress, nodes) based on developer habits, database interactions, and console operations. Active nodes update automatically as files are created, commands executed, or quizzes answered, logging progress milestones inside <code>backend/data/learning_path.json</code>.</p>
+        
+        <h3 class="section-inner-title">◎ Quest Board (Task Engine)</h3>
+        <p>The Quest Board acts as an integrated to-do management engine. It connects directly with the SQLite database, tracking priorities (low, medium, high), status markers, and titles. Developers can interact with it either through the graphical dashboard or using the Hunt Terminal command interface (<code>hunt quest</code>), making it easy to create, update, or remove backlog tasks programmatically.</p>
+        
+        <h3 class="section-inner-title">◎ Intel Vault (RAG Pipeline)</h3>
+        <p>The Intel Vault serves as the central point for RAG (Retrieval-Augmented Generation). Uploaded files are segmented into logical chunks, parsed, and embedded using either local embeddings or Gemini models. The computed vectors are cataloged in the SQLite database. During queries, a cosine similarity algorithm pulls the most relevant text blocks to append as context headers in LLM prompts, ensuring answers are grounded in your files.</p>
+        
+        <h3 class="section-inner-title">◎ Doc Forensics &amp; Compliance</h3>
+        <p>The Doc Forensics tab performs local weighted scans to assess document safety and authenticity. It executes verification procedures across five distinct vectors: metadata integrity (photoshop tracers or timestamp variance), Error Level Analysis (pixels variance heatmap delta checks), cryptographically signed PKCS7 envelope checks, regex-based regulatory keyword text parsing (identifying SSNs, IDs, and licenses), and QR code registration validation against trusted domain lists.</p>
+        
+        <h3 class="section-inner-title">◎ Hunt Terminal Node</h3>
+        <p>The Hunt Terminal is a sandbox CLI console running directly inside the web browser. It routes customized commands beginning with the <code>hunt</code> prefix to the backend engine, which handles path context persistence across executions, sanitizes input streams to prevent execution escape vulnerabilities, and falls back to system subprocess calls for commands outside its standard database list.</p>
+
+        <h3 class="section-inner-title">◎ Music Player &amp; Global Decks</h3>
+        <p>The Music Player provides developers with an integrated background soundscape. It supports uploading local audio files (MP3, WAV, OGG, FLAC, AAC, M4A, OPUS) and downloading them locally. Additionally, users can paste YouTube links to extract and cache audio tracks automatically using a zero-dependency native WebM/Opus streaming fallback if <code>ffmpeg</code> is not present. The system synchronizes playback state (seek, tracks, volumes, shuffle/sequential modes) with global persistent layouts: a topbar mini-deck and a detailed sidebar deck showing spinning album art and active playback time overlays on every single tab page.</p>
+
+        <h3 class="section-inner-title">◎ Terminal Stats &amp; Token Analytics</h3>
+        <p>The Terminal Stats dashboard exposes aggregated metrics regarding LLM utilization. Instead of estimates, the platform integrates direct API telemetry, capturing prompt and completion token sizes using the <code>usage_metadata</code> object returned by the Gemini SDK. It visualizes model requests split, active keys workload distribution, and 14-day history timelines dynamically using client-side canvas charts. It also monitors model variants distribution and calculates accumulated token metrics for local model telemetry.</p>
+
+        <h3 class="section-inner-title">◎ Feature Access &amp; Layout Toggles</h3>
+        <p>Located under Settings, the Feature Toggle framework allows developers to modularize the workspace by toggling core feature panes (Music Player, Hunt Path, Quest Board, Intel Vault, Doc Forensics, Game Arcade) on or off. Hiding a module immediately strips its navigation elements from the layout, pauses any active services (like background audio or running game rendering loops), and automatically redirects active pane focuses to the AI Cognitive Assistant home screen. Additionally, the settings tab offers a <strong>Minimize Sidebar</strong> option to collapse the left navigation bar into a compact icon-only column. Minimization can also be toggled dynamically using the header hamburger <code>≡</code> button or via the global <code>Ctrl+B</code> (or <code>Cmd+B</code>) keyboard shortcut. These configurations persist locally and serialize in the database or browser's local cache.</p>
+ 
+        <h3 class="section-inner-title">◎ Game Arcade Stations</h3>
+        <p>The Game Arcade panel delivers classic developer-themed mini-games designed to run entirely offline with clean, flat-color styling. The selection menu displays all four games in a top-aligned, 4-column horizontal grid. It runs four discrete games: <strong>Git Commit Snake</strong> (control a git branch to consume commits and dodge conflicts), <strong>Data Lane Runner</strong> (lane dodge falling malware blocks and compile RAM buffers with index splicing safety), <strong>Terminal Decrypt</strong> (deductive word likeness passcode decrypt console), and <strong>Hex Malware Sweeper</strong> (a 100-cell hex address block Minesweeper clone). High scores persist in the browser's local cache. Win, loss, and lockout screens display using premium, non-blocking glassmorphic overlays with RESTART and MENU shortcut actions, preventing blocking alert interruptions.</p>
+
+        <h2 class="section-subtitle" id="sec-overview-offline-online">Offline vs. Online Capabilities</h2>
+        <p>To support air-gapped setups or low-bandwidth environments, DevHunt divides its key features into offline-local capabilities and online-connected modules that require external resources:</p>
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Feature Module</th>
+              <th>Status</th>
+              <th>Dependencies</th>
+              <th>Functional Scope</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>AI Assistant Chat</strong></td>
+              <td><span class="badge badge-delete">Online Only</span></td>
+              <td>Gemini API Key &amp; Internet</td>
+              <td>Streams chat messages and responses via server-sent events (SSE).</td>
+            </tr>
+            <tr>
+              <td><strong>Grammar helper</strong></td>
+              <td><span class="badge badge-delete">Online Only</span></td>
+              <td>Gemini API Key</td>
+              <td>Prepends grammar tips to assistant answers.</td>
+            </tr>
+            <tr>
+              <td><strong>Hunt Path (Gen)</strong></td>
+              <td><span class="badge badge-delete">Online Only</span></td>
+              <td>Gemini API Key</td>
+              <td>Roadmap tailoring uses LLM queries; runs with local static DevOps curriculum fallback when offline.</td>
+            </tr>
+            <tr>
+              <td><strong>Intel Vault (Index)</strong></td>
+              <td><span class="badge badge-delete">Online Only</span></td>
+              <td>Gemini Embedding Model</td>
+              <td>Generates high-dimensional vector embeddings for uploaded PDFs or text.</td>
+            </tr>
+            <tr>
+              <td><strong>Intel Vault (Query)</strong></td>
+              <td><span class="badge badge-delete">Online Only</span></td>
+              <td>Gemini Chat Model</td>
+              <td>Enables RAG chat analysis referencing indexed knowledge documents.</td>
+            </tr>
+            <tr>
+              <td><strong>Quest Board</strong></td>
+              <td><span class="badge badge-get">Offline Ready</span></td>
+              <td>SQLite Database (Local)</td>
+              <td>Managing, creating, updating, and rendering tasks in the Kanban grid.</td>
+            </tr>
+            <tr>
+              <td><strong>Doc Forensics (Scan)</strong></td>
+              <td><span class="badge badge-get">Offline Ready</span></td>
+              <td>Local Python libraries</td>
+              <td>Performs error level checks (ELA), photoshop signature matches, envelope cryptography checks, domain list QR scans, and regex parses.</td>
+            </tr>
+            <tr>
+              <td><strong>Doc Forensics (Chat)</strong></td>
+              <td><span class="badge badge-delete">Online Only</span></td>
+              <td>Gemini API Key</td>
+              <td>Chatting with the document analyzer concerning forensics checklist results.</td>
+            </tr>
+            <tr>
+              <td><strong>Hunt Terminal</strong></td>
+              <td><span class="badge badge-get">Offline Ready</span></td>
+              <td>Local shell processor</td>
+              <td>Interacting with local files, executing disk audits, or running quest commands. External calls like <code>ping</code> or <code>curl</code> require internet.</td>
+            </tr>
+            <tr>
+              <td><strong>Music Player (Local)</strong></td>
+              <td><span class="badge badge-get">Offline Ready</span></td>
+              <td>HTML5 Audio API</td>
+              <td>Uploading local media files, playing tracks, shuffling list, and managing local libraries.</td>
+            </tr>
+            <tr>
+              <td><strong>YouTube Converter</strong></td>
+              <td><span class="badge badge-delete">Online Only</span></td>
+              <td>Internet connection &amp; yt-dlp</td>
+              <td>Downloads, parses metadata, and converts audio streams from youtube links.</td>
+            </tr>
+            <tr>
+              <td><strong>System Logs Viewer</strong></td>
+              <td><span class="badge badge-get">Offline Ready</span></td>
+              <td>SQLite Database (Local)</td>
+              <td>Auditing log streams stored in SQLite.</td>
+            </tr>
+            <tr>
+              <td><strong>Game Arcade</strong></td>
+              <td><span class="badge badge-get">Offline Ready</span></td>
+              <td>HTML5 Canvas &amp; DOM Grid</td>
+              <td>Play offline retro developer games (Snake, Runner, Decrypt, Sweeper) styled with clean, standard flat colors.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ==================== 02. ARCHITECTURE ==================== -->
+      <div class="doc-section" id="sec-architecture">
+        <h1 class="section-title">02. Architecture &amp; Files</h1>
+        <p>DevHunt leverages a lightweight stack, utilizing <strong>Flask (Python 3.10+)</strong> for the API controller, and an <strong>SQLite</strong> database for persistence. The frontend is built on <strong>Vanilla HTML, CSS, and JS</strong> to avoid framework compilation overheads and maximize rendering speed.</p>
+        
+        <h2 class="section-subtitle" id="sec-arch-structure">Directory Structure Map</h2>
+        <p>Understanding the exact locations of configuration files, engines, and persistence caches:</p>
+        
+        <pre><code>Local-AI/
+├── backend/
+│   ├── app.py                # Flask controller, static routing, SSE routes
+│   ├── config.py             # Server paths (Uploads dir, DB files, and key files)
+│   ├── check_requirements.py # Startup verification checks script
+│   ├── core/
+│   │   ├── document_analyzer.py # Multi-agent Document Forensics Orchestrator
+│   │   ├── db.py                # Database connection pools &amp; schema init
+│   │   ├── key_manager.py       # API key health validation and rotation
+│   │   ├── rag_pipeline.py      # RAG chunker, embedder, and vector database
+│   │   ├── chat_engine.py       # SSE message streamer &amp; chat session context
+│   │   └── terminal_engine.py   # Command parse loops &amp; OS process runners
+│   └── uploads/              # Storage directory for ELA deltas &amp; diagrams
+├── frontend/
+│   ├── index.html            # Main UI Dashboard
+│   ├── styles.css            # Custom CSS core design system and tokens
+│   ├── app.js                # Frontend controllers, SSE connectors, and slider handlers
+│   ├── logs.html             # Standalone system logs console
+│   └── docs.html             # Standalone documentation manual
+└── run.bat                   # Automated platform startup script</code></pre>
+
+        <h2 class="section-subtitle" id="sec-arch-db">Database Persistence Schemas</h2>
+        <p>The SQLite database file is stored at <code>backend/data/devhunt.db</code>. It serves as the primary persistent data warehouse for the platform. It manages the following tables:</p>
+        
+        <h3 class="section-inner-title">1. Knowledge Sources Table (RAG Master)</h3>
+        <p>Stores indexed documents, files, and URLs uploaded by the developer:</p>
+        <pre><code>CREATE TABLE IF NOT EXISTS knowledge_sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    type TEXT,           -- 'pdf', 'url', 'text', 'note', 'image'
+    path TEXT,           -- Local absolute file location
+    status TEXT,         -- 'indexed', 'pending', 'error'
+    chunk_count INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);</code></pre>
+ 
+        <h3 class="section-inner-title">2. Knowledge Chunks Table (RAG Vectors)</h3>
+        <p>Stores raw text segments and their high-dimensional vector embeddings serialized as JSON arrays:</p>
+        <pre><code>CREATE TABLE IF NOT EXISTS knowledge_chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id INTEGER,
+    content TEXT,        -- Extracted chunk text
+    embedding TEXT,      -- JSON-serialized float array
+    metadata TEXT,       -- JSON-serialized page/position data
+    FOREIGN KEY(source_id) REFERENCES knowledge_sources(id) ON DELETE CASCADE
+);</code></pre>
+
+        <h3 class="section-inner-title">3. Document Analyses Table (Forensics Results)</h3>
+        <p>Caches weighted verification checklist results, verdicts, and file locations for generated Matplotlib charts:</p>
+        <pre><code>CREATE TABLE IF NOT EXISTS document_analyses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id INTEGER UNIQUE,
+    final_score REAL,
+    verdict TEXT,
+    risk_level TEXT,     -- 'LOW', 'MEDIUM', 'HIGH'
+    report_json TEXT,    -- AI detailed local structured entity report
+    ela_image_path TEXT,
+    dashboard_image_path TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(source_id) REFERENCES knowledge_sources(id) ON DELETE CASCADE
+);</code></pre>
+
+        <h3 class="section-inner-title">4. Chat Messages Table (History Tracker)</h3>
+        <p>Maintains persistent conversational log history for standard assistant chats and document-specific forensics chats:</p>
+        <pre><code>CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT,     -- 'default_session' or 'session_doc_&lt;source_id&gt;'
+    role TEXT,           -- 'user' or 'assistant'
+    content TEXT,
+    model_used TEXT,
+    key_used TEXT,       -- Key manager index label
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    tokens_used INTEGER DEFAULT 0
+);</code></pre>
+
+        <h3 class="section-inner-title">5. Quests Table (Quest Board)</h3>
+        <p>Tracks backlog items, priority values, and lifecycle milestones:</p>
+        <pre><code>CREATE TABLE IF NOT EXISTS todos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    priority TEXT,       -- 'high', 'medium', 'low'
+    status TEXT,         -- 'pending', 'in_progress', 'done'
+    due_date TEXT,
+    tags TEXT,           -- JSON array of strings
+    source TEXT,         -- 'manual' or 'ai_detected'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME
+);</code></pre>
+
+        <h3 class="section-inner-title">6. Analytics Events Table (Behavior Monitor)</h3>
+        <p>Logs developer actions and triggers for path auto-adjusting logic:</p>
+        <pre><code>CREATE TABLE IF NOT EXISTS analytics_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT,     -- 'question_asked', 'todo_completed', 'path_updated'
+    topic TEXT,
+    metadata TEXT,       -- JSON event context details
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);</code></pre>
+
+        <h3 class="section-inner-title">7. System Logs Table (Logs Console)</h3>
+        <p>Stores detailed system operations accessible in the Log Console `/logs` panel:</p>
+        <pre><code>CREATE TABLE IF NOT EXISTS system_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    level TEXT,          -- 'INFO', 'WARN', 'ERROR', 'SUCCESS'
+    category TEXT,       -- 'api_call', 'key_event', 'chat', 'rag', 'system'
+    message TEXT,
+    metadata TEXT,       -- JSON payload (e.g. response duration)
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);</code></pre>
+
+        <h3 class="section-inner-title">8. User Memories Table (AI Facts)</h3>
+        <p>Stores long-term facts extracted from conversations during periodic consolidations:</p>
+        <pre><code>CREATE TABLE IF NOT EXISTS user_memories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT UNIQUE,
+    consolidated_facts TEXT, -- JSON-serialized string array
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+);</code></pre>
+
+        <h2 class="section-subtitle" id="sec-arch-files">Config Files &amp; Filesystem Paths</h2>
+        <p>Key configuration files are kept in the <code>backend/data/</code> directory:</p>
+        <ul>
+          <li><strong>Database Storage</strong> (<code>backend/data/devhunt.db</code>): Stores the SQLite tables listed above.</li>
+          <li><strong>Key Configuration</strong> (<code>backend/data/keys.json</code>): Stores API keys registered via CLI or GUI. API keys are stored encrypted locally.</li>
+          <li><strong>User Profile</strong> (<code>backend/data/profile.json</code>): Stores developer name, streak milestone metrics, current/target skill sets, daily study target times, and interface parameters.</li>
+          <li><strong>Settings file</strong> (<code>backend/data/settings.json</code>): Stores default system parameters (e.g. selected LLM overrides, themes).</li>
+          <li><strong>Learning Path Tracker</strong> (<code>backend/data/learning_path.json</code>): Stores the dynamically structured learning tracks, streak counts, progress nodes, and completion states.</li>
+          <li><strong>Encryption Secret</strong> (<code>backend/data/.secret</code>): Automatically generated key file containing the Fernet encryption secret used to encrypt registered API keys.</li>
+          <li><strong>Uploads Repository</strong> (<code>backend/uploads/</code>): Directory used to save raw document files, generated Matplotlib dial graphs, and ELA contrast heatmaps.</li>
+        </ul>
+      </div>
+
+      <!-- ==================== 03. SETUP & INSTALLATION ==================== -->
+      <div class="doc-section" id="sec-setup">
+        <h1 class="section-title">03. Setup &amp; Installation</h1>
+        <p>This manual covers how to install, verify, and run the DevHunt application suite on Windows, macOS, or Linux systems.</p>
+        
+        <h2 class="section-subtitle" id="sec-setup-pre">Prerequisites</h2>
+        <ul>
+          <li><strong>Python Version</strong>: <code>Python >= 3.10</code> is strictly required.</li>
+          <li><strong>System Path</strong>: Python and pip must be configured in your environment variable PATH.</li>
+          <li><strong>OCR Fallbacks</strong>: (Optional) Install Tesseract-OCR to enable scanner fallback for image texts.</li>
+        </ul>
+
+        <h2 class="section-subtitle" id="sec-setup-auto">1. Launcher Execution (Windows)</h2>
+        <p>Run the launcher script in the workspace root directory. It automatically builds a venv, checks package versions, installs required packages, and boots Flask:</p>
+        <pre><code class="lang-bash">run.bat</code></pre>
+
+        <h2 class="section-subtitle" id="sec-setup-manual">2. Manual CLI Steps (Linux / macOS / Windows)</h2>
+        <p>If you prefer running manual command lines:</p>
+        <pre><code class="lang-bash"># Activate the virtual environment
+cd backend
+python -m venv venv
+source venv/bin/activate  # Or venv\Scripts\activate on Windows
+
+# Install python dependencies
+pip install -r requirements.txt
+
+# Run the Flask server
+python app.py</code></pre>
+
+        <h2 class="section-subtitle" id="sec-setup-verify">3. Startup Verification Checks</h2>
+        <p>Verify that PyMuPDF, OpenCV, Pillow, Pyzbar, and Matplotlib packages are correctly configured in the active environment:</p>
+        <pre><code class="lang-bash">python check_requirements.py</code></pre>
+      </div>
+
+      <!-- ==================== 04. TROUBLESHOOTING ==================== -->
+      <div class="doc-section" id="sec-troubleshoot">
+        <h1 class="section-title">04. Troubleshooting Guide</h1>
+        <p>Common installation anomalies and developer instructions on how to bypass them immediately:</p>
+        
+        <h2 class="section-subtitle" id="sec-tr-db">Database Lock Resolution</h2>
+        <div class="callout">
+          <div class="callout-title">DATABASE LOCKED ALERT</div>
+          <p>Occurs when SQLite encounters multiple write hooks on different threads, commonly when duplicate `python app.py` servers run concurrently on port 5000. Force kill all active python threads using PowerShell:</p>
+          <pre><code class="lang-powershell">Stop-Process -Name "python" -Force</code></pre>
+        </div>
+
+        <h2 class="section-subtitle" id="sec-tr-port">Port 5000 Address Busy</h2>
+        <div class="callout">
+          <div class="callout-title">PORT OCCUPIED ALERT</div>
+          <p>If the terminal prints `OSError: [Errno 98] Address already in use`, it means port 5000 is held by an orphaned instance. Free port 5000 in Windows using:</p>
+          <pre><code class="lang-powershell">netstat -ano | findstr 5000
+# Kill process using the PID found at the end of output line
+taskkill /PID &lt;PID&gt; /F</code></pre>
+        </div>
+
+        <h2 class="section-subtitle" id="sec-tr-dll">Pyzbar DLL Loading Mismatches</h2>
+        <div class="callout">
+          <div class="callout-title">DLL LOAD EXCEPTION</div>
+          <p>Windows builds of `pyzbar` depend on the Visual C++ Redistributable. If DLL fails to load, download and install VC Redist packages from Microsoft. The VerifierAgent will automatically skip QR checks gracefully if this DLL is missing.</p>
+        </div>
+      </div>
+
+      <!-- ==================== 05. REST API SPEC ==================== -->
+      <div class="doc-section" id="sec-api">
+        <h1 class="section-title">05. REST API Specification</h1>
+        <p>DevHunt exposes standard REST endpoints alongside stream interfaces. All parameters, JSON schemas, and streaming SSE responses are detailed below.</p>
+        
+        <h2 class="section-subtitle" id="sec-api-forensics">1. Document Forensics Endpoints</h2>
+        
+        <h3 class="section-inner-title">Analyze Document Check</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/knowledge/&lt;source_id&gt;/analyze</code></p>
+        <p>Executes VerifierAgent, AnalystAgent, and ReporterAgent processes, caching details into `document_analyses` table.</p>
+        <pre><code>// Response (200 OK)
+{
+  "success": true,
+  "source_id": 16,
+  "score": 72.8,
+  "verdict": "⚠️ Suspicious (Review Recommended)",
+  "risk_level": "MEDIUM",
+  "ela_image": "receipt.pdf_ela.png",
+  "dashboard_image": "receipt.pdf_dashboard.png"
+}</code></pre>
+
+        <h3 class="section-inner-title">Get Analysis Report</h3>
+        <p><code><span class="badge badge-get">GET</span> /api/knowledge/&lt;source_id&gt;/analysis</code></p>
+        <p>Fetches cached analysis checks results details.</p>
+        <pre><code>// Response (200 OK)
+{
+  "success": true,
+  "analyzed": true,
+  "score": 72.8,
+  "verdict": "⚠️ Suspicious (Review Recommended)",
+  "risk_level": "MEDIUM",
+  "ela_image_path": "receipt.pdf_ela.png",
+  "dashboard_image_path": "receipt.pdf_dashboard.png",
+  "report_json": { ... }
+}</code></pre>
+
+        <h2 class="section-subtitle" id="sec-api-chat">2. Chat &amp; SSE Stream Specification</h2>
+        
+        <h3 class="section-inner-title">JSON Chat Query</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/chat</code></p>
+        <p>Submit questions about an indexed document. Include <code>source_id</code> to fetch document RAG blocks.</p>
+        <pre><code>// Request payload
+{
+  "message": "What is the PNR code of this travel ticket?",
+  "session_id": "session_doc_16",
+  "source_id": 16
+}</code></pre>
+ 
+        <h3 class="section-inner-title">Server-Sent Events (SSE) Stream</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/chat/stream</code></p>
+        <p>Submits a message and establishes a connection header <code>text/event-stream</code> to stream response tokens:</p>
+        <pre><code>data: {"text": "The"}
+data: {"text": " PNR"}
+data: {"text": " code"}
+data: {"text": " is..."}</code></pre>
+
+        <h2 class="section-subtitle" id="sec-api-history">3. Chat History Endpoints</h2>
+        
+        <h3 class="section-inner-title">Fetch Session Chat Logs</h3>
+        <p><code><span class="badge badge-get">GET</span> /api/chat/history?session_id=&lt;session_id&gt;</code></p>
+        <p>Retrieves all message blocks associated with the active session identifier. Standard chats use <code>default_session</code>, whereas forensics document chats use the format <code>session_doc_&lt;source_id&gt;</code>.</p>
+        <pre><code>// Response (200 OK)
+{
+  "success": true,
+  "history": [
+    {"role": "user", "content": "What is ELA?", "timestamp": "..."},
+    {"role": "assistant", "content": "Error Level Analysis resaves...", "timestamp": "..."}
+  ]
+}</code></pre>
+
+        <h3 class="section-inner-title">Delete Session Chat Logs</h3>
+        <p><code><span class="badge badge-delete">DELETE</span> /api/chat/history?session_id=&lt;session_id&gt;</code></p>
+        <p>Clears chat logs associated with the session.</p>
+        <pre><code>// Response (200 OK)
+{
+  "success": true,
+  "message": "History cleared"
+}</code></pre>
+
+        <h2 class="section-subtitle" id="sec-api-todos">4. Quest Board (Todos) Endpoints</h2>
+        
+        <h3 class="section-inner-title">List Active Quests</h3>
+        <p><code><span class="badge badge-get">GET</span> /api/todos?status=&lt;filter&gt;&amp;priority=&lt;filter&gt;</code></p>
+        <p>Lists todos in the SQLite database.</p>
+        <pre><code>// Response (200 OK)
+{
+  "success": true,
+  "todos": [
+    {"id": 4, "title": "Configure SSL", "priority": "high", "status": "pending"}
+  ]
+}</code></pre>
+
+        <h3 class="section-inner-title">Create New Quest</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/todos</code></p>
+        <p>Adds a new quest item.</p>
+        <pre><code>// Request payload
+{
+  "title": "Configure local virtual environment",
+  "description": "Install libraries inside venv",
+  "priority": "medium",
+  "due_date": "2026-06-20",
+  "tags": ["setup", "env"]
+}</code></pre>
+
+        <h3 class="section-inner-title">Update / Modify Quest Details</h3>
+        <p><code><span class="badge badge-post">PUT</span> /api/todos/&lt;todo_id&gt;</code></p>
+        <p>Updates priority, description, title, or status details.</p>
+        
+        <h3 class="section-inner-title">Mark Quest Complete</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/todos/&lt;todo_id&gt;/complete</code></p>
+        <p>Marks quest completed and logs timestamp.</p>
+
+        <h3 class="section-inner-title">Delete Quest Entry</h3>
+        <p><code><span class="badge badge-delete">DELETE</span> /api/todos/&lt;todo_id&gt;</code></p>
+        <p>Removes quest item completely.</p>
+
+        <h2 class="section-subtitle" id="sec-api-path">5. Learning Path Endpoints</h2>
+        
+        <h3 class="section-inner-title">Get Curriculum Map</h3>
+        <p><code><span class="badge badge-get">GET</span> /api/path</code></p>
+        <p>Fetches the learning tracks structure from <code>learning_path.json</code>.</p>
+
+        <h3 class="section-inner-title">Generate Dynamic Path</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/path/generate</code></p>
+        <p>Dynamically compiles path modules based on user profiles skill settings.</p>
+
+        <h3 class="section-inner-title">Update Progression Node</h3>
+        <p><code><span class="badge badge-post">PUT</span> /api/path/update</code></p>
+        <p>Modifies study day status (e.g. <code>{"day": 2, "status": "completed"}</code>).</p>
+
+        <h3 class="section-inner-title">Fetch Today's Study Target</h3>
+        <p><code><span class="badge badge-get">GET</span> /api/path/today</code></p>
+        <p>Returns daily goals and active checkpoints.</p>
+
+        <h2 class="section-subtitle" id="sec-api-vault">6. Intel Vault (Knowledge Base) Endpoints</h2>
+        
+        <h3 class="section-inner-title">List Vault Sources</h3>
+        <p><code><span class="badge badge-get">GET</span> /api/knowledge</code></p>
+        <p>Lists metadata for all uploaded documents.</p>
+
+        <h3 class="section-inner-title">Upload File to Vault</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/knowledge/upload</code></p>
+        <p>Uploads PDF, TXT, MD, or Image files. Automatically triggers asynchronous RAG background sync chunking.</p>
+
+        <h3 class="section-inner-title">Index URL Web Content</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/knowledge/url</code></p>
+        <p>Extracts web content from a URL, index as RAG vectors.</p>
+
+        <h3 class="section-inner-title">Save Note to Vault</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/knowledge/note</code></p>
+        <p>Indexes custom title and text content nodes directly.</p>
+
+        <h3 class="section-inner-title">Delete Vault Source</h3>
+        <p><code><span class="badge badge-delete">DELETE</span> /api/knowledge/&lt;source_id&gt;</code></p>
+        <p>Removes RAG chunks and master sources entries.</p>
+
+        <h3 class="section-inner-title">Retrieve Source Content</h3>
+        <p><code><span class="badge badge-get">GET</span> /api/knowledge/&lt;source_id&gt;/content</code></p>
+        <p>Returns full text contents compiled from raw knowledge chunks.</p>
+      </div>
+
+      <!-- ==================== 06. FORENSICS AGENTS ==================== -->
+      <div class="doc-section" id="sec-forensics">
+        <h1 class="section-title">06. Forensics Agents Checklist</h1>
+        <p>During the document analyze execution, the orchestrator triggers <strong>VerifierAgent</strong> which runs a weighted 5-layer checklist check on the uploaded file:</p>
+        
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 160px;">Check Layer</th>
+              <th style="width: 80px;">Weight</th>
+              <th>Technical Verification Scope</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Metadata Forensics</strong></td>
+              <td>20%</td>
+              <td>Checks binary streams for editing tools (Photoshop, Foxit, Nitro PDF) and mismatched creation/modification timestamps. Counts `/Prev` cross-reference pointers to identify multiple incremental saves.</td>
+            </tr>
+            <tr>
+              <td><strong>Error Level Analysis (ELA)</strong></td>
+              <td>25%</td>
+              <td>Resaves image blocks at quality 75, calculating pixel error variance against the original matrix. High standard deviations (anomalous hotspots) highlight spliced elements.</td>
+            </tr>
+            <tr>
+              <td><strong>Digital Signature Check</strong></td>
+              <td>30%</td>
+              <td>Checks PDF file envelopes looking for cryptographic dictionary entries: <code>/ByteRange</code> and <code>/PKCS7</code> blocks. Flags unsigned tickets/receipts.</td>
+            </tr>
+            <tr>
+              <td><strong>Text &amp; Regulatory Check</strong></td>
+              <td>15%</td>
+              <td>Runs regex checks to locate standard formatted card IDs (Aadhaar, PAN) and tests for official administrative headers (e.g. Income Tax, DigiLocker).</td>
+            </tr>
+            <tr>
+              <td><strong>QR Code Integrity Check</strong></td>
+              <td>10%</td>
+              <td>Decodes QR values via OpenCV/Pyzbar and parses hostname domains, matching them against a government allowlist (e.g. <code>.gov.in</code>, <code>nic.in</code>).</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 class="section-subtitle" id="sec-for-visuals">Visual Dashboard Rendering</h2>
+        <p>Upon analysis completion, <strong>ReporterAgent</strong> compiles the weighted checklists scores and saves a premium vertically-stacked Matplotlib dashboard image (dimensions: <code>6.5x7.5</code> inches) containing:</p>
+        <ol>
+          <li>An **Authenticity Dial** (half-arc gauge) mapping the combined score from green (authentic) to red (tampering detected).</li>
+          <li>A **Horizontal Bar Graph** displaying individual layer scores on a normalized percentage base.</li>
+        </ol>
+      </div>
+
+      <!-- ==================== 07. RULE-BASED SCANS ==================== -->
+      <div class="doc-section" id="sec-rule-based">
+        <h1 class="section-title">07. Rule-Based Engine (Quota Safety)</h1>
+        <p>Free-tier Gemini API connections are subject to strict rate limits (20 requests per day), which will trigger **429 RESOURCE_EXHAUSTED** errors when scanning multiple files or testing pipelines.</p>
+        
+        <h2 class="section-subtitle" id="sec-rb-analyst">Local Rule-Based Scans</h2>
+        <p>To ensure reliability, the document analyze step bypasses Gemini API calls entirely. <strong>AnalystAgent</strong> uses a fast local heuristics engine to populate fields:</p>
+        <ul>
+          <li><strong>Text Snippet Summary</strong>: Compiles summaries detailing character size and file format details.</li>
+          <li><strong>Entity Extractor</strong>: Regex-based parses that pull dates, amounts, e-mails, phone numbers, Aadhaar IDs, and PANs locally.</li>
+          <li><strong>Authenticity View</strong>: Resolves risk assessments based on VerifierAgent scores (Risk Levels: LOW, MEDIUM, or HIGH).</li>
+          <li><strong>Zero Latency</strong>: Cuts scan times in half (from <strong>17.20 seconds</strong> down to <strong>8.93 seconds</strong>).</li>
+        </ul>
+
+        <h2 class="section-subtitle" id="sec-rb-chat">Preserved Chat Capabilities</h2>
+        <p>Gemini API usage is preserved exclusively for interactive document chat sessions. Chat queries use indexed RAG blocks to answer questions while scanning remains rate-limit free.</p>
+      </div>
+
+      <!-- ==================== 08. TERMINAL CLI ==================== -->
+      <div class="doc-section" id="sec-terminal">
+        <h1 class="section-title">08. Hunt Terminal (CLI)</h1>
+        <p>The <strong>Hunt Terminal</strong> is an interactive console that processes system shell scripts and custom commands. Each command is detailed below:</p>
+        
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 180px;">Terminal Command</th>
+              <th>Purpose &amp; Parameters</th>
+              <th>Functional Scope</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>hunt help</code></td>
+              <td>List all commands</td>
+              <td>Prints description list of all available commands.</td>
+            </tr>
+            <tr>
+              <td><code>hunt neofetch</code></td>
+              <td>System specifications</td>
+              <td>Displays Host OS, shell configuration, and active python version.</td>
+            </tr>
+            <tr>
+              <td><code>hunt pwd</code></td>
+              <td>Print working directory</td>
+              <td>Returns the current system directory path.</td>
+            </tr>
+            <tr>
+              <td><code>hunt ls</code></td>
+              <td>List directory contents</td>
+              <td>Lists files, folder dimensions, and child node metrics.</td>
+            </tr>
+            <tr>
+              <td><code>hunt cd &lt;path&gt;</code></td>
+              <td>Change directory</td>
+              <td>Changes working directory context on the server node.</td>
+            </tr>
+            <tr>
+              <td><code>hunt cat &lt;file&gt;</code></td>
+              <td>View file content</td>
+              <td>Reads file streams (UTF-8 safe) directly to terminal output.</td>
+            </tr>
+            <tr>
+              <td><code>hunt mkdir &lt;name&gt;</code></td>
+              <td>Create directory</td>
+              <td>Creates a new folder at target path.</td>
+            </tr>
+            <tr>
+              <td><code>hunt rm &lt;file/dir&gt;</code></td>
+              <td>Delete file or folder</td>
+              <td>Removes files or directories recursively.</td>
+            </tr>
+            <tr>
+              <td><code>hunt myip</code></td>
+              <td>Inspect IP addresses</td>
+              <td>Returns local interfaces and queries public router IP.</td>
+            </tr>
+            <tr>
+              <td><code>hunt ping &lt;host&gt;</code></td>
+              <td>Ping remote host</td>
+              <td>Pings host and prints response latency.</td>
+            </tr>
+            <tr>
+              <td><code>hunt dns &lt;domain&gt;</code></td>
+              <td>Perform DNS query</td>
+              <td>Queries nameservers for A, MX, TXT, and CNAME records.</td>
+            </tr>
+            <tr>
+              <td><code>hunt dig &lt;domain&gt;</code></td>
+              <td>Detailed DNS lookup</td>
+              <td>Alternative lookup query to inspect nameservers routing.</td>
+            </tr>
+            <tr>
+              <td><code>hunt whois &lt;domain&gt;</code></td>
+              <td>Domain registrar queries</td>
+              <td>Fetches domain registrant information and creation dates.</td>
+            </tr>
+            <tr>
+              <td><code>hunt headers &lt;url&gt;</code></td>
+              <td>Inspect HTTP headers</td>
+              <td>Sends request and displays raw response headers.</td>
+            </tr>
+            <tr>
+              <td><code>hunt ssl &lt;host&gt;</code></td>
+              <td>SSL certificate check</td>
+              <td>Audits remote SSL certificates, validating expiration dates.</td>
+            </tr>
+            <tr>
+              <td><code>hunt port &lt;host&gt; &lt;port&gt;</code></td>
+              <td>Check target port status</td>
+              <td>Validates if a specific port is open on target server.</td>
+            </tr>
+            <tr>
+              <td><code>hunt trace &lt;host&gt;</code></td>
+              <td>Trace network hops</td>
+              <td>Simulates network path traceroute to target host.</td>
+            </tr>
+            <tr>
+              <td><code>hunt subdomains &lt;dom&gt;</code></td>
+              <td>Enumerate subdomains</td>
+              <td>Scans DNS endpoints to find subdomains.</td>
+            </tr>
+            <tr>
+              <td><code>hunt git &lt;args&gt;</code></td>
+              <td>Git shell wrapper</td>
+              <td>Executes version controls queries (e.g. `git status`, `git log`).</td>
+            </tr>
+            <tr>
+              <td><code>hunt python &lt;cmd&gt;</code></td>
+              <td>Python command exec</td>
+              <td>Runs custom python code blocks inside virtual environment.</td>
+            </tr>
+            <tr>
+              <td><code>hunt calc &lt;expr&gt;</code></td>
+              <td>Equation calculator</td>
+              <td>Solves mathematical inputs.</td>
+            </tr>
+            <tr>
+              <td><code>hunt localports</code></td>
+              <td>Local host ports check</td>
+              <td>Audits ports open on localhost interfaces (127.0.0.1).</td>
+            </tr>
+            <tr>
+              <td><code>hunt portscan &lt;host&gt;</code></td>
+              <td>TCP scanner</td>
+              <td>Scans active target ports (e.g. 21, 22, 80, 443, 8080).</td>
+            </tr>
+            <tr>
+              <td><code>hunt quest &lt;args&gt;</code></td>
+              <td>Manage quests</td>
+              <td>Lists, adds, or completes to-dos via database hooks.</td>
+            </tr>
+            <tr>
+              <td><code>hunt keys</code></td>
+              <td>API key manager check</td>
+              <td>Checks status and cooldown counters of the key manager pool.</td>
+            </tr>
+            <tr>
+              <td><code>hunt memory</code></td>
+              <td>AI facts list</td>
+              <td>Lists learned developer facts cached in memory.</td>
+            </tr>
+            <tr>
+              <td><code>hunt backup</code></td>
+              <td>Full backup export</td>
+              <td>Exports database entries and settings JSON.</td>
+            </tr>
+            <tr>
+              <td><code>hunt history</code></td>
+              <td>Chat sessions history</td>
+              <td>Lists active conversations in database.</td>
+            </tr>
+            <tr>
+              <td><code>hunt notifications</code></td>
+              <td>System warning warnings</td>
+              <td>Displays list of warnings and errors logged.</td>
+            </tr>
+            <tr>
+              <td><code>hunt stats</code></td>
+              <td>Analyze token &amp; API stats</td>
+              <td>Displays aggregated token usage, model workload distributions, and key metrics.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 class="section-subtitle" id="sec-terminal-commands-deep">In-Depth Command Index</h2>
+        <p>Each terminal command is mapped below with its specific flags, operational behavior, parameters, and example output formats.</p>
+
+        <h3 class="section-inner-title">◎ 01. hunt help</h3>
+        <p><strong>Syntax:</strong> <code>hunt help [command]</code></p>
+        <p>Lists all available terminal commands. If a command name is provided as an argument, it pulls specific usage text and available flags from the command-level help mapper.</p>
+        <pre><code>$ hunt help ls
+Usage: hunt ls [options] [path]
+
+Lists directory contents in a cross-platform format.
+
+Options:
+  -a          Show hidden files (filenames starting with '.')
+  -l          Display detailed listing (type, size, last modified)</code></pre>
+
+        <h3 class="section-inner-title">◎ 02. hunt neofetch</h3>
+        <p><strong>Syntax:</strong> <code>hunt neofetch</code></p>
+        <p>Displays system details about the active DevHunt server node. It compiles Host OS details, kernel version, shell runtime, active CPU core metrics, memory usage, and active workspace paths, side-by-side with a premium ASCII logo.</p>
+        <pre><code>$ hunt neofetch
+      /\_/\      guest@devhunt
+     ( o.o )     -------------------
+      > ^ <      OS: Windows 10 (AMD64)
+    /  | |  \    Kernel: 10.0.19045 Build 19045
+   (  |_|_|  )   Shell: Hunt Terminal v1.0
+    \_______/    CPU: AMD Ryzen 5 (12 Cores)
+   DEVHUNT NODE  Memory: 8192MB / 16384MB (50%)
+                 Workspace Path: d:\My projects\Local-AI</code></pre>
+
+        <h3 class="section-inner-title">◎ 03. hunt pwd</h3>
+        <p><strong>Syntax:</strong> <code>hunt pwd</code></p>
+        <p>Prints the current absolute directory path where the terminal session is operating. Used to check context state before executing relative file paths.</p>
+        <pre><code>$ hunt pwd
+d:\My projects\Local-AI</code></pre>
+
+        <h3 class="section-inner-title">◎ 04. hunt ls</h3>
+        <p><strong>Syntax:</strong> <code>hunt ls [options] [path]</code></p>
+        <p>Lists contents of the active directory in a clean, colored format (directories in cyan, executables/scripts in green). If path is supplied, scans the target path.</p>
+        <p><strong>Options:</strong></p>
+        <ul>
+          <li><code>-a</code> : Include hidden files starting with a dot (e.g. <code>.gitignore</code>).</li>
+          <li><code>-l</code> : Long list format displaying permissions, file sizes, last modified times, and names.</li>
+        </ul>
+        <pre><code>$ hunt ls -l
+-rw-r--r--  1 guest staff     1048 Jun 13 11:17 config.py
+drwxr-xr-x  1 guest staff        - Jun 13 11:17 core/
+-rwxr-xr-x  1 guest staff     5514 Jun 13 11:17 run.bat*</code></pre>
+
+        <h3 class="section-inner-title">◎ 05. hunt cd</h3>
+        <p><strong>Syntax:</strong> <code>hunt cd [path]</code></p>
+        <p>Changes the working directory of the terminal session. If executed without arguments, returns to the project workspace root. It warns the user if they navigate outside the DevHunt workspace boundaries.</p>
+        <pre><code>$ hunt cd backend
+Switched session context to d:\My projects\Local-AI\backend</code></pre>
+
+        <h3 class="section-inner-title">◎ 06. hunt cat</h3>
+        <p><strong>Syntax:</strong> <code>hunt cat &lt;filename&gt;</code></p>
+        <p>Reads and displays the text contents of a file in the terminal. The output is bounded at 5,000 characters to prevent crashing browser page rendering.</p>
+        <pre><code>$ hunt cat config.py
+import os
+UPLOADS_DIR = "uploads"
+KEYS_PATH = "data/keys.json"</code></pre>
+
+        <h3 class="section-inner-title">◎ 07. hunt mkdir</h3>
+        <p><strong>Syntax:</strong> <code>hunt mkdir &lt;directory_name&gt;</code></p>
+        <p>Creates a new directory folder at the specified target path. Creates intermediate directories automatically if they do not exist.</p>
+        <pre><code>$ hunt mkdir temp_data
+Directory successfully created: temp_data</code></pre>
+
+        <h3 class="section-inner-title">◎ 08. hunt rm</h3>
+        <p><strong>Syntax:</strong> <code>hunt rm [options] &lt;path&gt;</code></p>
+        <p>Deletes a file or directory. Directory deletion requires the recursive option flag.</p>
+        <p><strong>Options:</strong></p>
+        <ul>
+          <li><code>-r</code> : Recursive deletion. Required to delete directories and their sub-contents.</li>
+        </ul>
+        <pre><code>$ hunt rm -r temp_data
+Successfully deleted directory tree: temp_data</code></pre>
+
+        <h3 class="section-inner-title">◎ 09. hunt myip</h3>
+        <p><strong>Syntax:</strong> <code>hunt myip</code></p>
+        <p>Performs an external network check to retrieve the server's public IP address, ISP provider name, ASN, routing city, country, coordinates, and local timezone offset.</p>
+        <pre><code>$ hunt myip
+NODE NETWORK COORDINATES:
+  Public IP Address : 203.0.113.50
+  ISP/Provider      : Reliance Jio Infocomm (AS55836)
+  Location          : Mumbai, Maharashtra, India
+  Coordinates       : Lat: 19.076, Lon: 72.8777
+  Timezone          : Asia/Kolkata (Offset: +05:30)</code></pre>
+
+        <h3 class="section-inner-title">◎ 10. hunt ping</h3>
+        <p><strong>Syntax:</strong> <code>hunt ping &lt;host&gt; [options]</code></p>
+        <p>Checks network latency to a remote server. Because standard ICMP packets require administrative root access, this command performs TCP handshake timing checks against target ports.</p>
+        <p><strong>Options:</strong></p>
+        <ul>
+          <li><code>-c &lt;count&gt;</code> : Number of handshake tests to run (default: 4).</li>
+          <li><code>-p &lt;port&gt;</code> : Target TCP port to connect to (default: 80).</li>
+        </ul>
+        <pre><code>$ hunt ping google.com -c 3
+HUNT PING google.com (142.250.190.46) using port 80/TCP:
+Testing 3 handshakes...
+  Connection from 142.250.190.46: seq=1 time=24.15 ms status=CONNECTED
+  Connection from 142.250.190.46: seq=2 time=22.80 ms status=CONNECTED
+  Connection from 142.250.190.46: seq=3 time=23.45 ms status=CONNECTED
+
+--- google.com ping statistics ---
+  3 packets transmitted, 3 received, 0.0% packet loss
+  rtt min/avg/max = 22.80/23.47/24.15 ms</code></pre>
+
+        <h3 class="section-inner-title">◎ 11. hunt dns (and hunt dig)</h3>
+        <p><strong>Syntax:</strong> <code>hunt dns &lt;domain&gt; [record_type]</code></p>
+        <p>Queries DNS records for a domain using Google's secure DNS-over-HTTPS API. Displays records, TTL values, and response IP metadata.</p>
+        <p><strong>Record Types:</strong> <code>A</code>, <code>AAAA</code>, <code>MX</code>, <code>TXT</code>, <code>NS</code>, <code>CNAME</code> (default is A).</p>
+        <pre><code>$ hunt dns github.com MX
+DNS lookup for github.com (Record Type: MX)
+Resolving via secure DNS-over-HTTPS...
+TYPE   TTL      DATA
+--------------------------------------------------
+MX     3600     10 mxb-01.play.spf.protonmail.ch.
+MX     3600     20 mxb-02.play.spf.protonmail.ch.</code></pre>
+
+        <h3 class="section-inner-title">◎ 12. hunt whois</h3>
+        <p><strong>Syntax:</strong> <code>hunt whois &lt;domain&gt;</code></p>
+        <p>Queries public registrar databases to find registration ownership details, name servers, creation dates, and expiration intervals.</p>
+        <pre><code>$ hunt whois google.com
+WHOIS Query for 'google.com' via port 43 socket connection:
+Connecting to whois.iana.org...
+Redirecting query to registry server: 'whois.verisign-grs.com'...
+
+DOMAIN SUMMARY:
+  Domain Name       : google.com
+  Registrar         : MarkMonitor Inc.
+  Created On        : 1997-09-15T04:00:00Z
+  Expires On        : 2028-09-14T04:00:00Z
+  Name Servers      : ns1.google.com, ns2.google.com</code></pre>
+
+        <h3 class="section-inner-title">◎ 13. hunt headers</h3>
+        <p><strong>Syntax:</strong> <code>hunt headers &lt;url&gt;</code></p>
+        <p>Fetches HTTP response headers from a web address and verifies critical security settings such as Content Security Policy (CSP), HSTS, and Frame protections.</p>
+        <pre><code>$ hunt headers google.com
+Checking headers for https://google.com...
+Response received in 120.45 ms with Status Code: 200
+
+HTTP HEADERS:
+  content-type: text/html; charset=ISO-8859-1
+  cache-control: private, max-age=0
+  x-frame-options: SAMEORIGIN
+  x-xss-protection: 0</code></pre>
+
+        <h3 class="section-inner-title">◎ 14. hunt ssl</h3>
+        <p><strong>Syntax:</strong> <code>hunt ssl &lt;host&gt;</code></p>
+        <p>Establishes a TLS connection to check a domain's SSL/TLS certificate chain. It audits the certificate's issuer, cryptographic strength, common name validity, and expiration details.</p>
+        <pre><code>$ hunt ssl google.com
+SSL Certificate Audit for google.com:
+  Common Name  : *.google.com
+  Issuer       : Google Trust Services LLC
+  Validity     : Valid (Expires in 58 days)
+  Algorithm    : sha256WithRSAEncryption</code></pre>
+
+        <h3 class="section-inner-title">◎ 15. hunt port</h3>
+        <p><strong>Syntax:</strong> <code>hunt port &lt;host&gt; &lt;port&gt;</code></p>
+        <p>Checks if a specific TCP port is open and listening on a target host. Uses socket connection timeouts to assess port connectivity quickly.</p>
+        <pre><code>$ hunt port localhost 5000
+Port 5000 is OPEN on localhost</code></pre>
+
+        <h3 class="section-inner-title">◎ 16. hunt trace</h3>
+        <p><strong>Syntax:</strong> <code>hunt trace &lt;host&gt;</code></p>
+        <p>Simulates a network traceroute path to a target host, checking hop latency and attempting to resolve geolocations for each gateway node.</p>
+        <pre><code>$ hunt trace 8.8.8.8
+Tracing route to 8.8.8.8 (dns.google):
+  Hop 1: 192.168.1.1 (1.24 ms)
+  Hop 2: 10.0.0.1 (10.50 ms)
+  Hop 3: 8.8.8.8 (22.10 ms) [Target Reached]</code></pre>
+
+        <h3 class="section-inner-title">◎ 17. hunt subdomains</h3>
+        <p><strong>Syntax:</strong> <code>hunt subdomains &lt;domain&gt;</code></p>
+        <p>Scans for active subdomains of a target domain passively by resolving common DNS host prefixes (e.g. mail, api, dev, blog) against the domain.</p>
+        <pre><code>$ hunt subdomains github.com
+Scanning subdomains for github.com...
+  Found: api.github.com
+  Found: pages.github.com
+  Found: status.github.com</code></pre>
+
+        <h3 class="section-inner-title">◎ 18. hunt git</h3>
+        <p><strong>Syntax:</strong> <code>hunt git &lt;arguments&gt;</code></p>
+        <p>A wrapper command that runs native git commands securely in the current workspace. Allows tracking modifications, staging changes, or checking logs without leaving the console.</p>
+        <pre><code>$ hunt git status
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  modified:   frontend/docs.html</code></pre>
+
+        <h3 class="section-inner-title">◎ 19. hunt python</h3>
+        <p><strong>Syntax:</strong> <code>hunt python -c "&lt;code&gt;"</code></p>
+        <p>Runs a single Python command line statement within the active virtual environment context. Returns standard output or syntax errors immediately.</p>
+        <pre><code>$ hunt python -c "import sys; print(sys.version)"
+3.10.11 (tags/v3.10.11:7d4061c, May 17 2023, 20:06:55)</code></pre>
+
+        <h3 class="section-inner-title">◎ 20. hunt calc</h3>
+        <p><strong>Syntax:</strong> <code>hunt calc &lt;expression&gt;</code></p>
+        <p>Evaluates math expressions safely without allowing execution injection vectors. It supports trigonometric functions, logarithms, roots, and standard arithmetic operations.</p>
+        <pre><code>$ hunt calc "sqrt(144) * log2(256)"
+Result: 96.00</code></pre>
+
+        <h3 class="section-inner-title">◎ 21. hunt localports</h3>
+        <p><strong>Syntax:</strong> <code>hunt localports [options]</code></p>
+        <p>Lists active network sockets, listening ports, and connection states on the localhost machine. Helps diagnose port occupancy conflicts.</p>
+        <p><strong>Options:</strong></p>
+        <ul>
+          <li><code>-a</code> : Show all connections (including established active sockets).</li>
+          <li><code>-l</code> : Show listening sockets only (default behaviour).</li>
+        </ul>
+        <pre><code>$ hunt localports
+ACTIVE LOCAL LISTENERS:
+  Proto  Local Address          State
+  TCP    127.0.0.1:5000         LISTENING
+  TCP    127.0.0.1:27017        LISTENING</code></pre>
+
+        <h3 class="section-inner-title">◎ 22. hunt portscan</h3>
+        <p><strong>Syntax:</strong> <code>hunt portscan &lt;host&gt; [options]</code></p>
+        <p>Scans TCP ports on a host to identify active listening services. Scans are run in parallel to minimize wait times.</p>
+        <p><strong>Options:</strong></p>
+        <ul>
+          <li><code>-r &lt;range&gt;</code> : Specific port ranges (e.g. <code>20-100</code>) or search profiles (e.g. <code>common</code> to test ports 21, 22, 23, 25, 53, 80, 443, 8080).</li>
+          <li><code>-t &lt;timeout&gt;</code> : Socket timeout duration in seconds per port connection (default: 0.5s).</li>
+        </ul>
+        <pre><code>$ hunt portscan localhost -r common
+Scanning common ports on localhost...
+  Port 80/TCP   : CLOSED
+  Port 443/TCP  : CLOSED
+  Port 5000/TCP : OPEN (Flask server)</code></pre>
+
+        <h3 class="section-inner-title">◎ 23. hunt quest</h3>
+        <p><strong>Syntax:</strong> <code>hunt quest [add &lt;title&gt; [priority] [desc] | done &lt;id&gt; | rm &lt;id&gt;]</code></p>
+        <p>Provides command-line management for the SQLite-backed Quest Board. Running the command without arguments lists all active quest items in a tabular format.</p>
+        <pre><code>$ hunt quest add "Complete Docs" high "Write detailed feature walkthroughs"
+Quest successfully added! ID: 12
+
+$ hunt quest
+ID  TITLE            PRIORITY  STATUS
+------------------------------------------
+12  Complete Docs    high      backlog
+08  Database fix     medium    in_progress</code></pre>
+
+        <h3 class="section-inner-title">◎ 24. hunt keys</h3>
+        <p><strong>Syntax:</strong> <code>hunt keys [list | add &lt;key&gt; [label] | rm &lt;id&gt; | test &lt;id&gt;]</code></p>
+        <p>Interacts with the Key Manager to register, audit, test, or delete Gemini API keys. Displays rate-limit metrics and cooldown trackers.</p>
+        <pre><code>$ hunt keys list
+ID   KEY PREFIX  LABEL         STATUS    REQUESTS (24H)
+-------------------------------------------------------
+1    AIzaSyB...  Gemini Key 1  Active    14 / 20
+2    AIzaSyD...  Gemini Key 2  Active    0 / 20</code></pre>
+
+        <h3 class="section-inner-title">◎ 25. hunt memory</h3>
+        <p><strong>Syntax:</strong> <code>hunt memory [refine | clear]</code></p>
+        <p>Lists, refines, or clears long-term cognitive developer facts cached by the AI assistant during chat interactions.</p>
+        <pre><code>$ hunt memory
+AI CONSOLIDATED DEVELOPER MEMORIES:
+  - User prefers dark mode.
+  - Python project uses Flask backend at port 5000.</code></pre>
+
+        <h3 class="section-inner-title">◎ 26. hunt backup</h3>
+        <p><strong>Syntax:</strong> <code>hunt backup export</code></p>
+        <p>Exports all SQLite tables (quests, key statuses, chat history metadata) and local config JSON files into a consolidated backup directory structure.</p>
+        <pre><code>$ hunt backup export
+Backing up DevHunt Database...
+Backing up Configuration profiles...
+Backup file successfully created: backend/data/backup_20260613.json</code></pre>
+
+        <h3 class="section-inner-title">◎ 27. hunt history</h3>
+        <p><strong>Syntax:</strong> <code>hunt history [limit]</code></p>
+        <p>Retrieves the message logs of the active chat session from the database, helping developers debug recent prompts and token flows.</p>
+        <pre><code>$ hunt history 2
+[2026-06-13 11:15] User: How is ELA computed?
+[2026-06-13 11:15] AI: ELA resaves image blocks at 75% quality...</code></pre>
+
+        <h3 class="section-inner-title">◎ 28. hunt notifications</h3>
+        <p><strong>Syntax:</strong> <code>hunt notifications [list | read [all | &lt;id&gt;] | detail &lt;id&gt;]</code></p>
+        <p>Lists, displays, or marks notifications and system log messages. Helps monitor background scanner alerts or database locks.</p>
+        <pre><code>$ hunt notifications list
+ID   SEVERITY  MESSAGE                              READ
+--------------------------------------------------------
+1    WARNING   Gemini API Key 1 hit quota 429 limit  No
+2    SUCCESS   Database schema check completed       Yes</code></pre>
+
+        <h3 class="section-inner-title">◎ 29. hunt stats</h3>
+        <p><strong>Syntax:</strong> <code>hunt stats</code></p>
+        <p>Aggregates conversation messages from the SQLite database to analyze approximate token counts, key workloads, and model choices.</p>
+        <pre><code>$ hunt stats
+DEVHUNT TOKEN &amp; API METRICS ANALYSIS
+==================================================
+  Total Conversations Logged : 32 exchanges
+  Total Approximate Tokens   : 14502 tokens
+
+MODEL USAGE DISTRIBUTION:
+  MODEL NAME                | REQUESTS   | EST. TOKENS 
+  -----------------------------------------------------
+  gemini-3.1-flash-lite     | 24         | 8940        
+  gemini-2.5-flash          | 8          | 5562        
+
+API KEY WORKLOAD ANALYSIS:
+  KEY LABEL / MASKED        | REQUESTS   | EST. TOKENS 
+  -----------------------------------------------------
+  Primary Gemini Key        | 30         | 13802       
+  Backup Key 2              | 2          | 700         
+
+* Token approximations are estimated as character length divided by 4.</code></pre>
+      </div>
+
+      <!-- ==================== 09. CONTRIBUTING ==================== -->
+      <div class="doc-section" id="sec-git">
+        <h1 class="section-title">09. Contributing &amp; Support</h1>
+        <p>DevHunt is open-source. We welcome contributions to optimize the forensic engines and add more CLI tools.</p>
+        
+        <h2 class="section-subtitle" id="sec-git-issues">GitHub Issue Tracker</h2>
+        <p>If you encounter database lockups, rate limit errors, or missing DLLs, please create a ticket in our issue tracker:</p>
+        <div class="grid-2">
+          <div class="grid-card">
+            <h4>Raise GitHub Issue</h4>
+            <p>Found a bug, rate limits, or library loading issues? Create a ticket directly in our repository tracker.</p>
+            <a href="https://github.com/hitehsolanki2006/DevHunt/issues" target="_blank" class="btn btn-ghost">Report Bug / Ask Help ↗</a>
+          </div>
+
+          <div class="grid-card">
+            <h4>Contribute Code</h4>
+            <p>Fork the repository, create a branch, write clean code, and submit a Pull Request. We review contributions daily.</p>
+            <a href="https://github.com/hitehsolanki2006/DevHunt/pulls" target="_blank" class="btn btn-primary">Create Pull Request ↗</a>
+          </div>
+        </div>
+
+        <div style="margin-top: 30px; border-top: 1px dashed var(--border); padding-top: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-family: var(--mono);" class="muted">
+          <span>GITHUB REPOSITORY: <a href="https://github.com/hitehsolanki2006/DevHunt" target="_blank" style="color: var(--cyan); text-decoration: none;">hitehsolanki2006/DevHunt ↗</a></span>
+          <span>AUTHOR: Hitesh Solanki</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 3. RIGHT SIDEBAR (TABLE OF CONTENTS) -->
+  <div class="right-sidebar">
+    <div class="toc-title">ON THIS PAGE</div>
+    <div class="toc-menu" id="toc-menu">
+      <!-- Dynamically generated navigation links go here -->
+    </div>
+  </div>
+</div>
+
+<!-- ==================== ALGOLIA-LIKE SEARCH MODAL ==================== -->
+<div class="modal-overlay" id="search-modal" onclick="closeSearchModal(event)">
+  <div class="search-modal" onclick="event.stopPropagation()">
+    <div class="search-modal-header">
+      <span style="color: var(--muted); font-size: 14px; margin-right: 12px;">🔍</span>
+      <input type="text" id="search-input" placeholder="Search documentation... (Type at least 2 chars)" oninput="performSearch()" />
+      <button onclick="hideSearchModal()" style="background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 11px; font-family: var(--mono); margin-left: 10px;">[ESC]</button>
+    </div>
+    
+    <div class="search-modal-results" id="search-results">
+      <div style="text-align: center; color: var(--muted); padding: 40px; font-size: 12px; font-family: var(--mono);">
+        // Search across system architecture, endpoints, forensics checks, and terminal commands
+      </div>
+    </div>
+    
+    <div class="search-modal-footer">
+      <span>Use <kbd>↑</kbd> <kbd>↓</kbd> keys to navigate, <kbd>Enter</kbd> to select section</span>
+      <span>Press <kbd>Esc</kbd> to close modal</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Simple section mapping
+  const navLinks = document.querySelectorAll('.sidebar-nav-link');
+  const docSections = document.querySelectorAll('.doc-section');
+  const crumbSec = document.getElementById('crumb-sec');
+  const tocMenu = document.getElementById('toc-menu');
+  const contentPane = document.getElementById('content-pane');
+
+  let activeSectionId = 'sec-overview';
+
+  function initSection(secId) {
+    activeSectionId = secId;
+    
+    // Toggle active link class
+    navLinks.forEach(link => {
+      const active = link.dataset.secId === secId;
+      link.classList.toggle('active', active);
+      if (active) {
+        crumbSec.textContent = link.textContent.replace(/^\d+\.\s*/, '');
+      }
+    });
+
+    // Toggle active section visibility
+    docSections.forEach(sec => {
+      sec.classList.toggle('active', sec.id === secId);
+    });
+
+    // Build Table of Contents for the active section
+    buildTOC(secId);
+    
+    // Scroll back to top of content
+    contentPane.scrollTop = 0;
+  }
+
+  // Bind navigation links
+  navLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      initSection(link.dataset.secId);
+    });
+  });
+
+  // Filter Left Sidebar Nav Links
+  function filterSidebar() {
+    const filterText = document.getElementById('sidebar-filter').value.toLowerCase();
+    let currentHeader = null;
+    
+    // Parse link elements
+    const sidebarNodes = document.querySelector('.sidebar-menu').childNodes;
+    sidebarNodes.forEach(node => {
+      if (node.nodeType !== 1) return; // Element nodes only
+      
+      if (node.classList.contains('sidebar-section-title')) {
+        currentHeader = node;
+        node.style.display = 'none'; // Temporarily hide header
+      } else if (node.classList.contains('sidebar-nav-link')) {
+        const match = node.textContent.toLowerCase().includes(filterText);
+        node.style.display = match ? 'block' : 'none';
+        
+        // If a child matches, show its section header title
+        if (match && currentHeader) {
+          currentHeader.style.display = 'block';
+        }
+      }
+    });
+    
+    // If filter is empty, restore all headers
+    if (!filterText) {
+      document.querySelectorAll('.sidebar-section-title').forEach(h => h.style.display = 'block');
+    }
+  }
+
+  // Build Table of Contents dynamically
+  function buildTOC(secId) {
+    tocMenu.innerHTML = '';
+    const activeSection = document.getElementById(secId);
+    if (!activeSection) return;
+
+    const headings = activeSection.querySelectorAll('h2, h3');
+    if (headings.length === 0) {
+      tocMenu.innerHTML = '<div style="color:var(--muted); font-size:11px; font-family:var(--mono);">// No sub-headings</div>';
+      return;
+    }
+
+    headings.forEach((heading, idx) => {
+      // Assign ID to heading if not present
+      if (!heading.id) {
+        heading.id = `${secId}-heading-${idx}`;
+      }
+
+      const link = document.createElement('a');
+      link.href = `#${heading.id}`;
+      link.className = 'toc-link';
+      if (heading.tagName === 'H3') {
+        link.classList.add('sub-heading');
+      }
+      link.textContent = heading.textContent.replace('◎ ', '').replace('⚡ ', '').replace('◉ ', '');
+      
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        // Highlight active TOC item
+        document.querySelectorAll('.toc-link').forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+      });
+
+      tocMenu.appendChild(link);
+    });
+  }
+
+  // Scroll Spy functionality
+  contentPane.addEventListener('scroll', () => {
+    const activeSection = document.getElementById(activeSectionId);
+    if (!activeSection) return;
+
+    const headings = activeSection.querySelectorAll('h2, h3');
+    let currentHeadingId = null;
+
+    headings.forEach(heading => {
+      const top = heading.getBoundingClientRect().top;
+      // If the heading is near the top of the content pane viewport
+      if (top < 150) {
+        currentHeadingId = heading.id;
+      }
+    });
+
+    if (currentHeadingId) {
+      document.querySelectorAll('.toc-link').forEach(link => {
+        const active = link.getAttribute('href') === `#${currentHeadingId}`;
+        link.classList.toggle('active', active);
+      });
+    }
+  });
+
+  // Global Search Modal Handlers (Algolia style)
+  const searchModal = document.getElementById('search-modal');
+  const searchInput = document.getElementById('search-input');
+  const searchResults = document.getElementById('search-results');
+
+  function openSearchModal() {
+    searchModal.classList.add('show');
+    searchInput.focus();
+    searchInput.value = '';
+    searchResults.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 40px; font-size: 12px; font-family: var(--mono);">// Search across system architecture, endpoints, forensics checks, and terminal commands</div>';
+  }
+
+  function hideSearchModal() {
+    searchModal.classList.remove('show');
+  }
+
+  function closeSearchModal(event) {
+    if (event.target === searchModal) {
+      hideSearchModal();
+    }
+  }
+
+  // Keyboard shortcut Ctrl + K
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      openSearchModal();
+    }
+    if (e.key === 'Escape') {
+      hideSearchModal();
+    }
+  });
+
+  // Core Search Engine: parses text in section cards
+  function performSearch() {
+    const query = searchInput.value.toLowerCase().trim();
+    if (query.length < 2) {
+      searchResults.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 40px; font-size: 12px; font-family: var(--mono);">// Type at least 2 characters to search...</div>';
+      return;
+    }
+
+    const matches = [];
+
+    // Search across all doc-sections
+    docSections.forEach(sec => {
+      const sectionName = document.querySelector(`.sidebar-nav-link[data-sec-id="${sec.id}"]`).textContent;
+      
+      // Select elements containing descriptive paragraphs, pre elements, and list items
+      const elements = sec.querySelectorAll('p, li, pre code, h2, h3, td');
+      
+      elements.forEach(el => {
+        const text = el.textContent;
+        const idx = text.toLowerCase().indexOf(query);
+        
+        if (idx !== -1) {
+          // Generate context snippets
+          const start = Math.max(0, idx - 40);
+          const end = Math.min(text.length, idx + query.length + 60);
+          let snippet = text.substring(start, end);
+          if (start > 0) snippet = '...' + snippet;
+          if (end < text.length) snippet = snippet + '...';
+
+          // Highlight matched term
+          const queryRegex = new RegExp(`(${query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+          const highlightedSnippet = snippet.replace(queryRegex, '<mark>$1</mark>');
+
+          matches.push({
+            secId: sec.id,
+            sectionName: sectionName,
+            elementTag: el.tagName,
+            snippet: highlightedSnippet
+          });
+        }
+      });
+    });
+
+    if (matches.length === 0) {
+      searchResults.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 40px; font-size: 12px; font-family: var(--mono);">✕ No matches found for query</div>';
+      return;
+    }
+
+    // Render matches list
+    // Cap results at 15 to keep performance fast
+    searchResults.innerHTML = matches.slice(0, 15).map((m, idx) => `
+      <div class="search-result-item" onclick="selectSearchResult('${m.secId}')">
+        <div class="search-result-title">${m.sectionName} &gt; ${m.elementTag}</div>
+        <div class="search-result-match">${m.snippet}</div>
+      </div>
+    `).join('');
+  }
+
+  function selectSearchResult(secId) {
+    hideSearchModal();
+    initSection(secId);
+  }
+
+  // Initialize first view
+  initSection('sec-overview');
+</script>
+
+</body>
+</html>

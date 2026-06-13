@@ -22,6 +22,9 @@ No subscriptions. No third-party data tracking. Everything is stored on your mac
 *   **📚 Personal Knowledge Base & Analyst (RAG)**: Index notes, PDFs, or scrape URLs. Includes a **Split-Screen Document Analyst** side-by-side workspace inside the **Intel Vault** with source-grounded RAG chat sessions.
 *   **🌐 Upgraded URL Ingestion Scraper**: Scrape web documentation pages with protocol auto-prepending, customizable user-agent browser header masking, and self-signed SSL verification fallback bypasses.
 *   **📊 Comprehensive Activity Logging**: Every action (chat messages, terminal commands, Quest Board changes, startup checks) is logged to SQLite with level and category filters (`chat`, `todo`, `terminal`, `updates`, etc.) from a live developer logs dashboard.
+*   **🎮 Offline Game Arcade**: A local-first suite of developer-themed games (Git Commit Snake, Data Lane Runner, Terminal Decrypt, Hex Malware Sweeper) running on canvas with custom non-blocking overlays and unified keyboard event controls.
+*   **📐 Layout Polish & Sidebar Minimize**: Minimize the left navigation sidebar to an icon-only column via a settings toggle, top hamburger button, or global `Ctrl + B`/`Cmd + B` keyboard hotkey. Independently scrollable navigation list that pins Brand header and status footer.
+*   **⚙️ Feature Access Switches**: Enable/disable workspace modules (Music Player, Quest Board, Intel Vault, Doc Forensics, Game Arcade) with automatic homepage routing fallbacks.
 
 ---
 
@@ -120,6 +123,7 @@ Local-AI/
 │   ├── roadmap.md            # Collapsible study roadmap completed & future milestones
 │   ├── hunt_terminal_docs.md # Hunt terminal emulator commands detailed specification
 │   ├── app_endpoints.md      # Full listing of backend HTTP REST/SSE endpoints
+│   ├── arcade_and_layout.md  # Arcade design, canvas overlays, and minimize sidebar specification
 │   └── ...
 ├── frontend/
 │   ├── index.html            # Core user interface
@@ -163,6 +167,7 @@ Comprehensive documentation describing every single function, parameters, output
 *   [memory_manager.py](file:///d:/My%20projects/Local-AI/docs/memory_manager.md): Asynchronous AI core memory consolidator.
 *   [auxiliary_core.md](file:///d:/My%20projects/Local-AI/docs/auxiliary_core.md): Profile metrics, local analytics, key masking, and database pools.
 *   [app_endpoints.md](file:///d:/My%20projects/Local-AI/docs/app_endpoints.md): Full listing of all HTTP endpoints in the backend.
+*   [arcade_and_layout.md](file:///d:/My%20projects/Local-AI/docs/arcade_and_layout.md): Game Arcade canvas, non-blocking overlays, and sidebar layout configuration.
 
 ---
 

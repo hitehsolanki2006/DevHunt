@@ -28,6 +28,21 @@ This document details the architectural design, completed milestones, and future
   * **Browser-Like Header Masking**: Added standard browser headers (`User-Agent`, etc.) to prevent scrapers from being blocked by security firewalls on remote sites.
   * **SSL Certificate Verification Fallback**: Handled self-signed certificates gracefully using SSL bypass (`verify=False` and disabling `urllib3` warnings).
 
+### 4. Game Arcade Stations
+* **Description**: Added a local-first, offline-ready terminal mini-game suite designed to run on canvas.
+* **Features**:
+  - **4-Column Grid Menu**: The game selection menu displays all 4 games in a clean, top-aligned horizontal grid.
+  - **Premium Overlays**: Replaced all blocking browser `alert()` popups with non-blocking, visual HTML game-over and win overlays.
+  - **Four Classic Games**: Includes Git Commit Snake, Data Lane Runner (safe obstacle loop iterations), Terminal Decrypt, and Hex Malware Sweeper, all styled with a flat, developer-themed color palette.
+  - **Consolidated Controls**: Keydown handlers are registered globally to prevent focus conflicts and event leaks.
+
+### 5. Layout & Navigation Polish
+* **Description**: Refined the dashboard's layout to maximize visual efficiency, workspace customization, and accessibility.
+* **Features**:
+  - **Scrollable Navigation Sidebar**: Constrained `.left-sidebar` height to `100vh` and added dynamic scroll behaviors, while keeping the Brand header and status footer pinned.
+  - **Minimize Sidebar**: Collapses the sidebar into an icon-only narrow panel. Toggled via settings toggle, clicking the hamburger icon, or using the global `Ctrl + B` (or `Cmd + B`) shortcut.
+  - **Feature Access Toggles**: Settings switches to dynamically show or hide modules (Music Player, Quest Board, Intel Vault, Doc Forensics, Game Arcade) and clean route redirection on disable.
+
 ---
 
 ## 🎙️ Future Phase 1: Multilingual Voice Control
