@@ -1,5 +1,12 @@
 [
   {
+    "id": "announcement-v1-2-updates",
+    "title": "🎮 Version 1.2.0: Game Arcade, Minimize Sidebar & Token Telemetry",
+    "message": "DevHunt v1.2.0 is now live! Major updates in this release:\n\n1. Offline Game Arcade: Play classic, developer-themed mini-games like Git Commit Snake, Data Lane Runner, Terminal Decrypt, and Hex Malware Sweeper with premium non-blocking canvas overlays.\n2. Minimizable Sidebar: Collapse the left navigation menu into an icon-only strip. Toggled via settings, clicking the top hamburger icon, or pressing the global 'Ctrl+B' hotkey.\n3. Dynamic Feature Access Switches: Toggle workspace modules (Music Player, Quest Board, Intel Vault, Doc Forensics, Game Arcade) on or off from the settings panel with smart AI chat fallbacks.\n4. Detailed Token Analytics: Direct API telemetry tracks prompt and completion token volumes automatically. View token usage graphs in the dashboard or run 'hunt stats' inside the Hunt Terminal.",
+    "type": "release",
+    "timestamp": "2026-06-13 16:45:00"
+  },
+  {
     "id": "announcement-v1-1-updates",
     "title": "⚡ Version 1.1: Launcher Self-Healing & Comprehensive Logging",
     "message": "DevHunt v1.1 is now live! Major updates in this release:\n\n1. Robust Self-Healing Setup: Automated Python 3.10+ path check, virtual environment health checks, and self-repair (auto-deletes and recreates broken venvs).\n2. Super-fast Startups: Bypasses pip installation overhead using backend/check_requirements.py to verify satisfied packages locally.\n3. Detailed Activity logs: Every chat message, Quest Board change (creation, completion, deletion), and executed terminal command is now captured in SQLite logs.\n4. Log Dashboard Filters: Filter logs by updates, todo, terminal, chat, key_event, and system on the DevHunt Logs dashboard.",
