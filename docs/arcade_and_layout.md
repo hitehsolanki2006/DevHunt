@@ -52,3 +52,25 @@ The arcade includes four retro, developer-themed games styled with a clean, flat
 - Game Over, Victory, and Lockout screens use custom HTML overlays positioned directly over the canvas viewport.
 - Keyboard shortcut overlays display action hints (e.g., **SPACE to Restart**, **ESC to Menu**) to keep gameplay fluid and non-intrusive.
 - Canvas event listeners for keyboard inputs are consolidated globally to prevent listener leaks and focus conflicts between games.
+
+---
+
+## 🎨 Theme System & Integrated Workspace IDE
+
+DevHunt has transitioned to a professional, slate-gray IDE-like workspace with support for multiple themes and real-world file management.
+
+### 1. Multi-Theme Architecture
+* **Industrial Slate (Default)**: A premium, dark slate-gray design with clean blue accents, monospaced text, and subtle micro-animations. Bypasses background particle canvas updates when active to optimize CPU performance.
+* **Cyberpunk Neon**: The legacy neon-green/cyan theme with glows and active `#dragon-bg` canvas background loops.
+* **State Sync**: Theme selections automatically synchronize to the SQLite profile database and persist in browser `localStorage` to avoid flash-of-unstyled-content (FOUC).
+
+### 2. Collapsible File Explorer & Navigation
+* **Slim Activity Bar**: Pinned to the far left with custom SVG navigation icons for all core developer panels.
+* **Collapsible Side panel**: Hosts a directory tree explorer fetching contents from `/api/ide/files`.
+* **Workspace Tree Nodes**: Supports folders expansion/collapsing and files identification. Filters system files and folders like `.git`, `node_modules`, `venv`, and `.gemini`.
+* **Explorer Panel Toggle**: Can be collapsed or expanded using the toggle icon button, View menu topbar, Settings toggle switch, or the **`Ctrl + B`** keyboard shortcut.
+
+### 3. Monospaced Code Editor Pane
+* **Dynamic Line Numbers**: Auto-calculating line indicator scroll-synchronized with code workspace textarea.
+* **Tab Key Hook**: Overrides standard tab key focus-out behavior to insert four spaces.
+* **Save Transactions**: Integrates client-side modifications saving back to the backend disk via `POST /api/ide/file` endpoints using the Save button or `Ctrl + S` shortcut.

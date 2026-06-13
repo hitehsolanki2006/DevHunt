@@ -61,6 +61,13 @@ This document details every route handler mapped in `backend/app.py` to operate 
 
 ---
 
+## Workspace IDE
+* **`GET /api/ide/files`**: Recursively walks the workspace root and returns a JSON file tree of directories and files, filtering system directories (`.git`, `node_modules`, `venv`, etc.).
+* **`GET /api/ide/file`**: Reads and returns raw text content for a relative path query parameter, secured with directory boundary validation to prevent traversal attacks.
+* **`POST /api/ide/file`**: Saves edited or new file content back to the relative path, creating directory folders dynamically as needed.
+
+---
+
 ## System Logs
 * **`GET /api/logs`**: Queries `system_logs` (supports filtering).
 * **`DELETE /api/logs`**: Clears all database logs.

@@ -259,9 +259,10 @@
       <a class="sidebar-nav-link" data-sec-id="sec-forensics">06. Forensics Agents</a>
       <a class="sidebar-nav-link" data-sec-id="sec-rule-based">07. Rule-Based Engine</a>
       <a class="sidebar-nav-link" data-sec-id="sec-terminal">08. Hunt Terminal (CLI)</a>
+      <a class="sidebar-nav-link" data-sec-id="sec-ide">09. Workspace IDE &amp; Themes</a>
 
       <div class="sidebar-section-title">COMMUNITY</div>
-      <a class="sidebar-nav-link" data-sec-id="sec-git">09. Contributions &amp; Issue</a>
+      <a class="sidebar-nav-link" data-sec-id="sec-git">10. Contributions &amp; Issue</a>
     </div>
   </div>
 
@@ -1330,9 +1331,66 @@ API KEY WORKLOAD ANALYSIS:
 * Token approximations are estimated as character length divided by 4.</code></pre>
       </div>
 
-      <!-- ==================== 09. CONTRIBUTING ==================== -->
+      <!-- ==================== 09. WORKSPACE IDE & THEMES ==================== -->
+      <div class="doc-section" id="sec-ide">
+        <h1 class="section-title">09. Workspace IDE &amp; Themes</h1>
+        <p>The <strong>DevHunt Workspace IDE</strong> transforms the traditional RAG cognitive helper dashboard into a fully featured offline developer center. It introduces real-time file tree traversal, workspace document editing, custom line styling, and a multi-theme environment.</p>
+
+        <h2 class="section-subtitle" id="sec-ide-file-tree">File Explorer Tree</h2>
+        <p>The left side layout hosts a collapsible panel rendering directory listings dynamically from the local workspace. Built recursive traversal logic automatically filters out build, configuration, and environment files such as <code>.git</code>, <code>node_modules</code>, <code>venv</code>, and <code>__pycache__</code>. Clicking folders opens/closes sub-trees locally, and clicking individual files retrieves text contents for code auditing.</p>
+
+        <h2 class="section-subtitle" id="sec-ide-code-editor">Integrated Workspace Editor</h2>
+        <p>The main workspace tab hosts a charcoal-colored monospaced text editor pane featuring:</p>
+        <ul>
+          <li><strong>Line Numbers Indicator</strong>: Scroll-synchronized layout tracking document heights.</li>
+          <li><strong>Keyboard Hook Tab Override</strong>: Pressing <code>Tab</code> inserts 4 space characters instead of shifting focus elements.</li>
+          <li><strong>Instant disk syncing</strong>: Save modifications instantly back to disk with the Save button or <code>Ctrl+S</code> keyboard shortcuts.</li>
+        </ul>
+
+        <h2 class="section-subtitle" id="sec-ide-api-spec">Backend IDE REST API endpoints</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>HTTP Method</th>
+              <th>Endpoint Path</th>
+              <th>Query / Payload</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-get">GET</span></td>
+              <td><code>/api/ide/files</code></td>
+              <td>None</td>
+              <td>Recursively reads files starting at workspace roots, building a JSON tree hierarchy.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-get">GET</span></td>
+              <td><code>/api/ide/file</code></td>
+              <td><code>?path=relative_path</code></td>
+              <td>Validates boundaries against traversal attacks, reads, and returns the raw file string.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-post">POST</span></td>
+              <td><code>/api/ide/file</code></td>
+              <td><code>{ "path": relative, "content": string }</code></td>
+              <td>Saves incoming content edits directly back to the specified relative file path.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 class="section-subtitle" id="sec-ide-themes">Multi-Theme Control System</h2>
+        <p>DevHunt implements dynamic theme modifications switching color variables under body tags:</p>
+        <ul>
+          <li><strong>Industrial Slate (Default)</strong>: Pervasive dark slate and charcoal tones, professional blue borders, and low-contrast labels to reduce eye fatigue.</li>
+          <li><strong>Cyberpunk Neon (Legacy)</strong>: Glowing accent rules, purple card outlines, cyan badges, and a custom canvas background particle thread.</li>
+        </ul>
+        <p>To optimize performance, when the Slate theme is active, the backend canvas animation thread is automatically bypassed, saving local CPU cycles. Theme selections automatically persist in SQLite database profiles and local cache arrays.</p>
+      </div>
+
+      <!-- ==================== 10. CONTRIBUTING ==================== -->
       <div class="doc-section" id="sec-git">
-        <h1 class="section-title">09. Contributing &amp; Support</h1>
+        <h1 class="section-title">10. Contributing &amp; Support</h1>
         <p>DevHunt is open-source. We welcome contributions to optimize the forensic engines and add more CLI tools.</p>
         
         <h2 class="section-subtitle" id="sec-git-issues">GitHub Issue Tracker</h2>

@@ -25,6 +25,8 @@ No subscriptions. No third-party data tracking. Everything is stored on your mac
 *   **🎮 Offline Game Arcade**: A local-first suite of developer-themed games (Git Commit Snake, Data Lane Runner, Terminal Decrypt, Hex Malware Sweeper) running on canvas with custom non-blocking overlays and unified keyboard event controls.
 *   **📐 Layout Polish & Sidebar Minimize**: Minimize the left navigation sidebar to an icon-only column via a settings toggle, top hamburger button, or global `Ctrl + B`/`Cmd + B` keyboard hotkey. Independently scrollable navigation list that pins Brand header and status footer.
 *   **⚙️ Feature Access Switches**: Enable/disable workspace modules (Music Player, Quest Board, Intel Vault, Doc Forensics, Game Arcade) with automatic homepage routing fallbacks.
+*   **💻 Integrated Workspace IDE & Editor**: Collapsible File Explorer tree (recursive scans filtering `.git`, `node_modules`, etc.), monospaced code editing pane with scroll-synchronized line numbers, dynamic tab spacing, and keyboard event shortcut handlers (`Ctrl+S`, `Ctrl+B`).
+*   **🎨 Multi-Theme System**: Instantly switch between the default **Industrial Slate** theme (professional, slate grays, dark editor layout) and **Cyberpunk Neon** theme (glowing borders, canvas backgrounds), with client-side canvas loop suspension to save CPU cycles when inactive.
 
 ---
 
@@ -150,6 +152,11 @@ Local-AI/
 *   `POST /api/keys`: Encrypts and saves a new Gemini API key.
 *   `DELETE /api/keys/<id>`: Deletes a key from storage.
 *   `POST /api/keys/<id>/test`: Live test connection to Gemini API.
+
+### Workspace IDE
+*   `GET /api/ide/files`: Returns a JSON file tree of the local workspace (filtering system files).
+*   `GET /api/ide/file`: Reads relative path content (with directory traversal guard checks).
+*   `POST /api/ide/file`: Writes edits to a relative path on disk (auto-creates folders).
 
 ---
 
