@@ -50,15 +50,15 @@ body.theme-light {
   --panel:#ffffff;
   --panel-2:#e2e8f0;
   --border:#cbd5e1;
-  --border-hot:#0ea5e9;
+  --border-hot:#4f46e5;
   --text:#0f172a;
   --muted:#64748b;
   --green:#10b981;
-  --cyan:#0ea5e9;
+  --cyan:#4f46e5;
   --magenta:#d946ef;
   --amber:#f59e0b;
   --red:#ef4444;
-  --accent:#0284c7;
+  --accent:#4f46e5;
   --glow-green: none;
   --glow-cyan: none;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -1210,6 +1210,179 @@ body.theme-light .src-manual {
 }
 body.theme-light .card {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+}
+
+/* Redundancy Hide for Top Panel Tabs Bar */
+.panel-tabs-bar {
+  display: none !important;
+}
+
+/* Light Theme Aesthetic Overrides */
+body.theme-light input,
+body.theme-light select,
+body.theme-light textarea {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+body.theme-light input:focus,
+body.theme-light select:focus,
+body.theme-light textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+}
+
+body.theme-light .btn-primary {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+body.theme-light .btn-primary:hover {
+  background: #4338ca;
+}
+
+/* Chat Overrides */
+body.theme-light .msg.user {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border-color: var(--accent) !important;
+}
+body.theme-light .msg.user code {
+  color: #f1f5f9 !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+body.theme-light .msg.ai {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+body.theme-light .msg.ai h1,
+body.theme-light .msg.ai h2,
+body.theme-light .msg.ai h3 {
+  color: var(--accent) !important;
+}
+body.theme-light .msg code {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+body.theme-light .msg pre {
+  background: #0f172a !important;
+  border: 1px solid #334155 !important;
+  border-left: 3px solid var(--accent) !important;
+}
+body.theme-light .msg pre code {
+  color: #f8fafc !important;
+}
+
+/* Kanban Card Overrides */
+body.theme-light .quest-card {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+body.theme-light .col-count {
+  background: #cbd5e1 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+body.theme-light .col-head {
+  border-bottom-color: #cbd5e1 !important;
+}
+body.theme-light .qc-tags span {
+  background: rgba(16, 185, 129, 0.08) !important;
+  border-color: rgba(16, 185, 129, 0.2) !important;
+  color: #10b981 !important;
+}
+body.theme-light .src-ai {
+  background: rgba(217, 70, 239, 0.08) !important;
+  color: #d946ef !important;
+  border-color: rgba(217, 70, 239, 0.2) !important;
+}
+body.theme-light .src-manual {
+  background: rgba(100, 116, 139, 0.08) !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Hunt Path Node Overrides */
+body.theme-light .node {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+body.theme-light .node:hover {
+  border-color: var(--accent) !important;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05) !important;
+}
+body.theme-light .node.complete {
+  background: #f8fafc !important;
+  opacity: 0.65 !important;
+  border-color: #e2e8f0 !important;
+}
+body.theme-light .node.active {
+  border-color: #10b981 !important;
+  background: rgba(16, 185, 129, 0.03) !important;
+}
+body.theme-light .node.active::before {
+  background: #ffffff !important;
+  color: #10b981 !important;
+  border-color: #10b981 !important;
+}
+body.theme-light .node-toggle-icon {
+  color: var(--accent) !important;
+  background: rgba(79, 70, 229, 0.05) !important;
+  border-color: rgba(79, 70, 229, 0.2) !important;
+}
+body.theme-light .node-day {
+  color: var(--accent) !important;
+}
+body.theme-light .node-topics span {
+  background: rgba(79, 70, 229, 0.05) !important;
+  border-color: rgba(79, 70, 229, 0.15) !important;
+  color: var(--accent) !important;
+}
+
+/* Intel Vault Dropzone */
+body.theme-light .dropzone:hover,
+body.theme-light .dropzone.drag {
+  border-color: var(--accent) !important;
+  background: rgba(79, 70, 229, 0.04) !important;
+  color: var(--accent) !important;
+}
+body.theme-light .dz-icon {
+  color: var(--accent) !important;
+}
+
+/* Modal and Arcade Overlays */
+body.theme-light .modal {
+  background: #ffffff !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+body.theme-light .modal-head h3 {
+  color: var(--accent) !important;
+}
+
+body.theme-light .arcade-selection-card {
+  background: #ffffff !important;
+}
+body.theme-light .arcade-selection-card:hover {
+  background: #f1f5f9 !important;
+  border-color: var(--accent) !important;
+}
+body.theme-light .arcade-card-hs {
+  background: rgba(0,0,0,0.03) !important;
+}
+body.theme-light .arcade-overlay {
+  background: rgba(248, 250, 252, 0.85) !important;
+}
+body.theme-light .arcade-overlay-content {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08) !important;
+}
+body.theme-light #arcade-overlay-title {
+  color: var(--red) !important;
 }
 
 
