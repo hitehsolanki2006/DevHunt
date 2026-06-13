@@ -86,11 +86,12 @@ const API_BASE = '/api';
 /* ========== Sidebar navigation & Themes ========== */
 // Apply initial theme from localStorage immediately to prevent FOUC
 const initialTheme = localStorage.getItem('devhunt-theme') || 'slate';
+document.body.classList.remove('theme-slate', 'theme-neon', 'theme-light');
 if (initialTheme === 'neon') {
-  document.body.classList.remove('theme-slate');
   document.body.classList.add('theme-neon');
+} else if (initialTheme === 'light') {
+  document.body.classList.add('theme-light');
 } else {
-  document.body.classList.remove('theme-neon');
   document.body.classList.add('theme-slate');
 }
 
@@ -99,11 +100,12 @@ const crumb = document.getElementById('crumb-current');
 
 window.setAppTheme = async (themeName, saveToBackend = true) => {
   const body = document.body;
+  body.classList.remove('theme-slate', 'theme-neon', 'theme-light');
   if (themeName === 'neon') {
-    body.classList.remove('theme-slate');
     body.classList.add('theme-neon');
+  } else if (themeName === 'light') {
+    body.classList.add('theme-light');
   } else {
-    body.classList.remove('theme-neon');
     body.classList.add('theme-slate');
   }
   
@@ -130,6 +132,17 @@ window.setAppTheme = async (themeName, saveToBackend = true) => {
     }
   }
 };
+
+function updateTopbarTitle(path) {
+  const topbarTitle = document.getElementById('topbar-center-title');
+  if (topbarTitle) {
+    if (path) {
+      topbarTitle.textContent = `${path} - DevHunt`;
+    } else {
+      topbarTitle.textContent = 'DevHunt';
+    }
+  }
+}
 
 function switchPanel(panelId) {
   document.querySelectorAll('.activity-item').forEach(item => {
@@ -178,7 +191,14 @@ function switchPanel(panelId) {
 
 document.querySelectorAll('.activity-item').forEach(item => {
   item.addEventListener('click', () => {
-    switchPanel(item.dataset.tabPanel);
+    const targetPanelId = item.dataset.tabPanel;
+    const isCurrentActive = item.classList.contains('active');
+    if (isCurrentActive) {
+      toggleExplorerSidebar();
+    } else {
+      switchPanel(targetPanelId);
+      toggleExplorerSidebar(false);
+    }
   });
 });
 
@@ -3565,7 +3585,7 @@ const MusicPlayer = (() => {
           const el = audio();
           if (!el) return;
           if (el.paused) {
-            if (!el.src && tracks.length) play(0);
+            if ((currentIndex === -1 || !el.src) && tracks.length) play(0);
             else el.play();
           } else {
             el.pause();
@@ -4097,6 +4117,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const refreshBtn = document.getElementById('stats-refresh-btn');
   if (refreshBtn) refreshBtn.addEventListener('click', loadTerminalStats);
   
+  // Topbar music deck redirect
+  const topbarMusicDeck = document.getElementById('topbar-music-deck');
+  if (topbarMusicDeck) {
+    topbarMusicDeck.addEventListener('click', (e) => {
+      if (e.target.closest('.music-btn')) return;
+      switchPanel('music');
+    });
+  }
+  
   // Initialize explorer tree
   window.refreshExplorer();
   
@@ -4147,6 +4176,7 @@ document.addEventListener('DOMContentLoaded', () => {
           editorTextarea.disabled = false;
           saveBtn.disabled = false;
           activeFilePath.textContent = window.activeEditingFilePath;
+          updateTopbarTitle(window.activeEditingFilePath);
           window.updateEditorLineNumbers();
           switchPanel('editor');
         }
@@ -4175,10 +4205,24 @@ document.addEventListener('DOMContentLoaded', () => {
     menuClearBtn.addEventListener('click', (e) => {
       e.preventDefault();
       const textarea = document.getElementById('editor-textarea');
+      const activeFilePath = document.getElementById('active-file-path');
+      window.activeEditingFilePath = null;
       if (textarea) {
         textarea.value = '';
+        textarea.disabled = true;
         window.updateEditorLineNumbers();
       }
+      if (activeFilePath) {
+        activeFilePath.textContent = '// Select a file from the explorer sidebar to begin editing';
+      }
+      const saveBtn = document.getElementById('editor-save-btn');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+      }
+      document.querySelectorAll('.file-tree-node.file').forEach(el => {
+        el.classList.remove('active');
+      });
+      updateTopbarTitle(null);
     });
   }
 });
@@ -4189,6 +4233,18 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (window.activeEditingFilePath) {
       window.saveActiveFile();
+    }
+  }
+});
+
+// Keyboard shortcut (Ctrl+K / Cmd+K) to focus AI Assistant chat input
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    switchPanel('mentor');
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+      chatInput.focus();
     }
   }
 });
@@ -4293,6 +4349,7 @@ window.openFileInEditor = async (path) => {
   editorTextarea.disabled = true;
   saveBtn.disabled = true;
   activeFilePath.textContent = `// Loading ${path}...`;
+  updateTopbarTitle(path);
   
   try {
     const res = await fetch(`${API_BASE}/ide/file?path=${encodeURIComponent(path)}`);
@@ -4303,6 +4360,7 @@ window.openFileInEditor = async (path) => {
       editorTextarea.disabled = false;
       saveBtn.disabled = false;
       activeFilePath.textContent = path;
+      updateTopbarTitle(path);
       
       document.querySelectorAll('.file-tree-node.file').forEach(el => {
         el.classList.toggle('active', el.dataset.path === path);
@@ -4313,11 +4371,13 @@ window.openFileInEditor = async (path) => {
     } else {
       activeFilePath.textContent = `// Error loading file: ${data.error}`;
       editorTextarea.value = '';
+      updateTopbarTitle(null);
     }
   } catch (error) {
     console.error('Failed to read file', error);
     activeFilePath.textContent = `// Connection error loading file`;
     editorTextarea.value = '';
+    updateTopbarTitle(null);
   }
 };
 
