@@ -24,6 +24,14 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 terminal_engine = TerminalEngine()
 
 # ── Static pages ──────────────────────────────────────────────────────────────
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
+
+
 @app.route('/')
 def serve_frontend():
     return app.send_static_file('index.html')
@@ -32,6 +40,10 @@ def serve_frontend():
 def serve_logs():
     return app.send_static_file('logs.html')
 
+@app.route('/docs')
+def serve_docs():
+    return app.send_static_file('docs.html')
+
 # ── Boot ──────────────────────────────────────────────────────────────────────
 init_db()
 key_manager    = KeyManager()
@@ -39,12 +51,29 @@ rag_pipeline   = RAGPipeline(key_manager)
 chat_engine    = ChatEngine(key_manager, rag_pipeline)
 learning_path  = LearningPath(key_manager)
 
-# Run initial memory refinement on startup in a background thread if needed
+# Run initial memory refinement on startup and repeat hourly in a background thread
 try:
     from core.memory_manager import MemoryManager
     import threading
     mm = MemoryManager(key_manager)
-    threading.Thread(target=mm.auto_consolidate_if_needed, args=("default_session",), daemon=True).start()
+    
+    def run_hourly_memory_consolidation(memory_mgr):
+        # Initial run on server startup
+        try:
+            memory_mgr.refine_memories("default_session")
+        except Exception as ex:
+            print(f"Initial memory refinement on boot failed: {ex}")
+        
+        # Consolidation loop every hour (3600 seconds)
+        import time as _time
+        while True:
+            _time.sleep(3600)
+            try:
+                memory_mgr.refine_memories("default_session")
+            except Exception as ex:
+                print(f"Scheduled hourly memory refinement failed: {ex}")
+                
+    threading.Thread(target=run_hourly_memory_consolidation, args=(mm,), daemon=True).start()
 except Exception as e:
     print(f"Failed to start startup memory refinement: {e}")
 
@@ -202,7 +231,7 @@ def test_api_key(key_id):
             return jsonify({"success": False, "error": "Key not found"}), 404
         t0     = _t.time()
         client = _genai.Client(api_key=raw_key)
-        resp   = client.models.generate_content(model="gemini-2.5-flash", contents="Reply: OK")
+        resp   = client.models.generate_content(model="gemma-4-26b-a4b-it", contents="Reply: OK")
         ms     = int((_t.time() - t0) * 1000)
         reply  = resp.text.strip()[:50]
         logger.success("key_event", f"Key test PASSED: {key_label}", {"duration_ms": ms})
@@ -360,14 +389,25 @@ def upload_file_knowledge():
     file_path = os.path.join(UPLOADS_DIR, filename)
     file.save(file_path)
     try:
-        if filename.endswith('.pdf'):
+        if filename.lower().endswith('.pdf'):
             source_id = rag_pipeline.index_pdf(file_path, filename)
-        elif filename.endswith(('.txt', '.md')):
+        elif filename.lower().endswith(('.txt', '.md')):
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
             source_id = rag_pipeline.index_text_content(filename, 'text', content, path=file_path)
+        elif filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.tiff')):
+            from core.db import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO knowledge_sources (name, type, path, status, chunk_count) VALUES (?, ?, ?, ?, ?)",
+                (filename, 'image', file_path, 'pending', 0)
+            )
+            source_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
         else:
-            return jsonify({"success": False, "error": "Use PDF, TXT or MD"}), 400
+            return jsonify({"success": False, "error": "Use PDF, TXT, MD or Images (PNG, JPG, JPEG, WEBP, TIFF)"}), 400
         logger.info("rag", f"File indexed: {filename}")
         return jsonify({"success": True, "source_id": source_id})
     except Exception as e:
@@ -428,6 +468,61 @@ def get_knowledge_source_content(source_id):
         
         full_content = "\n\n".join(c['content'] for c in chunks)
         return jsonify({"success": True, "name": source['name'], "content": full_content})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── DOCUMENT INTELLIGENCE AGENTS ─────────────────────────────────────────────
+@app.route('/api/knowledge/<int:source_id>/analyze', methods=['POST'])
+def analyze_document_endpoint(source_id):
+    try:
+        from core.document_analyzer import DocIntelligenceOrchestrator
+        orchestrator = DocIntelligenceOrchestrator(key_manager)
+        res = orchestrator.run_pipeline(source_id)
+        if res.get("success"):
+            return jsonify(res)
+        else:
+            return jsonify(res), 500
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/knowledge/<int:source_id>/analysis', methods=['GET'])
+def get_document_analysis_endpoint(source_id):
+    try:
+        from core.db import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """SELECT final_score, verdict, risk_level, report_json, ela_image_path, dashboard_image_path 
+               FROM document_analyses WHERE source_id = ?""",
+            (source_id,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            return jsonify({"success": False, "analyzed": False})
+            
+        return jsonify({
+            "success": True,
+            "analyzed": True,
+            "score": row['final_score'],
+            "verdict": row['verdict'],
+            "risk_level": row['risk_level'],
+            "report": json.loads(row['report_json']),
+            "ela_image": row['ela_image_path'],
+            "dashboard_image": row['dashboard_image_path']
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/analysis/image/<path:filename>', methods=['GET'])
+def serve_analysis_image_endpoint(filename):
+    try:
+        from flask import send_from_directory
+        return send_from_directory(UPLOADS_DIR, filename)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -556,6 +651,94 @@ def get_analytics_skills():
 def get_analytics_weekly():
     try:
         return jsonify({"success": True, "weekly": Analytics.get_weekly_progress()})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── TERMINAL STATS (Visualization Data) ───────────────────────────────────────
+@app.route('/api/stats', methods=['GET'])
+def get_terminal_stats():
+    try:
+        from core.db import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Overall totals
+        cursor.execute("SELECT COUNT(*) as total_msgs, SUM(COALESCE(tokens_used,0)) as total_toks FROM messages")
+        row = cursor.fetchone()
+        total_msgs = row['total_msgs'] or 0
+        total_toks = row['total_toks'] or 0
+
+        # Model distribution
+        cursor.execute("""
+            SELECT model_used, COUNT(*) as msg_count, SUM(COALESCE(tokens_used,0)) as tokens
+            FROM messages
+            WHERE model_used IS NOT NULL
+            GROUP BY model_used
+            ORDER BY msg_count DESC
+        """)
+        model_rows = [{"model": r['model_used'], "requests": r['msg_count'], "tokens": r['tokens'] or 0}
+                      for r in cursor.fetchall()]
+
+        # Key workload distribution
+        cursor.execute("""
+            SELECT key_used, COUNT(*) as msg_count, SUM(COALESCE(tokens_used,0)) as tokens
+            FROM messages
+            WHERE key_used IS NOT NULL
+            GROUP BY key_used
+            ORDER BY msg_count DESC
+        """)
+        key_raw = cursor.fetchall()
+
+        # Resolve key labels
+        km = key_manager
+        keys_list = km.get_keys_list()
+        key_map = {str(k['id']): k['label'] or k['masked_key'] for k in keys_list}
+        key_masked = {str(k['id']): k['masked_key'] for k in keys_list}
+        key_rows = []
+        for r in key_raw:
+            kid = str(r['key_used']) if r['key_used'] else 'unknown'
+            label = key_map.get(kid, f"Key …{kid[-6:]}" if len(kid) > 6 else kid)
+            masked = key_masked.get(kid, 'N/A')
+            key_rows.append({"label": label, "masked": masked, "requests": r['msg_count'], "tokens": r['tokens'] or 0})
+
+        # Daily messages (last 14 days)
+        cursor.execute("""
+            SELECT DATE(timestamp) as day, COUNT(*) as msg_count, SUM(COALESCE(tokens_used,0)) as tokens
+            FROM messages
+            WHERE timestamp >= DATE('now', '-14 days')
+            GROUP BY DATE(timestamp)
+            ORDER BY day ASC
+        """)
+        daily_rows = [{"day": r['day'], "messages": r['msg_count'], "tokens": r['tokens'] or 0}
+                      for r in cursor.fetchall()]
+
+        # Role split (user vs assistant)
+        cursor.execute("""
+            SELECT role, COUNT(*) as cnt FROM messages GROUP BY role
+        """)
+        role_split = {r['role']: r['cnt'] for r in cursor.fetchall()}
+
+        # Top sessions by message count
+        cursor.execute("""
+            SELECT session_id, COUNT(*) as cnt, SUM(COALESCE(tokens_used,0)) as tokens
+            FROM messages GROUP BY session_id ORDER BY cnt DESC LIMIT 5
+        """)
+        session_rows = [{"session": r['session_id'], "messages": r['cnt'], "tokens": r['tokens'] or 0}
+                        for r in cursor.fetchall()]
+
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "total_messages": total_msgs,
+            "total_tokens": total_toks,
+            "model_distribution": model_rows,
+            "key_workload": key_rows,
+            "daily_activity": daily_rows,
+            "role_split": role_split,
+            "top_sessions": session_rows
+        })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -871,6 +1054,7 @@ def get_system_notifications():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+
 # ── UPDATES ───────────────────────────────────────────────────────────────────
 @app.route('/api/updates/check', methods=['GET'])
 def check_updates_endpoint():
@@ -886,6 +1070,253 @@ def apply_updates_endpoint():
     try:
         result = UpdateManager.apply_update()
         return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── MUSIC PLAYER ──────────────────────────────────────────────────────────────
+MUSIC_DIR = os.path.join(UPLOADS_DIR, 'music')
+os.makedirs(MUSIC_DIR, exist_ok=True)
+ALLOWED_AUDIO_EXTS = {'.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a', '.opus', '.weba', '.webm'}
+
+
+def get_audio_duration(filepath):
+    """Try to get duration using yt-dlp probe (lightweight)."""
+    try:
+        import subprocess, json as _json
+        result = subprocess.run(
+            ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', filepath],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            data = _json.loads(result.stdout)
+            return float(data.get('format', {}).get('duration', 0))
+    except Exception:
+        pass
+    return 0
+
+
+def music_file_info(filename):
+    path = os.path.join(MUSIC_DIR, filename)
+    if not os.path.exists(path):
+        return None
+    stat = os.stat(path)
+    size_kb = round(stat.st_size / 1024, 1)
+    ext = os.path.splitext(filename)[1].lower()
+    # Read title from filename (strip yt ID suffix if present)
+    title = os.path.splitext(filename)[0]
+    # Remove yt-dlp style ID suffix like [abcdef12]
+    import re
+    title = re.sub(r'\s*\[[a-zA-Z0-9_-]{6,12}\]$', '', title)
+    return {
+        "filename": filename,
+        "title": title,
+        "ext": ext,
+        "size_kb": size_kb,
+        "added_at": datetime.datetime.fromtimestamp(stat.st_mtime).isoformat()
+    }
+
+
+@app.route('/api/music/list', methods=['GET'])
+def music_list():
+    try:
+        files = []
+        for f in sorted(os.listdir(MUSIC_DIR), key=lambda x: os.path.getmtime(os.path.join(MUSIC_DIR, x)), reverse=True):
+            if os.path.splitext(f)[1].lower() in ALLOWED_AUDIO_EXTS:
+                info = music_file_info(f)
+                if info:
+                    files.append(info)
+        return jsonify({"success": True, "tracks": files})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/music/upload', methods=['POST'])
+def music_upload():
+    try:
+        if 'file' not in request.files:
+            return jsonify({"success": False, "error": "No file provided"}), 400
+        f = request.files['file']
+        original = secure_filename(f.filename)
+        ext = os.path.splitext(original)[1].lower()
+        if ext not in ALLOWED_AUDIO_EXTS:
+            return jsonify({"success": False, "error": f"Unsupported format: {ext}. Allowed: {', '.join(ALLOWED_AUDIO_EXTS)}"}), 400
+        # Avoid name collisions
+        base = os.path.splitext(original)[0]
+        filename = original
+        counter = 1
+        while os.path.exists(os.path.join(MUSIC_DIR, filename)):
+            filename = f"{base}_{counter}{ext}"
+            counter += 1
+        save_path = os.path.join(MUSIC_DIR, filename)
+        f.save(save_path)
+        info = music_file_info(filename)
+        logger.success("music", f"Uploaded track: {filename}")
+        return jsonify({"success": True, "track": info})
+    except Exception as e:
+        logger.error("music", f"Upload failed: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/music/youtube', methods=['POST'])
+def music_youtube():
+    """Convert a YouTube URL to MP3 and save it to the music library."""
+    data = request.get_json() or {}
+    url = data.get('url', '').strip()
+    if not url:
+        return jsonify({"success": False, "error": "YouTube URL required"}), 400
+    try:
+        import yt_dlp
+        output_template = os.path.join(MUSIC_DIR, '%(title)s [%(id)s].%(ext)s')
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': output_template,
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+            'quiet': True,
+            'no_warnings': True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            video_title = info.get('title', 'Unknown')
+            video_id = info.get('id', '')
+
+        # Find the saved file
+        saved_file = None
+        for f in os.listdir(MUSIC_DIR):
+            if video_id in f and f.endswith('.mp3'):
+                saved_file = f
+                break
+        if not saved_file:
+            # Fallback: find most recently modified mp3
+            mp3s = [f for f in os.listdir(MUSIC_DIR) if f.endswith('.mp3')]
+            if mp3s:
+                saved_file = max(mp3s, key=lambda x: os.path.getmtime(os.path.join(MUSIC_DIR, x)))
+
+        if not saved_file:
+            return jsonify({"success": False, "error": "Conversion succeeded but file not found"}), 500
+
+        track = music_file_info(saved_file)
+        logger.success("music", f"YouTube converted: {video_title} → {saved_file}")
+        return jsonify({"success": True, "track": track, "youtube_title": video_title})
+    except ImportError:
+        return jsonify({"success": False, "error": "yt-dlp not installed. Run: pip install yt-dlp"}), 500
+    except Exception as e:
+        err = str(e)
+        logger.warn("music", f"YouTube MP3 conversion failed, attempting native format download: {err[:150]}")
+        # If ffmpeg is missing, try downloading without postprocessing (native audio file like .webm/.m4a)
+        if 'ffmpeg' in err.lower() or 'ffprobe' in err.lower() or 'postprocessor' in err.lower():
+            try:
+                # Setup native options (no ffmpeg dependency)
+                ydl_opts_native = {
+                    'format': 'bestaudio/best',
+                    'outtmpl': os.path.join(MUSIC_DIR, '%(title)s [%(id)s].%(ext)s'),
+                    'quiet': True,
+                    'no_warnings': True,
+                }
+                with yt_dlp.YoutubeDL(ydl_opts_native) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                    video_title = info.get('title', 'Unknown')
+                    video_id = info.get('id', '')
+                
+                # Find the downloaded file
+                saved_file = None
+                for f in os.listdir(MUSIC_DIR):
+                    if video_id in f:
+                        ext = os.path.splitext(f)[1].lower()
+                        if ext in ALLOWED_AUDIO_EXTS:
+                            saved_file = f
+                            break
+                
+                if saved_file:
+                    track = music_file_info(saved_file)
+                    logger.success("music", f"YouTube native download succeeded: {video_title} → {saved_file}")
+                    return jsonify({"success": True, "track": track, "youtube_title": video_title})
+                else:
+                    return jsonify({"success": False, "error": "Native download succeeded but file not found in library"}), 500
+            except Exception as e2:
+                logger.error("music", f"YouTube native fallback download also failed: {e2}")
+                return jsonify({"success": False, "error": f"Native download failed: {str(e2)[:300]}"}), 500
+        
+        return jsonify({"success": False, "error": err[:300]}), 500
+
+
+@app.route('/api/music/stream/<path:filename>', methods=['GET'])
+def music_stream(filename):
+    """Stream audio file to the browser."""
+    try:
+        safe_name = os.path.basename(filename)
+        filepath = os.path.join(MUSIC_DIR, safe_name)
+        if not os.path.exists(filepath) or not os.path.isfile(filepath):
+            return jsonify({"error": "Track not found"}), 404
+        ext = os.path.splitext(safe_name)[1].lower()
+        mime_map = {
+            '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+            '.flac': 'audio/flac', '.aac': 'audio/aac', '.m4a': 'audio/mp4',
+            '.opus': 'audio/opus', '.weba': 'audio/webm', '.webm': 'audio/webm'
+        }
+        mime = mime_map.get(ext, 'audio/mpeg')
+
+        # Support range requests for seeking
+        file_size = os.path.getsize(filepath)
+        range_header = request.headers.get('Range')
+        if range_header:
+            byte_start, byte_end = 0, file_size - 1
+            m = __import__('re').search(r'(\d+)-(\d*)', range_header)
+            if m:
+                byte_start = int(m.group(1))
+                if m.group(2):
+                    byte_end = int(m.group(2))
+            length = byte_end - byte_start + 1
+            def generate():
+                with open(filepath, 'rb') as fh:
+                    fh.seek(byte_start)
+                    remaining = length
+                    while remaining > 0:
+                        chunk = fh.read(min(65536, remaining))
+                        if not chunk:
+                            break
+                        remaining -= len(chunk)
+                        yield chunk
+            resp = Response(generate(), 206, mimetype=mime,
+                            content_type=mime, direct_passthrough=True)
+            resp.headers['Content-Range'] = f'bytes {byte_start}-{byte_end}/{file_size}'
+            resp.headers['Accept-Ranges'] = 'bytes'
+            resp.headers['Content-Length'] = str(length)
+            return resp
+        else:
+            from flask import send_file
+            return send_file(filepath, mimetype=mime, conditional=True)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/music/download/<path:filename>', methods=['GET'])
+def music_download(filename):
+    """Download a music file."""
+    try:
+        from flask import send_file
+        safe_name = os.path.basename(filename)
+        filepath = os.path.join(MUSIC_DIR, safe_name)
+        if not os.path.exists(filepath) or not os.path.isfile(filepath):
+            return jsonify({"error": "Track not found"}), 404
+        return send_file(filepath, as_attachment=True, download_name=safe_name)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/music/delete/<path:filename>', methods=['DELETE'])
+def music_delete(filename):
+    try:
+        safe_name = os.path.basename(filename)
+        filepath = os.path.join(MUSIC_DIR, safe_name)
+        if os.path.exists(filepath) and os.path.isfile(filepath):
+            os.remove(filepath)
+            logger.info("music", f"Deleted track: {safe_name}")
+        return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
