@@ -1347,6 +1347,8 @@ API KEY WORKLOAD ANALYSIS:
           <li><strong>Instant disk syncing</strong>: Save modifications instantly back to disk with the Save button or <code>Ctrl+S</code> keyboard shortcuts.</li>
           <li><strong>Centered Window Title</strong>: A central title bar dynamically displays the open relative file path (e.g. <code>frontend/app.js - DevHunt</code>) or defaults to <code>DevHunt</code> when cleared.</li>
           <li><strong>VS Code-Style Sidebar Toggling</strong>: Clicking an active Activity Bar icon toggles the File Explorer sidebar visibility; clicking another icon switches panels and expands the sidebar.</li>
+          <li><strong>Collapsible File Explorer Sidebar Visibility</strong>: The File Explorer sidebar is restricted to <strong>only show/open when the Code Editor panel is active</strong>. Switching to any other panel (AI Assistant, stats, settings, etc.) automatically collapses/hides the explorer sidebar to keep the workspace clean.</li>
+          <li><strong>Inline New File Creator</strong>: Avoids browser-level <code>prompt()</code> dialogues. Click the <code>+</code> button in the file explorer sidebar header or press <strong><code>Ctrl+N</code></strong> to render an inline text input box at the top of the tree. Type the filename and press <code>Enter</code> to save an empty file to disk via <code>POST /api/ide/file</code>, refresh the file tree explorer, and load it in the editor. Pressing <code>Escape</code> or blurring cancels.</li>
           <li><strong>Keyboard Shortcut (⌘K / Ctrl+K)</strong>: Instantly focuses the AI Assistant chat input (<code>#chat-input</code>).</li>
         </ul>
 
@@ -1382,12 +1384,18 @@ API KEY WORKLOAD ANALYSIS:
           </tbody>
         </table>
 
-        <h2 class="section-subtitle" id="sec-ide-themes">Multi-Theme Control System</h2>
+        <h2 class="section-subtitle" id="sec-ide-themes">Multi-Theme Control System &amp; Accent Polishing</h2>
         <p>DevHunt implements dynamic theme modifications switching color variables under body tags:</p>
         <ul>
           <li><strong>Industrial Slate (Default)</strong>: Pervasive dark slate and charcoal tones, professional blue borders, and low-contrast labels to reduce eye fatigue.</li>
           <li><strong>Cyberpunk Neon</strong>: Glowing accent rules, purple card outlines, cyan badges, and a custom canvas background particle thread.</li>
-          <li><strong>Minimalist Light</strong>: A clean, premium white/light-gray theme option with subtle card shadows, tab hover underlines, and a dark-integrated terminal view for contrast.</li>
+          <li><strong>Minimalist Light (Polished)</strong>: 
+            A clean, premium white/light-gray theme using a premium Indigo accent (<code>#4f46e5</code>) instead of cyan. 
+            All inputs, textareas, and selects feature a white background with dark charcoal text. 
+            User chat bubbles are solid Indigo with white text, and AI bubbles are clean light gray. 
+            Quest Kanban cards are set to solid white backgrounds for readability against columns.
+          </li>
+          <li><strong>Theme-Aware Charts</strong>: The analytics canvases dynamically adapt to the Light theme. They check <code>body.theme-light</code> and paint grid lines, borders, labels, and text colors in dark, legible tones automatically.</li>
         </ul>
         <p>To optimize performance, when the Slate or Light theme is active, the backend canvas animation thread is automatically bypassed, saving local CPU cycles. Theme selections automatically persist in SQLite database profiles and local cache arrays.</p>
       </div>
