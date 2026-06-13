@@ -38,12 +38,17 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 
 /* Sidebar */
 .sidebar{position:relative;z-index:2;background:linear-gradient(180deg, rgba(7,12,18,.95), rgba(7,12,18,.78));
-  border-right:1px solid var(--border);backdrop-filter:blur(10px);display:flex;flex-direction:column;padding:18px 14px;gap:18px}
+  border-right:1px solid var(--border);backdrop-filter:blur(10px);display:flex;flex-direction:column;padding:18px 14px;gap:18px;height:100vh;overflow:hidden}
 .brand{display:flex;align-items:center;gap:12px;padding:6px 6px 14px;border-bottom:1px dashed var(--border)}
 .dragon-logo{width:42px;height:42px;filter:drop-shadow(var(--glow-green))}
 .brand-name{font-family:var(--display);letter-spacing:2px;font-weight:900;color:var(--green);text-shadow:var(--glow-green)}
 .brand-sub{font-size:10px;color:var(--muted);letter-spacing:1.5px}
-.nav{display:flex;flex-direction:column;gap:4px}
+.nav{display:flex;flex-direction:column;gap:4px;flex:1;overflow-y:auto;padding-right:2px}
+/* Custom scrollbar for nav */
+.nav::-webkit-scrollbar{width:4px}
+.nav::-webkit-scrollbar-track{background:transparent}
+.nav::-webkit-scrollbar-thumb{background:rgba(0,255,163,.15);border-radius:2px}
+.nav::-webkit-scrollbar-thumb:hover{background:rgba(0,255,163,.35)}
 .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;cursor:pointer;color:#a7c3bd;border:1px solid transparent;transition:.2s;font-size:13px}
 .nav-item .ico{color:var(--cyan);width:18px;text-align:center}
 .nav-item:hover{background:rgba(0,255,163,.05);color:var(--green);border-color:var(--border)}
@@ -264,9 +269,10 @@ label input,label textarea,label select{margin-top:5px}
 
 /* Sidebar collapsed */
 body.collapsed{grid-template-columns:64px 1fr}
-body.collapsed .nav-item span:last-child,
+body.collapsed .nav-label,
+body.collapsed #sidebar-music-deck,
 body.collapsed .brand>div,
-body.collapsed .sidebar-footer>div:last-child{display:none}
+body.collapsed .sidebar-footer>div:last-child{display:none !important}
 body.collapsed .nav-item{justify-content:center}
 
 /* Scroll */
@@ -488,3 +494,336 @@ body.collapsed .nav-item{justify-content:center}
   .stats-grid{grid-template-columns:repeat(2,1fr)}
   .kanban{grid-template-columns:1fr}
 }
+
+/* Document Viewer Tab Buttons styling */
+.viewer-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: var(--display);
+  font-size: 10.5px;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.viewer-tab-btn:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.05);
+}
+.viewer-tab-btn.active {
+  color: var(--green);
+  background: rgba(0,255,163,0.12);
+  text-shadow: 0 0 6px rgba(0,255,163,0.35);
+  font-weight: bold;
+}
+
+/* Tab contents hidden default */
+.viewer-tab-content {
+  display: none;
+}
+.viewer-tab-content.active {
+  display: flex !important;
+}
+
+/* Forensic checklist styling */
+.check-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 4px;
+}
+.check-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.check-item-name {
+  font-weight: bold;
+  color: #ffffff;
+}
+.check-item-icon {
+  font-size: 13px;
+  font-weight: bold;
+}
+.check-item-icon.pass { color: var(--green); }
+.check-item-icon.warning { color: var(--amber); }
+.check-item-icon.fail { color: var(--red); }
+
+.check-item-score {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 6px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 3px;
+}
+
+.check-item-flags {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+  padding-left: 21px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Metadata Table styling */
+#f-metadata-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+#f-metadata-table tr:last-child td {
+  border-bottom: none;
+}
+#f-metadata-table td:first-child {
+  color: var(--cyan);
+  width: 100px;
+  font-weight: bold;
+}
+#f-metadata-table td:last-child {
+  color: var(--text);
+  word-break: break-all;
+}
+
+/* Documentation Styles */
+.doc-nav-item {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.doc-nav-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+.doc-nav-item.active {
+  background: rgba(0, 255, 163, 0.08);
+  border: 1px solid rgba(0, 255, 163, 0.2);
+  color: var(--green);
+  font-weight: bold;
+}
+.doc-section {
+  display: none;
+  animation: docFadeIn 0.3s ease;
+}
+.doc-section.active {
+  display: block;
+}
+@keyframes docFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ========== MUSIC PLAYER PREMIUM STYLES ========== */
+.music-track-row {
+  border: 1px solid transparent !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.music-track-row:hover {
+  background: rgba(0, 212, 255, 0.05) !important;
+  border-color: rgba(0, 212, 255, 0.18) !important;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.05);
+}
+.music-track-row.active {
+  background: rgba(0, 255, 163, 0.08) !important;
+  border-color: rgba(0, 255, 163, 0.3) !important;
+  box-shadow: 0 0 15px rgba(0, 255, 163, 0.1);
+}
+
+.spinning-art {
+  animation: spin 10s linear infinite;
+  box-shadow: var(--glow-green) !important;
+  border-color: var(--green) !important;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.music-mode-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 6px;
+}
+.music-mode-btn.active {
+  background: rgba(0, 212, 255, 0.12) !important;
+  color: var(--cyan) !important;
+  border-color: rgba(0, 212, 255, 0.45) !important;
+  text-shadow: 0 0 6px rgba(0, 212, 255, 0.35);
+  font-weight: bold;
+}
+.music-mode-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+#music-progress-track {
+  height: 5px !important;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: height 0.2s ease, background-color 0.2s ease;
+}
+#music-progress-track:hover {
+  height: 7px !important;
+  background: rgba(255, 255, 255, 0.12);
+}
+#music-progress-fill {
+  transition: width 0.1s linear !important;
+}
+
+/* Custom styled inputs for range sliders in Music Tab */
+#panel-music input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  transition: background-color 0.2s;
+}
+#panel-music input[type="range"]:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+#panel-music input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--cyan);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--cyan);
+  transition: transform 0.1s, background-color 0.1s;
+}
+#panel-music input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+
+/* ========== GLOBAL SIDEBAR & TOPBAR MUSIC DECKS ========== */
+.sidebar-music-deck {
+  border: 1px solid var(--border) !important;
+  box-shadow: inset 0 0 10px rgba(0, 255, 163, 0.02);
+  transition: border-color 0.25s, box-shadow 0.25s, background-color 0.25s;
+}
+.sidebar-music-deck:hover {
+  border-color: rgba(0, 255, 163, 0.35) !important;
+  box-shadow: 0 0 12px rgba(0, 255, 163, 0.05);
+  background: rgba(0, 0, 0, 0.28) !important;
+}
+
+.topbar-music-deck {
+  border: 1px solid var(--border) !important;
+  box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.02);
+  transition: border-color 0.25s, box-shadow 0.25s, background-color 0.25s;
+}
+.topbar-music-deck:hover {
+  border-color: rgba(0, 212, 255, 0.35) !important;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.05);
+  background: rgba(0, 0, 0, 0.28) !important;
+}
+
+.side-music-art.spinning-art {
+  box-shadow: 0 0 8px var(--green) !important;
+  border-color: var(--green) !important;
+}
+.top-music-art.spinning-art {
+  animation: spin 6s linear infinite !important;
+  text-shadow: 0 0 8px var(--green);
+  color: var(--green);
+}
+
+#panel-music {
+  display: none;
+}
+#panel-music.active {
+  display: flex !important;
+}
+
+/* Arcade styles */
+#panel-arcade {
+  display: none;
+}
+#panel-arcade.active {
+  display: flex !important;
+}
+
+.arcade-tab-btn {
+  border-color: rgba(0, 212, 255, 0.2);
+  color: var(--muted);
+  transition: all 0.2s;
+}
+.arcade-tab-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: rgba(0, 212, 255, 0.05);
+}
+.arcade-tab-btn.active {
+  background: var(--cyan) !important;
+  color: #0b0f14 !important;
+  border-color: var(--cyan) !important;
+  font-weight: bold;
+}
+
+.sweeper-cell {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: bold;
+  background: #334155;
+  border: 1px solid #1e293b;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+}
+.sweeper-cell:hover:not(.revealed) {
+  background: #475569;
+}
+.sweeper-cell.revealed {
+  background: #1e293b;
+  border-color: #0f172a;
+  cursor: default;
+}
+.sweeper-cell.flagged {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+/* Decrypt console words button styling */
+.decrypt-word-btn {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #1f2937;
+  color: #10b981;
+  text-align: center;
+  transition: all 0.15s;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  background: transparent;
+}
+.decrypt-word-btn:hover {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: #4ade80;
+  color: #4ade80;
+}
+

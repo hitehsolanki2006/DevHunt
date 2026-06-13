@@ -98,11 +98,13 @@ function switchPanel(panelId) {
   if (panelId === 'path') loadRoadmap();
   if (panelId === 'quests') loadTodos();
   if (panelId === 'vault') loadSources();
+  if (panelId === 'doc-analysis') loadForensicsRecords();
   if (panelId === 'history') loadHistoryPanel();
   if (panelId === 'terminal') initTerminal();
   if (panelId === 'stats') {
     loadProfileAndSettings();
     loadAnalytics();
+    loadTerminalStats();
   }
   if (panelId === 'settings') {
     loadKeys();
@@ -111,6 +113,14 @@ function switchPanel(panelId) {
   }
   if (panelId === 'notifications') {
     loadNotifications(true);
+  }
+  if (panelId === 'music') {
+    initMusicPlayer();
+  }
+  if (panelId === 'arcade') {
+    if (typeof window.initArcadePanel === 'function') window.initArcadePanel();
+  } else {
+    if (typeof window.stopArcadePanel === 'function') window.stopArcadePanel();
   }
 }
 
@@ -121,11 +131,58 @@ navItems.forEach(item => {
 });
 
 const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+const sidebarCollapseToggle = document.getElementById('sidebar-collapse-toggle');
+
+// Helper to toggle sidebar state and sync toggle checkbox + localStorage
+function toggleSidebarState(forceState) {
+  const isCollapsed = forceState !== undefined ? forceState : !document.body.classList.contains('collapsed');
+  
+  if (isCollapsed) {
+    document.body.classList.add('collapsed');
+  } else {
+    document.body.classList.remove('collapsed');
+  }
+  
+  localStorage.setItem('sidebar-collapsed', isCollapsed);
+  if (sidebarCollapseToggle) {
+    sidebarCollapseToggle.checked = isCollapsed;
+  }
+}
+
+// Apply initial collapsed state immediately
+const savedCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+if (savedCollapsed) {
+  document.body.classList.add('collapsed');
+}
+if (sidebarCollapseToggle) {
+  sidebarCollapseToggle.checked = savedCollapsed;
+}
+
+// Sidebar toggle button click (Header hamburger button)
 if (toggleSidebarBtn) {
   toggleSidebarBtn.addEventListener('click', () => {
-    document.body.classList.toggle('collapsed');
+    toggleSidebarState();
   });
 }
+
+// Settings toggle switch checkbox
+if (sidebarCollapseToggle) {
+  sidebarCollapseToggle.addEventListener('change', (e) => {
+    toggleSidebarState(e.target.checked);
+  });
+}
+
+// Keyboard shortcut (Ctrl+B / Cmd+B) to toggle sidebar minimized state
+window.addEventListener('keydown', (e) => {
+  // Avoid interrupting typing if user is focused inside input elements
+  if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement.isContentEditable)) {
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+    e.preventDefault();
+    toggleSidebarState();
+  }
+});
 
 /* ========== Mini Markdown renderer ========== */
 function md(src) {
@@ -935,6 +992,550 @@ window.closeDocViewer = () => {
   window.activeDocSessionId = null;
 };
 
+/* ========== Dedicated Document Forensics Tab logic ========== */
+window.activeForensicsSourceId = null;
+window.activeForensicsSessionId = null;
+
+window.adjustForensicsElaContrast = (val) => {
+  const img = document.getElementById('f-ela-img');
+  const txt = document.getElementById('f-ela-contrast-val');
+  if (img) img.style.filter = `brightness(${val})`;
+  if (txt) txt.textContent = `${val}x`;
+};
+
+function addForensicsDocMsg(role, text) {
+  const feed = document.getElementById('f-chat-feed');
+  if (!feed) return;
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'assistant' ? 'ai' : role);
+  div.innerHTML = md(text);
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+window.loadForensicsRecords = async () => {
+  const listContainer = document.getElementById('forensics-history-list');
+  if (!listContainer) return;
+  listContainer.innerHTML = '<div class="muted" style="text-align:center;padding:10px">// loading archive...</div>';
+
+  try {
+    const res = await fetch(`${API_BASE}/knowledge`);
+    const data = await res.json();
+    if (data.success) {
+      // Filter PDFs and images
+      const docs = data.sources.filter(s => ['pdf', 'png', 'jpg', 'jpeg', 'webp'].includes(s.type.toLowerCase()));
+      listContainer.innerHTML = '';
+      
+      if (docs.length === 0) {
+        listContainer.innerHTML = '<div class="muted" style="text-align:center;padding:15px">// no documents uploaded yet</div>';
+        return;
+      }
+      
+      for (const d of docs) {
+        // Fetch if it has analysis data
+        const aRes = await fetch(`${API_BASE}/knowledge/${d.id}/analysis`);
+        const aData = await aRes.json();
+        
+        const row = document.createElement('div');
+        row.style.padding = '8px 10px';
+        row.style.background = 'rgba(0,0,0,0.25)';
+        row.style.border = '1px solid var(--border)';
+        row.style.borderRadius = '5px';
+        row.style.cursor = 'pointer';
+        row.style.display = 'flex';
+        row.style.flexDirection = 'column';
+        row.style.gap = '4px';
+        row.style.transition = '0.2s';
+        
+        let scorePill = '';
+        if (aData.success && aData.analyzed) {
+          const score = aData.score || 0;
+          const risk = aData.risk_level || 'LOW';
+          const badgeClass = risk === 'HIGH' ? 'tag-high' : risk === 'MEDIUM' ? 'tag-med' : 'tag-low';
+          scorePill = `<span class="tag ${badgeClass}" style="margin-left: auto;">${score.toFixed(0)}/100</span>`;
+        } else {
+          scorePill = `<span class="tag tag-low" style="background:rgba(255,255,255,0.05);color:var(--muted);border-color:transparent;margin-left:auto;">Unscanned</span>`;
+        }
+
+        row.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+            <b style="font-size:11.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">${d.name}</b>
+            ${scorePill}
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted)">
+            <span>${d.type.toUpperCase()} · ${d.created_at.slice(0, 10)}</span>
+          </div>
+        `;
+        
+        row.addEventListener('click', () => {
+          // highlight active record
+          const siblings = listContainer.children;
+          for (const s of siblings) s.style.borderColor = 'var(--border)';
+          row.style.borderColor = 'var(--green)';
+          
+          window.selectForensicsDoc(d.id, d.name);
+        });
+        
+        listContainer.appendChild(row);
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    listContainer.innerHTML = '<div class="muted" style="text-align:center;padding:10px">// error loading archive</div>';
+  }
+};
+
+window.selectForensicsDoc = async (sourceId, name) => {
+  window.activeForensicsSourceId = sourceId;
+  window.activeForensicsSessionId = `doc_forensics_${sourceId}`;
+
+  const badge = document.getElementById('forensics-file-badge');
+  if (badge) {
+    badge.textContent = name;
+    badge.style.borderColor = 'var(--green)';
+    badge.style.color = 'var(--green)';
+  }
+
+  // Clear chat feed and load placeholder or history
+  const feed = document.getElementById('f-chat-feed');
+  if (feed) feed.innerHTML = '<div class="muted">// loading conversation...</div>';
+
+  try {
+    const res = await fetch(`${API_BASE}/chat/history?session_id=${window.activeForensicsSessionId}`);
+    const data = await res.json();
+    if (data.success && data.history) {
+      feed.innerHTML = '';
+      if (data.history.length === 0) {
+        addForensicsDocMsg('assistant', `### Document Chat active 🧐\nAsk me anything about **${name}**! I will use semantic context search inside this file.`);
+      } else {
+        data.history.forEach(m => {
+          addForensicsDocMsg(m.role, m.content);
+        });
+      }
+    }
+  } catch (err) {
+    console.error(err);
+  }
+
+  // Check analysis report
+  const emptyState = document.getElementById('forensics-state-empty');
+  const loaderState = document.getElementById('forensics-state-loading');
+  const reportState = document.getElementById('forensics-state-report');
+
+  emptyState.style.display = 'none';
+  loaderState.style.display = 'flex';
+  reportState.style.display = 'none';
+  document.getElementById('forensics-loading-title').textContent = 'Fetching report...';
+  document.getElementById('forensics-loading-subtitle').textContent = 'Reading database records...';
+
+  try {
+    const res = await fetch(`${API_BASE}/knowledge/${sourceId}/analysis`);
+    const data = await res.json();
+    if (data.success && data.analyzed) {
+      renderForensicsDashboard(data);
+    } else {
+      // Trigger pipeline automatically!
+      window.runForensicsAnalysis(sourceId);
+    }
+  } catch (err) {
+    console.error(err);
+    loaderState.style.display = 'none';
+    emptyState.style.display = 'flex';
+  }
+};
+
+window.runForensicsAnalysis = async (sourceId) => {
+  const loaderState = document.getElementById('forensics-state-loading');
+  const reportState = document.getElementById('forensics-state-report');
+  const emptyState = document.getElementById('forensics-state-empty');
+
+  emptyState.style.display = 'none';
+  loaderState.style.display = 'flex';
+  reportState.style.display = 'none';
+
+  const loadingTitle = document.getElementById('forensics-loading-title');
+  const loadingSubtitle = document.getElementById('forensics-loading-subtitle');
+  
+  loadingTitle.textContent = 'Orchestrating Forensic Agents...';
+  loadingSubtitle.textContent = 'Launching cognitive agent cluster...';
+
+  const steps = [
+    "ExtractorAgent: Reading files and indexing layout structures...",
+    "VerifierAgent: Running ELA tampering checks...",
+    "VerifierAgent: Matching regulatory keywords and signature checks...",
+    "AnalystAgent: Transmitting queries to Gemini cognitive node...",
+    "ReporterAgent: Formatting gauge outputs and matplotlib visualizer..."
+  ];
+  
+  let currentStep = 0;
+  const progressTimer = setInterval(() => {
+    if (currentStep < steps.length) {
+      loadingSubtitle.textContent = steps[currentStep];
+      currentStep++;
+    }
+  }, 2500);
+
+  try {
+    const res = await fetch(`${API_BASE}/knowledge/${sourceId}/analyze`, { method: 'POST' });
+    const data = await res.json();
+    clearInterval(progressTimer);
+    
+    if (data.success) {
+      renderForensicsDashboard(data);
+      // Reload the archive list to update the score tags
+      loadForensicsRecords();
+    } else {
+      alert(`Forensics Failed: ${data.error}`);
+      loaderState.style.display = 'none';
+      emptyState.style.display = 'flex';
+    }
+  } catch (err) {
+    clearInterval(progressTimer);
+    console.error(err);
+    alert(`Forensics Error: ${err.message}`);
+    loaderState.style.display = 'none';
+    emptyState.style.display = 'flex';
+  }
+};
+
+window.renderForensicsDashboard = (data) => {
+  document.getElementById('forensics-state-loading').style.display = 'none';
+  document.getElementById('forensics-state-report').style.display = 'flex';
+
+  const score = data.score || 0;
+  const verdict = data.verdict || 'Unknown';
+  const risk = data.risk_level || 'LOW';
+
+  const scoreEl = document.getElementById('f-score-text');
+  const verdictEl = document.getElementById('f-verdict-text');
+  if (scoreEl) scoreEl.innerHTML = `${score.toFixed(1)} <span style="font-size: 10px; color: var(--muted);">/ 100</span>`;
+  if (verdictEl) {
+    verdictEl.textContent = verdict;
+    if (risk === 'HIGH') verdictEl.style.color = 'var(--red)';
+    else if (risk === 'MEDIUM') verdictEl.style.color = 'var(--amber)';
+    else verdictEl.style.color = 'var(--green)';
+  }
+
+  // Visual dashboard img
+  const chartImg = document.getElementById('f-chart-img');
+  if (chartImg) {
+    chartImg.src = `${API_BASE}/analysis/image/${data.dashboard_image}?t=${Date.now()}`;
+  }
+
+  // ELA image
+  const elaCard = document.getElementById('f-ela-card');
+  const elaImg = document.getElementById('f-ela-img');
+  if (data.ela_image) {
+    if (elaCard) elaCard.style.display = 'block';
+    if (elaImg) {
+      elaImg.src = `${API_BASE}/analysis/image/${data.ela_image}?t=${Date.now()}`;
+      const slider = document.getElementById('f-ela-contrast-range');
+      if (slider) slider.value = 1.0;
+      adjustForensicsElaContrast(1.0);
+    }
+  } else {
+    if (elaCard) elaCard.style.display = 'none';
+  }
+
+  // AI summary & expert view
+  const summaryEl = document.getElementById('f-summary');
+  const expertEl = document.getElementById('f-expert-view');
+  if (summaryEl) summaryEl.innerHTML = md(data.report.ai_analysis.summary || 'No summary generated.');
+  if (expertEl) expertEl.innerHTML = md(data.report.ai_analysis.expert_view || 'No expert opinion generated.');
+
+  // Render checklist
+  const checklistEl = document.getElementById('f-checklist');
+  if (checklistEl && data.report.authenticity && data.report.authenticity.layer_scores) {
+    checklistEl.innerHTML = '';
+    const layers = data.report.authenticity.layer_scores;
+    
+    Object.entries(layers).forEach(([layerName, layerScore]) => {
+      let icon = '✓';
+      let iconClass = 'pass';
+      if (layerScore < 60) {
+        icon = '✕';
+        iconClass = 'fail';
+      } else if (layerScore < 85) {
+        icon = '⚠';
+        iconClass = 'warning';
+      }
+
+      const layerFlags = data.report.flags ? data.report.flags.filter(f => {
+        const lLower = layerName.toLowerCase();
+        if (lLower.includes('metadata') && (f.toLowerCase().includes('meta') || f.toLowerCase().includes('save') || f.toLowerCase().includes('tool') || f.toLowerCase().includes('edit'))) return true;
+        if (lLower.includes('ela') && (f.toLowerCase().includes('ela') || f.toLowerCase().includes('tamper') || f.toLowerCase().includes('hotspot'))) return true;
+        if (lLower.includes('signature') && (f.toLowerCase().includes('sig') || f.toLowerCase().includes('pkcs') || f.toLowerCase().includes('unsigned'))) return true;
+        if (lLower.includes('text') && (f.toLowerCase().includes('aadhaar') || f.toLowerCase().includes('pan') || f.toLowerCase().includes('keyword') || f.toLowerCase().includes('administrative'))) return true;
+        if (lLower.includes('qr') && (f.toLowerCase().includes('qr') || f.toLowerCase().includes('domain') || f.toLowerCase().includes('code'))) return true;
+        return false;
+      }) : [];
+
+      let flagsHtml = '';
+      if (layerFlags.length > 0) {
+        flagsHtml = `<div class="check-item-flags">${layerFlags.map(f => `<span>• ${f}</span>`).join('')}</div>`;
+      }
+
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'check-item-container';
+      itemDiv.innerHTML = `
+        <div class="check-item">
+          <div class="check-item-left">
+            <span class="check-item-icon ${iconClass}">${icon}</span>
+            <span class="check-item-name">${layerName}</span>
+          </div>
+          <span class="check-item-score">${layerScore} / 100</span>
+        </div>
+        ${flagsHtml}
+      `;
+      checklistEl.appendChild(itemDiv);
+    });
+  }
+
+  // Entities
+  const entitiesEl = document.getElementById('f-entities');
+  if (entitiesEl) {
+    entitiesEl.innerHTML = '';
+    const ent = data.report.ai_analysis.entities || {};
+    let hasEntities = false;
+    Object.entries(ent).forEach(([cat, list]) => {
+      if (list && list.length > 0) {
+        hasEntities = true;
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.marginBottom = '4px';
+        row.innerHTML = `
+          <span style="color:var(--cyan);width:90px;text-transform:uppercase;font-weight:bold;">${cat}:</span>
+          <span style="color:var(--text);flex:1;">${list.join(', ')}</span>
+        `;
+        entitiesEl.appendChild(row);
+      }
+    });
+    if (!hasEntities) entitiesEl.innerHTML = '<span class="muted">// no significant entities extracted</span>';
+  }
+
+  // Insights
+  const insightsEl = document.getElementById('f-insights');
+  if (insightsEl) {
+    insightsEl.innerHTML = '';
+    const ins = data.report.ai_analysis.insights || [];
+    if (ins.length > 0) {
+      ins.forEach(i => {
+        const li = document.createElement('li');
+        li.textContent = i;
+        insightsEl.appendChild(li);
+      });
+    } else {
+      insightsEl.innerHTML = '<li class="muted">// no AI insights generated</li>';
+    }
+  }
+
+  // Metadata Inspector Table
+  const metaCard = document.getElementById('f-meta-card');
+  const metaTable = document.getElementById('f-metadata-table');
+  if (metaTable) {
+    metaTable.innerHTML = '';
+    let hasMeta = false;
+    if (data.report.extraction) {
+      hasMeta = true;
+      metaTable.innerHTML += `<tr><td>Filename</td><td>${data.report.file_name}</td></tr>`;
+      metaTable.innerHTML += `<tr><td>Format</td><td>${data.report.file_type.toUpperCase()}</td></tr>`;
+      metaTable.innerHTML += `<tr><td>Extract Method</td><td>${data.report.extraction.method || 'N/A'}</td></tr>`;
+      metaTable.innerHTML += `<tr><td>Page Count</td><td>${data.report.extraction.pages || 1}</td></tr>`;
+      metaTable.innerHTML += `<tr><td>Text Size</td><td>${data.report.extraction.text_length || 0} characters</td></tr>`;
+    }
+    if (hasMeta) {
+      if (metaCard) metaCard.style.display = 'block';
+    } else {
+      if (metaCard) metaCard.style.display = 'none';
+    }
+  }
+};
+
+window.sendForensicsDocChatMessage = async () => {
+  const input = document.getElementById('f-chat-input');
+  const feed = document.getElementById('f-chat-feed');
+  if (!input || !feed || !window.activeForensicsSourceId) return;
+
+  const message = input.value.trim();
+  if (!message) return;
+
+  addForensicsDocMsg('user', message);
+  input.value = '';
+
+  const aiDiv = document.createElement('div');
+  aiDiv.className = 'msg ai';
+  aiDiv.innerHTML = `<span class="muted streaming-cursor">// consulting forensic database...</span>`;
+  feed.appendChild(aiDiv);
+  feed.scrollTop = feed.scrollHeight;
+
+  let fullText = '';
+
+  try {
+    const response = await fetch(`${API_BASE}/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        session_id: window.activeForensicsSessionId,
+        source_id: window.activeForensicsSourceId
+      })
+    });
+
+    if (!response.ok) {
+      aiDiv.innerHTML = `⚠️ **Server error**: ${response.status}`;
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let firstToken = true;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'token') {
+            if (firstToken) {
+              aiDiv.innerHTML = '';
+              firstToken = false;
+            }
+            fullText += data.text;
+            aiDiv.innerHTML = md(fullText) + '<span class="streaming-cursor">▌</span>';
+            feed.scrollTop = feed.scrollHeight;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    aiDiv.innerHTML = md(fullText);
+    feed.scrollTop = feed.scrollHeight;
+  } catch (err) {
+    console.error(err);
+    aiDiv.innerHTML = `⚠️ **Connection failed**: ${err.message}`;
+  }
+};
+
+window.clearForensicsDocChatHistory = async () => {
+  if (!window.activeForensicsSessionId) return;
+  if (confirm('Clear chat history for this document?')) {
+    try {
+      const res = await fetch(`${API_BASE}/chat/history?session_id=${window.activeForensicsSessionId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        const feed = document.getElementById('f-chat-feed');
+        if (feed) {
+          feed.innerHTML = '';
+          addForensicsDocMsg('assistant', `### History Cleared\nAsk me anything about this document.`);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+};
+
+// Bind Forensics events
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'f-chat-send') {
+    window.sendForensicsDocChatMessage();
+  }
+  if (e.target && e.target.id === 'f-chat-clear') {
+    window.clearForensicsDocChatHistory();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.id === 'f-chat-input') {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      window.sendForensicsDocChatMessage();
+    }
+  }
+});
+
+// Dropzone for dedicated Forensics Tab
+document.addEventListener('DOMContentLoaded', () => {
+  const fDropzone = document.getElementById('forensics-dropzone');
+  const fFilein = document.getElementById('forensics-filein');
+  
+  if (fDropzone && fFilein) {
+    fDropzone.addEventListener('click', () => fFilein.click());
+    fDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      fDropzone.classList.add('drag');
+    });
+    fDropzone.addEventListener('dragleave', () => fDropzone.classList.remove('drag'));
+    
+    fDropzone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      fDropzone.classList.remove('drag');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        window.uploadForensicsFile(files[0]);
+      }
+    });
+    
+    fFilein.addEventListener('change', async (e) => {
+      const files = e.target.files;
+      if (files.length > 0) {
+        window.uploadForensicsFile(files[0]);
+      }
+    });
+  }
+});
+
+window.uploadForensicsFile = async (file) => {
+  const emptyState = document.getElementById('forensics-state-empty');
+  const loaderState = document.getElementById('forensics-state-loading');
+  const reportState = document.getElementById('forensics-state-report');
+
+  emptyState.style.display = 'none';
+  loaderState.style.display = 'flex';
+  reportState.style.display = 'none';
+  document.getElementById('forensics-loading-title').textContent = 'Uploading Document...';
+  document.getElementById('forensics-loading-subtitle').textContent = `Transmitting ${file.name} to secure storage...`;
+
+  const form = new FormData();
+  form.append('file', file);
+  
+  try {
+    const res = await fetch(`${API_BASE}/knowledge/upload`, {
+      method: 'POST',
+      body: form
+    });
+    const result = await res.json();
+    if (result.success) {
+      const sourceId = result.source_id;
+      // Triggers analysis automatically!
+      window.selectForensicsDoc(sourceId, file.name);
+    } else {
+      alert(`Upload Failed: ${result.error}`);
+      loaderState.style.display = 'none';
+      emptyState.style.display = 'flex';
+    }
+  } catch (err) {
+    console.error(err);
+    alert(`Upload Error: ${err.message}`);
+    loaderState.style.display = 'none';
+    emptyState.style.display = 'flex';
+  }
+};
+
+
 window.sendDocChatMessage = async () => {
   const input = document.getElementById('doc-chat-input');
   const docFeed = document.getElementById('doc-chat-feed');
@@ -1193,6 +1794,34 @@ async function loadProfileAndSettings() {
     const toggle = document.getElementById('grammar-toggle');
     if (toggle) toggle.checked = settings.english_correction || false;
 
+    // Load Feature Toggles
+    const defaultToggles = {
+      music: true,
+      path: true,
+      quests: true,
+      vault: true,
+      'doc-analysis': true,
+      arcade: true
+    };
+    const toggles = settings.feature_toggles || defaultToggles;
+    
+    // Apply defaults to any missing keys
+    for (const key in defaultToggles) {
+      if (toggles[key] === undefined) {
+        toggles[key] = defaultToggles[key];
+      }
+    }
+    
+    // Check checkboxes and apply visibility
+    const featureKeys = ['music', 'path', 'quests', 'vault', 'doc-analysis', 'arcade'];
+    featureKeys.forEach(key => {
+      const chk = document.getElementById(`toggle-feat-${key}`);
+      if (chk) {
+        chk.checked = toggles[key];
+      }
+      updateFeatureVisibility(key, toggles[key]);
+    });
+
   } catch (error) {
     console.error('Failed to load profile', error);
   }
@@ -1252,6 +1881,85 @@ if (grammarToggle) {
     }
   });
 }
+
+// Toggle feature access visibility in layout and switch panels if necessary
+function updateFeatureVisibility(key, enabled) {
+  const navItem = document.querySelector(`.nav-item[data-panel="${key}"]`);
+  if (navItem) {
+    navItem.style.display = enabled ? 'flex' : 'none';
+  }
+  
+  // Special handling for Music Player: also hide the topbar/sidebar widgets
+  if (key === 'music') {
+    const sideDeck = document.getElementById('sidebar-music-deck');
+    const topDeck = document.getElementById('topbar-music-deck');
+    if (sideDeck) sideDeck.style.display = enabled ? 'flex' : 'none';
+    if (topDeck) topDeck.style.display = enabled ? 'flex' : 'none';
+    
+    // If music player is disabled, pause the audio if playing
+    if (!enabled) {
+      const audioEl = document.getElementById('music-audio-el');
+      if (audioEl && !audioEl.paused) {
+        audioEl.pause();
+        const sidePlayBtn = document.getElementById('side-music-play');
+        const topPlayBtn = document.getElementById('top-music-play');
+        const playPauseBtn = document.getElementById('music-play-pause');
+        if (sidePlayBtn) sidePlayBtn.textContent = '▶';
+        if (topPlayBtn) topPlayBtn.textContent = '▶';
+        if (playPauseBtn) playPauseBtn.textContent = '▶';
+      }
+    }
+  }
+  
+  // Special handling for Arcade
+  if (key === 'arcade') {
+    if (!enabled && typeof window.stopArcadePanel === 'function') {
+      window.stopArcadePanel();
+    }
+  }
+  
+  // If active panel is the disabled one, fallback to AI Assistant (mentor)
+  const activeNavItem = document.querySelector('.nav-item.active');
+  if (activeNavItem && activeNavItem.dataset.panel === key && !enabled) {
+    switchPanel('mentor');
+  }
+}
+
+// Bind feature toggle event listeners
+const featureKeys = ['music', 'path', 'quests', 'vault', 'doc-analysis', 'arcade'];
+featureKeys.forEach(key => {
+  const chk = document.getElementById(`toggle-feat-${key}`);
+  if (chk) {
+    chk.addEventListener('change', async (e) => {
+      const active = e.target.checked;
+      
+      // Update UI state immediately
+      updateFeatureVisibility(key, active);
+      
+      try {
+        const profileRes = await fetch(`${API_BASE}/profile`);
+        const profileData = await profileRes.json();
+        if (profileData.success) {
+          const currentSettings = profileData.settings || {};
+          const currentToggles = currentSettings.feature_toggles || {};
+          currentToggles[key] = active;
+          
+          await fetch(`${API_BASE}/profile`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              settings: {
+                feature_toggles: currentToggles
+              }
+            })
+          });
+        }
+      } catch (error) {
+        console.error(`Failed to save feature toggle for ${key}`, error);
+      }
+    });
+  }
+});
 
 async function loadAnalytics() {
   // 1. Overview cards
@@ -1529,6 +2237,8 @@ window.addEventListener('DOMContentLoaded', () => {
   // Check updates in background on load
   checkUpdates();
 });
+
+
 
 
 /* ========== Backup & Restore ========== */
@@ -2459,4 +3169,843 @@ window.triggerUpdateFromNotification = triggerUpdateFromNotification;
 window.loadNotifications = loadNotifications;
 window.openNotificationDetail = openNotificationDetail;
 window.closeNotificationDetailModal = closeNotificationDetailModal;
+window.loadTerminalStats = loadTerminalStats;
 
+
+/* ========== MUSIC PLAYER ========== */
+const MusicPlayer = (() => {
+  let tracks = [];
+  let currentIndex = -1;
+  let playMode = 'sequential'; // sequential | shuffle | repeat | repeat-all
+  let playerInited = false;
+
+  const audio = () => document.getElementById('music-audio-el');
+  const fmtTime = s => {
+    if (isNaN(s) || !isFinite(s)) return '0:00';
+    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  // ── Render track list ──────────────────────────────────────────────────────
+  function renderTracks() {
+    const list = document.getElementById('music-track-list');
+    const countEl = document.getElementById('music-track-count');
+    if (!list) return;
+    if (countEl) countEl.textContent = `${tracks.length} track${tracks.length !== 1 ? 's' : ''}`;
+    if (!tracks.length) {
+      list.innerHTML = '<div class="muted" style="text-align:center;padding:40px 0;font-family:var(--mono);font-size:11px;">// No tracks yet — upload a file or paste a YouTube link above</div>';
+      return;
+    }
+    list.innerHTML = tracks.map((t, i) => `
+      <div class="music-track-row${i === currentIndex ? ' active' : ''}" id="mtr-${i}" data-idx="${i}"
+        style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:5px; cursor:pointer;">
+        <div style="width:28px; text-align:center; font-size:14px; color:${i===currentIndex?'var(--green)':'var(--muted)'}; flex-shrink:0;">
+          ${i === currentIndex ? '▶' : (i+1)}
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:var(--mono); font-size:11px; color:${i===currentIndex?'var(--cyan)':'var(--text)'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            ${t.title}
+          </div>
+          <div style="font-size:9.5px; color:var(--muted); font-family:var(--mono); margin-top:2px;">
+            ${t.ext.toUpperCase().replace('.','').trim()} · ${t.size_kb >= 1024 ? (t.size_kb/1024).toFixed(1)+'MB' : t.size_kb+'KB'}
+          </div>
+        </div>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <button onclick="event.stopPropagation(); MusicPlayer.play(${i})"
+            style="background:none;border:1px solid rgba(0,255,163,0.25);color:var(--green);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;"
+            title="Play">▶</button>
+          <a href="/api/music/download/${encodeURIComponent(t.filename)}"
+            onclick="event.stopPropagation()"
+            style="background:none;border:1px solid rgba(0,212,255,0.25);color:var(--cyan);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;text-decoration:none;"
+            title="Download" download>⬇</a>
+          <button onclick="event.stopPropagation(); MusicPlayer.deleteTrack(${i})"
+            style="background:none;border:1px solid rgba(255,77,109,0.25);color:var(--red);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;"
+            title="Delete">✕</button>
+        </div>
+      </div>`).join('');
+
+    // Click on row to play
+    list.querySelectorAll('.music-track-row').forEach(row => {
+      row.addEventListener('click', e => {
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+        play(parseInt(row.dataset.idx));
+      });
+    });
+  }
+
+  // ── Load track list from API ───────────────────────────────────────────────
+  async function loadTracks() {
+    try {
+      const r = await fetch(`${API_BASE}/music/list`);
+      const d = await r.json();
+      if (d.success) {
+        tracks = d.tracks;
+        renderTracks();
+      }
+    } catch (e) {
+      console.error('Music list error:', e);
+    }
+  }
+
+  // ── Play a track by index ──────────────────────────────────────────────────
+  function play(idx) {
+    if (idx < 0 || idx >= tracks.length) return;
+    currentIndex = idx;
+    const t = tracks[idx];
+    const el = audio();
+    if (!el) return;
+
+    el.src = `/api/music/stream/${encodeURIComponent(t.filename)}`;
+    el.volume = parseFloat(document.getElementById('music-volume')?.value || 0.8);
+    el.play().catch(err => console.warn('Play error:', err));
+
+    // Update player bar
+    const titleEl = document.getElementById('music-now-title');
+    const metaEl = document.getElementById('music-now-meta');
+    if (titleEl) titleEl.textContent = t.title;
+    if (metaEl) metaEl.textContent = `${t.ext.toUpperCase().replace('.','').trim()} · ${t.size_kb >= 1024 ? (t.size_kb/1024).toFixed(1)+'MB' : t.size_kb+'KB'}`;
+    const ppBtn = document.getElementById('music-play-pause');
+    if (ppBtn) ppBtn.textContent = '⏸';
+
+    // Global items updates
+    const topTitle = document.getElementById('top-music-title');
+    if (topTitle) topTitle.textContent = t.title;
+    const sideTitle = document.getElementById('side-music-title');
+    if (sideTitle) sideTitle.textContent = t.title;
+    
+    const topPlay = document.getElementById('top-music-play');
+    if (topPlay) topPlay.textContent = '⏸';
+    const sidePlay = document.getElementById('side-music-play');
+    if (sidePlay) sidePlay.textContent = '⏸';
+
+    updateAlbumArt(t);
+    renderTracks(); // Re-render to highlight
+  }
+
+  function updateAlbumArt(track) {
+    const icons = { '.mp3':'🎵', '.wav':'🎶', '.ogg':'🎼', '.flac':'🎸', '.aac':'🎤', '.m4a':'🎹', '.webm':'📻', '.opus':'🎙' };
+    const icon = icons[track.ext] || '♪';
+    
+    const art = document.getElementById('music-album-art');
+    if (art) art.textContent = icon;
+    
+    const topArt = document.getElementById('top-music-art');
+    if (topArt) topArt.textContent = icon;
+    
+    const sideArt = document.getElementById('side-music-art');
+    if (sideArt) sideArt.textContent = icon;
+  }
+
+  // ── Next track logic ───────────────────────────────────────────────────────
+  function nextTrack() {
+    if (!tracks.length) return;
+    if (playMode === 'repeat') {
+      play(currentIndex);
+      return;
+    }
+    if (playMode === 'shuffle') {
+      let next = Math.floor(Math.random() * tracks.length);
+      if (tracks.length > 1) while (next === currentIndex) next = Math.floor(Math.random() * tracks.length);
+      play(next);
+      return;
+    }
+    // sequential or repeat-all
+    let next = currentIndex + 1;
+    if (next >= tracks.length) {
+      if (playMode === 'repeat-all') next = 0;
+      else return; // stop
+    }
+    play(next);
+  }
+
+  function prevTrack() {
+    if (!tracks.length) return;
+    if (playMode === 'shuffle') {
+      let p = Math.floor(Math.random() * tracks.length);
+      if (tracks.length > 1) while (p === currentIndex) p = Math.floor(Math.random() * tracks.length);
+      play(p); return;
+    }
+    let p = currentIndex - 1;
+    if (p < 0) p = tracks.length - 1;
+    play(p);
+  }
+
+  // ── Delete a track ─────────────────────────────────────────────────────────
+  async function deleteTrack(idx) {
+    const t = tracks[idx];
+    if (!confirm(`Delete "${t.title}"?`)) return;
+    try {
+      const r = await fetch(`${API_BASE}/music/delete/${encodeURIComponent(t.filename)}`, { method: 'DELETE' });
+      const d = await r.json();
+      if (d.success) {
+        if (currentIndex === idx) {
+          audio().pause();
+          audio().src = '';
+          currentIndex = -1;
+          const pp = document.getElementById('music-play-pause');
+          if (pp) pp.textContent = '▶';
+          const nt = document.getElementById('music-now-title');
+          if (nt) nt.textContent = 'No track selected';
+
+          const topPlay = document.getElementById('top-music-play');
+          if (topPlay) topPlay.textContent = '▶';
+          const sidePlay = document.getElementById('side-music-play');
+          if (sidePlay) sidePlay.textContent = '▶';
+          
+          const topTitle = document.getElementById('top-music-title');
+          if (topTitle) topTitle.textContent = 'No track selected';
+          const sideTitle = document.getElementById('side-music-title');
+          if (sideTitle) sideTitle.textContent = 'No track selected';
+          
+          const topArt = document.getElementById('top-music-art');
+          if (topArt) topArt.textContent = '♪';
+          const sideArt = document.getElementById('side-music-art');
+          if (sideArt) sideArt.textContent = '♪';
+        } else if (currentIndex > idx) {
+          currentIndex--;
+        }
+        await loadTracks();
+      }
+    } catch (e) { console.error('Delete error:', e); }
+  }
+
+  // ── Wire up audio events ───────────────────────────────────────────────────
+  function bindAudioEvents() {
+    const el = audio();
+    if (!el) return;
+
+    el.addEventListener('timeupdate', () => {
+      const fill = document.getElementById('music-progress-fill');
+      const sideFill = document.getElementById('side-music-progress-fill');
+      const cur = document.getElementById('music-time-cur');
+      const sideTime = document.getElementById('side-music-time');
+      const dur = document.getElementById('music-time-dur');
+      
+      const pct = el.duration ? ((el.currentTime / el.duration) * 100) + '%' : '0%';
+      if (fill) fill.style.width = pct;
+      if (sideFill) sideFill.style.width = pct;
+      
+      const curFormatted = fmtTime(el.currentTime);
+      if (cur) cur.textContent = curFormatted;
+      if (sideTime) sideTime.textContent = curFormatted;
+      if (dur) dur.textContent = fmtTime(el.duration);
+    });
+
+    el.addEventListener('ended', () => {
+      const pp = document.getElementById('music-play-pause');
+      if (pp) pp.textContent = '▶';
+      const topPlay = document.getElementById('top-music-play');
+      if (topPlay) topPlay.textContent = '▶';
+      const sidePlay = document.getElementById('side-music-play');
+      if (sidePlay) sidePlay.textContent = '▶';
+      
+      const art = document.getElementById('music-album-art');
+      if (art) art.classList.remove('spinning-art');
+      const topArt = document.getElementById('top-music-art');
+      if (topArt) topArt.classList.remove('spinning-art');
+      const sideArt = document.getElementById('side-music-art');
+      if (sideArt) sideArt.classList.remove('spinning-art');
+      
+      nextTrack();
+    });
+
+    el.addEventListener('play', () => {
+      const pp = document.getElementById('music-play-pause');
+      if (pp) pp.textContent = '⏸';
+      const topPlay = document.getElementById('top-music-play');
+      if (topPlay) topPlay.textContent = '⏸';
+      const sidePlay = document.getElementById('side-music-play');
+      if (sidePlay) sidePlay.textContent = '⏸';
+      
+      const art = document.getElementById('music-album-art');
+      if (art) art.classList.add('spinning-art');
+      const topArt = document.getElementById('top-music-art');
+      if (topArt) topArt.classList.add('spinning-art');
+      const sideArt = document.getElementById('side-music-art');
+      if (sideArt) sideArt.classList.add('spinning-art');
+    });
+    el.addEventListener('pause', () => {
+      const pp = document.getElementById('music-play-pause');
+      if (pp) pp.textContent = '▶';
+      const topPlay = document.getElementById('top-music-play');
+      if (topPlay) topPlay.textContent = '▶';
+      const sidePlay = document.getElementById('side-music-play');
+      if (sidePlay) sidePlay.textContent = '▶';
+      
+      const art = document.getElementById('music-album-art');
+      if (art) art.classList.remove('spinning-art');
+      const topArt = document.getElementById('top-music-art');
+      if (topArt) topArt.classList.remove('spinning-art');
+      const sideArt = document.getElementById('side-music-art');
+      if (sideArt) sideArt.classList.remove('spinning-art');
+    });
+
+    // Seeking via progress bar clicks
+    const pTrack = document.getElementById('music-progress-track');
+    if (pTrack) {
+      pTrack.addEventListener('click', e => {
+        if (!el.duration) return;
+        const rect = pTrack.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        el.currentTime = pct * el.duration;
+      });
+    }
+    const sideProgressTrack = document.getElementById('side-music-progress-track');
+    if (sideProgressTrack) {
+      sideProgressTrack.addEventListener('click', e => {
+        if (!el.duration) return;
+        const rect = sideProgressTrack.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        el.currentTime = pct * el.duration;
+      });
+    }
+  }
+
+  // ── Wire up static controls ────────────────────────────────────────────────
+  function bindControls() {
+    // Play/Pause toggles
+    const bindPlayToggle = btnId => {
+      const btn = document.getElementById(btnId);
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const el = audio();
+          if (!el) return;
+          if (el.paused) {
+            if (!el.src && tracks.length) play(0);
+            else el.play();
+          } else {
+            el.pause();
+          }
+        });
+      }
+    };
+    bindPlayToggle('music-play-pause');
+    bindPlayToggle('top-music-play');
+    bindPlayToggle('side-music-play');
+
+    // Prev / Next controls
+    const bindAction = (btnId, actionFn) => {
+      const btn = document.getElementById(btnId);
+      if (btn) btn.addEventListener('click', actionFn);
+    };
+    bindAction('music-prev', prevTrack);
+    bindAction('top-music-prev', prevTrack);
+    bindAction('side-music-prev', prevTrack);
+    
+    bindAction('music-next', nextTrack);
+    bindAction('top-music-next', nextTrack);
+    bindAction('side-music-next', nextTrack);
+
+    // Volume
+    const vol = document.getElementById('music-volume');
+    const volLabel = document.getElementById('music-vol-label');
+    if (vol) {
+      vol.addEventListener('input', () => {
+        const el = audio();
+        if (el) el.volume = parseFloat(vol.value);
+        if (volLabel) volLabel.textContent = Math.round(vol.value * 100) + '%';
+      });
+    }
+
+    // Playback mode buttons
+    document.querySelectorAll('.music-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.music-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        playMode = btn.dataset.mode;
+      });
+    });
+
+    // Refresh button
+    const rfBtn = document.getElementById('music-refresh-btn');
+    if (rfBtn) rfBtn.addEventListener('click', loadTracks);
+
+    // File upload
+    const fileIn = document.getElementById('music-filein');
+    if (fileIn) fileIn.addEventListener('change', async () => {
+      const statusEl = document.getElementById('music-upload-status');
+      for (const file of fileIn.files) {
+        if (statusEl) statusEl.innerHTML = `<span style="color:var(--cyan);">↻ Uploading ${file.name}...</span>`;
+        const fd = new FormData();
+        fd.append('file', file);
+        try {
+          const r = await fetch(`${API_BASE}/music/upload`, { method: 'POST', body: fd });
+          const d = await r.json();
+          if (d.success) {
+            if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);">✓ Added: ${d.track.title}</span>`;
+            await loadTracks();
+          } else {
+            if (statusEl) statusEl.innerHTML = `<span style="color:var(--red);">✕ ${d.error}</span>`;
+          }
+        } catch (e) {
+          if (statusEl) statusEl.innerHTML = `<span style="color:var(--red);">✕ Upload failed: ${e.message}</span>`;
+        }
+      }
+      fileIn.value = '';
+    });
+
+    // Drag & drop on dropzone
+    const dz = document.getElementById('music-dropzone');
+    if (dz) {
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor='var(--cyan)'; });
+      dz.addEventListener('dragleave', () => { dz.style.borderColor=''; });
+      dz.addEventListener('drop', async e => {
+        e.preventDefault();
+        dz.style.borderColor = '';
+        const statusEl = document.getElementById('music-upload-status');
+        for (const file of e.dataTransfer.files) {
+          if (statusEl) statusEl.innerHTML = `<span style="color:var(--cyan);">↻ Uploading ${file.name}...</span>`;
+          const fd = new FormData();
+          fd.append('file', file);
+          try {
+            const r = await fetch(`${API_BASE}/music/upload`, { method: 'POST', body: fd });
+            const d = await r.json();
+            if (d.success) {
+              if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);">✓ Added: ${d.track.title}</span>`;
+              await loadTracks();
+            } else {
+              if (statusEl) statusEl.innerHTML = `<span style="color:var(--red);">✕ ${d.error}</span>`;
+            }
+          } catch (e2) {
+            if (statusEl) statusEl.innerHTML = `<span style="color:var(--red);">✕ ${e2.message}</span>`;
+          }
+        }
+      });
+    }
+
+    // YouTube Converter
+    const ytBtn = document.getElementById('music-yt-btn');
+    const ytInput = document.getElementById('music-yt-url');
+    const ytStatus = document.getElementById('music-yt-status');
+    if (ytBtn && ytInput) {
+      ytBtn.addEventListener('click', async () => {
+        const url = ytInput.value.trim();
+        if (!url) return;
+        ytBtn.disabled = true;
+        ytBtn.textContent = '↻ Converting...';
+        if (ytStatus) ytStatus.innerHTML = `<span style="color:var(--cyan);">⏳ Downloading &amp; converting audio… this may take 30–90s...</span>`;
+        try {
+          const r = await fetch(`${API_BASE}/music/youtube`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+          });
+          const d = await r.json();
+          if (d.success) {
+            if (ytStatus) ytStatus.innerHTML = `<span style="color:var(--green);">✓ Added: <b>${d.youtube_title || d.track.title}</b></span>`;
+            ytInput.value = '';
+            await loadTracks();
+          } else {
+            if (ytStatus) ytStatus.innerHTML = `<span style="color:var(--red);">✕ ${d.error}</span>`;
+          }
+        } catch (e) {
+          if (ytStatus) ytStatus.innerHTML = `<span style="color:var(--red);">✕ Network error: ${e.message}</span>`;
+        }
+        ytBtn.disabled = false;
+        ytBtn.textContent = '⬇ Convert';
+      });
+      // Allow Enter key in URL input
+      ytInput.addEventListener('keydown', e => { if (e.key === 'Enter') ytBtn.click(); });
+    }
+  }
+
+  // ── Public init ────────────────────────────────────────────────────────────
+  function init() {
+    if (!playerInited) {
+      bindAudioEvents();
+      bindControls();
+      playerInited = true;
+    }
+    loadTracks();
+  }
+
+  return { init, play, prevTrack, nextTrack, deleteTrack, loadTracks };
+})();
+
+function initMusicPlayer() {
+  MusicPlayer.init();
+}
+
+window.MusicPlayer = MusicPlayer;
+window.initMusicPlayer = initMusicPlayer;
+
+
+/* ========== TERMINAL STATS VISUALIZATION ========== */
+const STATS_PALETTE = [
+  '#00ffa3', '#00d4ff', '#ffb547', '#ff4d6d', '#a78bfa', '#34d399', '#f472b6', '#60a5fa'
+];
+
+function fmtNum(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+  return String(n);
+}
+
+function drawBarChart(canvasId, labels, values, colors, yLabel='') {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 400;
+  const H = parseInt(canvas.getAttribute('height')) || 160;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  if (!values.length || Math.max(...values) === 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data yet — send a chat message', W / 2, H / 2);
+    return;
+  }
+
+  const padding = { top: 16, right: 10, bottom: 36, left: 36 };
+  const chartW = W - padding.left - padding.right;
+  const chartH = H - padding.top - padding.bottom;
+  const maxVal = Math.max(...values) * 1.15 || 1;
+  const barGap = 10;
+  const barW = Math.max(12, (chartW - (labels.length - 1) * barGap) / labels.length);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padding.top + (chartH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + chartW, y); ctx.stroke();
+    // Grid label
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = `9px JetBrains Mono, monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(fmtNum(Math.round(maxVal * (1 - i / 4))), padding.left - 4, y + 3);
+  }
+
+  // Bars
+  labels.forEach((label, i) => {
+    const barX = padding.left + i * (barW + barGap);
+    const barH = (values[i] / maxVal) * chartH;
+    const barY = padding.top + chartH - barH;
+    const color = colors[i % colors.length];
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(0, barY, 0, barY + barH);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, color + '44');
+    ctx.fillStyle = grad;
+
+    // Glow
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barW, barH, 3);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Value on top of bar
+    ctx.fillStyle = color;
+    ctx.font = `bold 9px JetBrains Mono, monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(fmtNum(values[i]), barX + barW / 2, barY - 3);
+
+    // X-axis label
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font = `9px JetBrains Mono, monospace`;
+    const shortLabel = label.length > 14 ? label.slice(0, 12) + '…' : label;
+    ctx.save();
+    ctx.translate(barX + barW / 2, padding.top + chartH + 6);
+    ctx.rotate(-Math.PI / 6);
+    ctx.textAlign = 'right';
+    ctx.fillText(shortLabel, 0, 0);
+    ctx.restore();
+  });
+}
+
+function drawDailyChart(canvasId, days, messages) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 500;
+  const H = parseInt(canvas.getAttribute('height')) || 140;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const padding = { top: 14, right: 10, bottom: 30, left: 32 };
+  const chartW = W - padding.left - padding.right;
+  const chartH = H - padding.top - padding.bottom;
+
+  if (!messages.length || Math.max(...messages) === 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No activity in the last 14 days', W / 2, H / 2);
+    return;
+  }
+
+  const maxVal = Math.max(...messages) * 1.2 || 1;
+  const barW = Math.max(8, chartW / days.length - 4);
+  const barGap = (chartW - barW * days.length) / (days.length - 1 || 1);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  for (let i = 0; i <= 3; i++) {
+    const y = padding.top + (chartH / 3) * i;
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + chartW, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = `9px JetBrains Mono, monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(fmtNum(Math.round(maxVal * (1 - i / 3))), padding.left - 4, y + 3);
+  }
+
+  // Draw bars + line overlay
+  const points = [];
+  days.forEach((day, i) => {
+    const x = padding.left + i * (barW + barGap);
+    const bH = (messages[i] / maxVal) * chartH;
+    const y = padding.top + chartH - bH;
+
+    const grad = ctx.createLinearGradient(0, y, 0, y + bH);
+    grad.addColorStop(0, '#00ffa3');
+    grad.addColorStop(1, '#00ffa333');
+    ctx.shadowColor = '#00ffa3'; ctx.shadowBlur = 6;
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, bH, 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    points.push({ x: x + barW / 2, y });
+
+    // Day label (show only every other day for readability)
+    if (i % 2 === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.font = `8.5px JetBrains Mono, monospace`;
+      ctx.textAlign = 'center';
+      const d = day ? day.slice(5) : '';
+      ctx.fillText(d, x + barW / 2, padding.top + chartH + 14);
+    }
+  });
+
+  // Smooth line overlay
+  if (points.length > 1) {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      const cpx = (points[i - 1].x + points[i].x) / 2;
+      ctx.bezierCurveTo(cpx, points[i - 1].y, cpx, points[i].y, points[i].x, points[i].y);
+    }
+    ctx.strokeStyle = '#00ffa3bb';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = '#00ffa3'; ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Dots
+    points.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#00ffa3';
+      ctx.shadowColor = '#00ffa3'; ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+  }
+}
+
+function drawDonutChart(canvasId, values, labels, colors) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = parseInt(canvas.getAttribute('width')) || 140;
+  const H = parseInt(canvas.getAttribute('height')) || 140;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const total = values.reduce((a, b) => a + b, 0);
+  if (!total) {
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data', W / 2, H / 2 + 4);
+    return;
+  }
+
+  const cx = W / 2, cy = H / 2, r = Math.min(W, H) / 2 - 10, innerR = r * 0.55;
+  let startAngle = -Math.PI / 2;
+
+  values.forEach((v, i) => {
+    if (!v) return;
+    const sweep = (v / total) * Math.PI * 2;
+    const color = colors[i % colors.length];
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, startAngle, startAngle + sweep);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    startAngle += sweep;
+  });
+
+  // Inner donut hole
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+  ctx.fillStyle = '#0b0f14';
+  ctx.fill();
+
+  // Center text
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 13px Orbitron, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(fmtNum(total), cx, cy);
+  ctx.font = `9px JetBrains Mono, monospace`;
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillText('total', cx, cy + 14);
+  ctx.textBaseline = 'alphabetic';
+}
+
+async function loadTerminalStats() {
+  const refreshIcon = document.getElementById('stats-refresh-icon');
+  const lastUpdated = document.getElementById('stats-last-updated');
+  if (refreshIcon) refreshIcon.textContent = '↻';
+
+  try {
+    const res = await fetch(`${API_BASE}/stats`);
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    // ── KPIs ────────────────────────────────────────────────────────────────
+    const kpiMsgs = document.getElementById('kpi-total-msgs');
+    const kpiToks = document.getElementById('kpi-total-tokens');
+    const kpiModels = document.getElementById('kpi-models');
+    const kpiKeys = document.getElementById('kpi-keys');
+    if (kpiMsgs) kpiMsgs.textContent = fmtNum(d.total_messages);
+    if (kpiToks) kpiToks.textContent = fmtNum(d.total_tokens);
+    if (kpiModels) kpiModels.textContent = d.model_distribution.length;
+    if (kpiKeys) kpiKeys.textContent = d.key_workload.length;
+
+    // ── Model Distribution Bar Chart ────────────────────────────────────────
+    const modelLabels = d.model_distribution.map(m => m.model || 'Unknown');
+    const modelReqs = d.model_distribution.map(m => m.requests);
+    drawBarChart('chart-models', modelLabels, modelReqs, STATS_PALETTE);
+
+    // Model Legend
+    const modelLegend = document.getElementById('model-legend');
+    if (modelLegend) {
+      modelLegend.innerHTML = d.model_distribution.map((m, i) =>
+        `<span style="color:${STATS_PALETTE[i % STATS_PALETTE.length]}">■ ${m.model || 'Unknown'}: ${m.requests} req</span>`
+      ).join('');
+    }
+
+    // ── API Key Workload Bar Chart ───────────────────────────────────────────
+    const keyLabels = d.key_workload.map(k => k.label || k.masked || 'Key');
+    const keyReqs = d.key_workload.map(k => k.requests);
+    const KEY_COLORS = ['#00d4ff', '#60a5fa', '#a78bfa', '#f472b6'];
+    drawBarChart('chart-keys', keyLabels, keyReqs, KEY_COLORS);
+
+    const keyLegend = document.getElementById('key-legend');
+    if (keyLegend) {
+      keyLegend.innerHTML = d.key_workload.map((k, i) =>
+        `<span style="color:${KEY_COLORS[i % KEY_COLORS.length]}">■ ${k.label || k.masked}: ${k.requests} req</span>`
+      ).join('');
+    }
+
+    // ── Daily Activity Chart ─────────────────────────────────────────────────
+    // Fill in missing days in last 14 days
+    const dayMap = {};
+    d.daily_activity.forEach(r => { dayMap[r.day] = r.messages; });
+    const today = new Date();
+    const dailyDays = [], dailyMsgs = [];
+    for (let i = 13; i >= 0; i--) {
+      const dt = new Date(today);
+      dt.setDate(today.getDate() - i);
+      const key = dt.toISOString().slice(0, 10);
+      dailyDays.push(key);
+      dailyMsgs.push(dayMap[key] || 0);
+    }
+    drawDailyChart('chart-daily', dailyDays, dailyMsgs);
+
+    // ── Role Split Donut ─────────────────────────────────────────────────────
+    const userCount = d.role_split['user'] || 0;
+    const aiCount = d.role_split['assistant'] || 0;
+    drawDonutChart('chart-role', [userCount, aiCount], ['User', 'AI'], ['#00ffa3', '#00d4ff']);
+    const roleLegend = document.getElementById('role-legend');
+    if (roleLegend) {
+      roleLegend.innerHTML = `
+        <span style="color:#00ffa3">■ User: ${userCount}</span>
+        <span style="color:#00d4ff">■ AI: ${aiCount}</span>
+      `;
+    }
+
+    // ── Token Usage per Model (Horizontal Bars) ──────────────────────────────
+    const tokenBarsEl = document.getElementById('token-model-bars');
+    if (tokenBarsEl) {
+      const maxTok = Math.max(...d.model_distribution.map(m => m.tokens), 1);
+      tokenBarsEl.innerHTML = d.model_distribution.length > 0
+        ? d.model_distribution.map((m, i) => {
+            const pct = maxTok > 0 ? Math.max(2, (m.tokens / maxTok) * 100) : 0;
+            const color = STATS_PALETTE[i % STATS_PALETTE.length];
+            return `
+              <div>
+                <div style="display:flex; justify-content:space-between; font-size:10px; font-family:var(--mono); margin-bottom:4px;">
+                  <span style="color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${m.model || 'Unknown'}</span>
+                  <span style="color:${color}; font-weight:bold;">${fmtNum(m.tokens)} tok</span>
+                </div>
+                <div style="height:8px; background:rgba(255,255,255,0.06); border-radius:4px; overflow:hidden;">
+                  <div style="height:100%; width:${pct}%; background:linear-gradient(90deg, ${color}, ${color}88); border-radius:4px; box-shadow:0 0 6px ${color}55; transition:width 0.6s ease;"></div>
+                </div>
+              </div>`;
+          }).join('')
+        : '<div style="color:var(--muted); font-size:11px; text-align:center; padding:20px 0;">No token data yet</div>';
+    }
+
+    // ── Top Sessions Table ────────────────────────────────────────────────────
+    const sessBody = document.getElementById('sessions-table-body');
+    if (sessBody) {
+      sessBody.innerHTML = d.top_sessions.length > 0
+        ? d.top_sessions.map((s, i) => `
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+              <td style="padding:6px 6px; color:var(--cyan); font-family:var(--mono); font-size:10px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '} ${s.session}
+              </td>
+              <td style="padding:6px 6px; text-align:right; color:var(--green); font-weight:bold;">${s.messages}</td>
+              <td style="padding:6px 6px; text-align:right; color:var(--amber);">${fmtNum(s.tokens)}</td>
+            </tr>`).join('')
+        : '<tr><td colspan="3" style="text-align:center; color:var(--muted); padding:20px; font-family:var(--mono); font-size:11px;">No sessions found</td></tr>';
+    }
+
+    if (lastUpdated) {
+      lastUpdated.textContent = `// Last updated: ${new Date().toLocaleTimeString()}`;
+    }
+
+  } catch (err) {
+    console.error('Stats load error:', err);
+    if (lastUpdated) lastUpdated.textContent = `// Error loading stats: ${err.message}`;
+  }
+
+  if (refreshIcon) refreshIcon.textContent = '⟳';
+}
+
+// Refresh button binding
+document.addEventListener('DOMContentLoaded', () => {
+  const refreshBtn = document.getElementById('stats-refresh-btn');
+  if (refreshBtn) refreshBtn.addEventListener('click', loadTerminalStats);
+});
+
+window.triggerUpdateFromNotification = triggerUpdateFromNotification;
+window.loadNotifications = loadNotifications;
+window.openNotificationDetail = openNotificationDetail;
+window.closeNotificationDetailModal = closeNotificationDetailModal;
+window.loadTerminalStats = loadTerminalStats;
