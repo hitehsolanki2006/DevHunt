@@ -23,12 +23,15 @@ To improve the screen-space utilization, accessibility, and desktop usability of
   - A global hotkey **`Ctrl + B`** (or `Cmd + B` on macOS) is implemented to instantly toggle the collapsed state from any tab.
   - The minimized state persists across browser reloads via `localStorage` state synchronization and is synced with the SQLite database settings profile.
 
-### 3. Feature Access Toggles
-* **Design Goal**: Allow developers to customize the workspace and hide unused modules.
+### 3. Collapsible File Explorer Sidebar Visibility
+* **Features**:
+  - To prevent layout confusion, the File Explorer sidebar is configured to **only show/open when the Code Editor panel is active**.
+  - Switching to any non-editor tab (AI Assistant, Stats, Hunt Path, Settings, etc.) will **automatically collapse the File Explorer sidebar**.
+  - Clicking the active Code Editor icon in the Activity Bar toggles the sidebar, while clicking it when another panel is active switches to the Code Editor and expands the sidebar.
+
+### 4. Remove Redundant Horizontal Panel Tabs Bar
 * **Implementation**:
-  - Granular checkboxes under Settings control the visibility of modules: *Music Player, Hunt Path, Quest Board, Intel Vault, Doc Forensics, and Game Arcade*.
-  - Toggling a module off instantly removes its menu options from the sidebar.
-  - Dynamic route fallback is implemented: if a developer toggles off a currently active module, the workspace automatically falls back to the **AI Cognitive Assistant** screen to prevent visual breakage.
+  - Hidden the duplicate top horizontal panel tabs bar (`#panel-tabs-bar`) via CSS (`display: none !important`), as it duplicated the left vertical Activity Bar navigation, reclaiming valuable vertical space.
 
 ---
 
@@ -62,8 +65,13 @@ DevHunt has transitioned to a professional, slate-gray IDE-like workspace with s
 ### 1. Multi-Theme Architecture
 * **Industrial Slate (Default)**: A premium, dark slate-gray design with clean blue accents, monospaced text, and subtle micro-animations. Bypasses background particle canvas updates when active to optimize CPU performance.
 * **Cyberpunk Neon**: The legacy neon-green/cyan theme with glows and active `#dragon-bg` canvas background loops.
-* **Minimalist Light**: A clean, premium white/light-gray theme option with subtle card shadows, tab-item hover underlines, and a dark-integrated terminal view for ANSI contrast.
-* **State Sync**: Theme selections automatically synchronize to the SQLite profile database and persist in browser `localStorage` to avoid flash-of-unstyled-content (FOUC).
+* **Minimalist Light (Polished)**:
+  - Theme variables are tuned to use a premium Indigo accent (`#4f46e5`) instead of bright cyan.
+  - Input, select, and textarea fields are configured with a solid white background (`#ffffff`), dark charcoal text (`#0f172a`), and clean borders (`#cbd5e1`).
+  - Chat bubbles are customized: User messages appear as solid Indigo bubbles with white text, and AI Assistant responses appear as clean light gray bubbles (`#f1f5f9`).
+  - Quest Kanban Cards are set to solid white backgrounds (`#ffffff`) for readability against column backdrops.
+  - State Sync: Theme selections automatically synchronize to the SQLite profile database and persist in browser `localStorage` to avoid flash-of-unstyled-content (FOUC).
+* **Theme-Aware Canvas Charts**: Analytics charts (`drawBarChart`, `drawDailyChart`, and `drawDonutChart`) dynamically check if `document.body.classList.contains('theme-light')` is true. If so, they adapt grid lines, borders, labels, and text colors to dark, legible tones.
 
 ### 2. Collapsible File Explorer & Navigation
 * **Slim Activity Bar**: Pinned to the far left with custom SVG navigation icons for all core developer panels.
@@ -80,10 +88,13 @@ DevHunt has transitioned to a professional, slate-gray IDE-like workspace with s
 * **Save Transactions**: Integrates client-side modifications saving back to the backend disk via `POST /api/ide/file` endpoints using the Save button or `Ctrl + S` shortcut.
 * **Centered Window Title**: A centered topbar title bar dynamically displays the current open relative file path (e.g. `frontend/app.js - DevHunt`) when editing, and reverts to `DevHunt` when closed/cleared.
 * **Keyboard Shortcut (⌘K / Ctrl+K)**: Instantly switches focus to the AI Assistant panel and focuses the chat input (`#chat-input`).
+* **Inline New File Creation (Ctrl + N)**:
+  - Removed browser-level `prompt()` dialogues.
+  - Clicking the `+` button in the explorer sidebar header or pressing **`Ctrl + N`** inserts an inline text input box at the top of the file tree.
+  - Typing the filename and pressing `Enter` creates an empty file on disk immediately via backend `POST /api/ide/file`, refreshes the explorer tree, and opens it. Pressing `Escape` or blurring cancels.
 
 ---
 
 ## 🎵 Background Music Playback
 * **Fallback Autoplay**: Pressing play when no track is selected will automatically fall back to load and play the first available track.
 * **Deck Click Navigation**: Clicking the track details or progress time of the horizontal music player deck switches the workspace view directly to the Music panel.
-
