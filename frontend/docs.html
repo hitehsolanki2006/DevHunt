@@ -1345,6 +1345,9 @@ API KEY WORKLOAD ANALYSIS:
           <li><strong>Line Numbers Indicator</strong>: Scroll-synchronized layout tracking document heights.</li>
           <li><strong>Keyboard Hook Tab Override</strong>: Pressing <code>Tab</code> inserts 4 space characters instead of shifting focus elements.</li>
           <li><strong>Instant disk syncing</strong>: Save modifications instantly back to disk with the Save button or <code>Ctrl+S</code> keyboard shortcuts.</li>
+          <li><strong>Centered Window Title</strong>: A central title bar dynamically displays the open relative file path (e.g. <code>frontend/app.js - DevHunt</code>) or defaults to <code>DevHunt</code> when cleared.</li>
+          <li><strong>VS Code-Style Sidebar Toggling</strong>: Clicking an active Activity Bar icon toggles the File Explorer sidebar visibility; clicking another icon switches panels and expands the sidebar.</li>
+          <li><strong>Keyboard Shortcut (⌘K / Ctrl+K)</strong>: Instantly focuses the AI Assistant chat input (<code>#chat-input</code>).</li>
         </ul>
 
         <h2 class="section-subtitle" id="sec-ide-api-spec">Backend IDE REST API endpoints</h2>
@@ -1383,9 +1386,10 @@ API KEY WORKLOAD ANALYSIS:
         <p>DevHunt implements dynamic theme modifications switching color variables under body tags:</p>
         <ul>
           <li><strong>Industrial Slate (Default)</strong>: Pervasive dark slate and charcoal tones, professional blue borders, and low-contrast labels to reduce eye fatigue.</li>
-          <li><strong>Cyberpunk Neon (Legacy)</strong>: Glowing accent rules, purple card outlines, cyan badges, and a custom canvas background particle thread.</li>
+          <li><strong>Cyberpunk Neon</strong>: Glowing accent rules, purple card outlines, cyan badges, and a custom canvas background particle thread.</li>
+          <li><strong>Minimalist Light</strong>: A clean, premium white/light-gray theme option with subtle card shadows, tab hover underlines, and a dark-integrated terminal view for contrast.</li>
         </ul>
-        <p>To optimize performance, when the Slate theme is active, the backend canvas animation thread is automatically bypassed, saving local CPU cycles. Theme selections automatically persist in SQLite database profiles and local cache arrays.</p>
+        <p>To optimize performance, when the Slate or Light theme is active, the backend canvas animation thread is automatically bypassed, saving local CPU cycles. Theme selections automatically persist in SQLite database profiles and local cache arrays.</p>
       </div>
 
       <!-- ==================== 10. CONTRIBUTING ==================== -->
