@@ -40,6 +40,35 @@ body.theme-neon {
   --glow-cyan: 0 0 12px rgba(0,212,255,.55), 0 0 32px rgba(0,212,255,.2);
   --mono: 'JetBrains Mono', ui-monospace, monospace;
   --display: 'Orbitron', sans-serif;
+  --bg-editor:#080c14;
+}
+
+body.theme-light {
+  /* Premium Minimalist Light variables */
+  --bg:#f8fafc;
+  --bg-2:#f1f5f9;
+  --panel:#ffffff;
+  --panel-2:#e2e8f0;
+  --border:#cbd5e1;
+  --border-hot:#0ea5e9;
+  --text:#0f172a;
+  --muted:#64748b;
+  --green:#10b981;
+  --cyan:#0ea5e9;
+  --magenta:#d946ef;
+  --amber:#f59e0b;
+  --red:#ef4444;
+  --accent:#0284c7;
+  --glow-green: none;
+  --glow-cyan: none;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --display: 'Inter', sans-serif;
+  --bg-editor:#ffffff;
+}
+
+/* Base style modifications for dynamic variables */
+:root {
+  --bg-editor:#121214;
 }
 
 *{box-sizing:border-box; margin: 0; padding: 0;}
@@ -201,7 +230,7 @@ body.theme-neon::after {
 /* Code Editor Workspace Styling */
 #panel-editor.panel { height: 100%; width: 100%; }
 .editor-workspace {
-  display: flex; flex-direction: column; height: 100%; border: 1px solid var(--border); border-radius: 6px; background: #121214; overflow: hidden;
+  display: flex; flex-direction: column; height: 100%; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-editor); overflow: hidden;
 }
 .editor-header-bar {
   height: 32px; display: flex; align-items: center; padding: 0 12px; background: var(--bg-2); border-bottom: 1px solid var(--border);
@@ -1072,5 +1101,116 @@ body.collapsed .nav-item{justify-content:center}
   flex-direction: column;
   gap: 8px;
 }
+
+/* Unique Design Flourishes & Light Theme Overrides */
+.explorer-sidebar {
+  border-radius: 0 10px 10px 0;
+  box-shadow: 4px 0 15px rgba(0,0,0,0.06);
+  margin-right: 6px;
+}
+
+.tab-item {
+  position: relative;
+}
+.tab-item::after {
+  content: "";
+  position: absolute;
+  bottom: 0; left: 50%; width: 0; height: 2px;
+  background: var(--border-hot);
+  transition: all 0.25s ease;
+  transform: translateX(-50%);
+}
+.tab-item:hover::after {
+  width: 80%;
+}
+
+.topbar-center-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  pointer-events: none;
+  letter-spacing: 0.5px;
+}
+
+body.theme-light .topbar-center-title {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Specific Light Theme Component Rules */
+body.theme-light .node.expanded {
+  background: #f1f5f9;
+  border-color: #10b981;
+}
+body.theme-light .detail-section {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+body.theme-light .column {
+  background: #f1f5f9;
+}
+body.theme-light .col-count {
+  background: #cbd5e1;
+  color: #0f172a;
+}
+body.theme-light .switch span {
+  background: #cbd5e1;
+}
+body.theme-light .switch span::before {
+  background: #ffffff;
+}
+body.theme-light .switch input:checked + span {
+  background: #10b981;
+}
+body.theme-light .switch input:checked + span::before {
+  background: #ffffff;
+}
+body.theme-light .music-deck-horizontal {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+body.theme-light .editor-line-numbers {
+  background: #f1f5f9;
+  color: #64748b;
+  border-right: 1px solid #cbd5e1;
+}
+body.theme-light .terminal-container,
+body.theme-light .terminal-body {
+  background: #0f172a;
+  color: #f8fafc;
+}
+body.theme-light .terminal-prompt {
+  color: #0ea5e9;
+}
+body.theme-light .terminal-input {
+  color: #ffffff;
+}
+body.theme-light .terminal-output {
+  color: #f8fafc;
+}
+body.theme-light .dropdown-menu {
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+body.theme-light .dropdown-link:hover {
+  background: #0ea5e9;
+  color: #ffffff;
+}
+body.theme-light .qc-tags span {
+  background: rgba(16, 185, 129, 0.08);
+}
+body.theme-light .src-manual {
+  background: rgba(100, 116, 139, 0.08);
+}
+body.theme-light .card {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+}
+
 
 
