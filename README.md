@@ -144,6 +144,7 @@ Local-AI/
 ### Chat & Streams
 *   `POST /api/chat`: Processes synchronous chat messages (optional `source_id`).
 *   `POST /api/chat/stream`: Initiates an SSE token stream for user messages, returning real-time response chunks and Quest Board status updates (optional `source_id`).
+*   `GET /api/chat/sessions`: Lists all unique chat sessions in SQLite, returning timestamps and previews.
 *   `GET /api/chat/history`: Retrieves chat session database records.
 *   `DELETE /api/chat/history`: Clears session history from the database.
 
