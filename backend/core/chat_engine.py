@@ -247,6 +247,9 @@ class ChatEngine:
         all_keys = self.key_manager.get_keys_list()
         max_attempts = max(3, len(all_keys))
 
+        prompt_tokens = len(user_message) // 4
+        response_tokens = 0
+
         response_text = None
         used_key_id = None
         used_key_masked = "None"
@@ -297,10 +300,20 @@ class ChatEngine:
                 response_text = response.text
                 duration_ms = int((_time.time() - t0) * 1000)
                 self.key_manager.on_success(key_id)
+                
+                # Extract actual token counts
+                if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                    prompt_tokens = response.usage_metadata.prompt_token_count or 0
+                    response_tokens = response.usage_metadata.candidates_token_count or 0
+                if not prompt_tokens:
+                    prompt_tokens = len(user_message) // 4
+                if not response_tokens:
+                    response_tokens = len(response_text) // 4
+
                 logger.success("api_call", f"Chat response from {model_name}", {
                     "model": model_name, "key": used_key_masked,
                     "session_id": session_id, "duration_ms": duration_ms,
-                    "prompt_len": len(user_message), "response_len": len(response_text)
+                    "prompt_tokens": prompt_tokens, "response_tokens": response_tokens
                 })
                 break  # success
 
@@ -330,12 +343,12 @@ class ChatEngine:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO messages (session_id, role, content, model_used, key_used) VALUES (?, ?, ?, ?, ?)",
-            (session_id, 'user', user_message, model_name, used_key_id)
+            "INSERT INTO messages (session_id, role, content, model_used, key_used, tokens_used) VALUES (?, ?, ?, ?, ?, ?)",
+            (session_id, 'user', user_message, model_name, used_key_id, prompt_tokens)
         )
         cursor.execute(
-            "INSERT INTO messages (session_id, role, content, model_used, key_used) VALUES (?, ?, ?, ?, ?)",
-            (session_id, 'assistant', response_text, model_name, used_key_id)
+            "INSERT INTO messages (session_id, role, content, model_used, key_used, tokens_used) VALUES (?, ?, ?, ?, ?, ?)",
+            (session_id, 'assistant', response_text, model_name, used_key_id, response_tokens)
         )
         cursor.execute(
             "INSERT INTO analytics_events (event_type, topic, metadata) VALUES (?, ?, ?)",
@@ -343,15 +356,6 @@ class ChatEngine:
         )
         conn.commit()
         conn.close()
-
-        # Trigger background memory check/refinement
-        try:
-            from core.memory_manager import MemoryManager
-            mm = MemoryManager(self.key_manager)
-            import threading
-            threading.Thread(target=mm.auto_consolidate_if_needed, args=(session_id,), daemon=True).start()
-        except Exception as e:
-            print(f"Failed to start background memory consolidation: {e}")
 
         # 8. Citations
         citations = []
@@ -440,7 +444,10 @@ class ChatEngine:
                 in_tag = False
                 full_response = ""
 
+                last_chunk = None
+
                 for chunk in response_stream:
+                    last_chunk = chunk
                     if chunk.text:
                         text = chunk.text
                         if in_tag:
@@ -495,15 +502,25 @@ class ChatEngine:
                     yield {"type": "token", "text": tag_buffer}
 
             # Save to DB
+            prompt_tokens = 0
+            response_tokens = 0
+            if last_chunk and hasattr(last_chunk, 'usage_metadata') and last_chunk.usage_metadata:
+                prompt_tokens = last_chunk.usage_metadata.prompt_token_count or 0
+                response_tokens = last_chunk.usage_metadata.candidates_token_count or 0
+            if not prompt_tokens:
+                prompt_tokens = len(user_message) // 4
+            if not response_tokens:
+                response_tokens = len(full_response) // 4
+
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO messages (session_id, role, content, model_used, key_used) VALUES (?, ?, ?, ?, ?)",
-                (session_id, 'user', user_message, model_name, key_id)
+                "INSERT INTO messages (session_id, role, content, model_used, key_used, tokens_used) VALUES (?, ?, ?, ?, ?, ?)",
+                (session_id, 'user', user_message, model_name, key_id, prompt_tokens)
             )
             cursor.execute(
-                "INSERT INTO messages (session_id, role, content, model_used, key_used) VALUES (?, ?, ?, ?, ?)",
-                (session_id, 'assistant', full_response, model_name, key_id)
+                "INSERT INTO messages (session_id, role, content, model_used, key_used, tokens_used) VALUES (?, ?, ?, ?, ?, ?)",
+                (session_id, 'assistant', full_response, model_name, key_id, response_tokens)
             )
             cursor.execute(
                 "INSERT INTO analytics_events (event_type, topic, metadata) VALUES (?, ?, ?)",
@@ -511,15 +528,6 @@ class ChatEngine:
             )
             conn.commit()
             conn.close()
-
-            # Trigger background memory check/refinement
-            try:
-                from core.memory_manager import MemoryManager
-                mm = MemoryManager(self.key_manager)
-                import threading
-                threading.Thread(target=mm.auto_consolidate_if_needed, args=(session_id,), daemon=True).start()
-            except Exception as e:
-                print(f"Failed to start background memory consolidation: {e}")
 
             # Citations
             citations = [

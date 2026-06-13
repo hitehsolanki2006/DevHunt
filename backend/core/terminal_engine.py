@@ -186,6 +186,11 @@ class TerminalEngine:
             "notifications": (
                 "Usage: hunt notifications [list | read [all | <id>] | detail <id>]\n\n"
                 "Manages system messages, remote announcements, and warnings."
+            ),
+            "stats": (
+                "Usage: hunt stats\n\n"
+                "Displays token usage statistics, model distribution analysis, and\n"
+                "active API key workload metrics compiled from chat sessions."
             )
         }
         return list(helps.get(cmd, f"No detailed help available for '{cmd}'.").split("\n")) if isinstance(helps.get(cmd), list) else helps.get(cmd, f"No detailed help available for '{cmd}'.")
@@ -268,6 +273,7 @@ class TerminalEngine:
             f"  {self.format_green('hunt memory')}              - View long-term AI memories.\n"
             f"  {self.format_green('hunt backup')}              - Run full system backup exports.\n"
             f"  {self.format_green('hunt history')}              - Print raw logs of chat session.\n"
+            f"  {self.format_green('hunt stats')}                - Analyze token usage & API metrics.\n"
             f"  {self.format_green('hunt notifications')}        - Manage system alerts and announcements.\n"
         )
         return help_menu, current_dir
@@ -1383,7 +1389,7 @@ class TerminalEngine:
                     return self.format_red(f"Key '{key_id}' not found."), current_dir
                 t0 = _t.time()
                 client = genai.Client(api_key=raw_key)
-                resp = client.models.generate_content(model="gemini-2.5-flash", contents="Reply: OK")
+                resp = client.models.generate_content(model="gemma-4-26b-a4b-it", contents="Reply: OK")
                 ms = int((_t.time() - t0) * 1000)
                 return self.format_green(f"Key test PASSED: {key_label} ({ms}ms) -> reply: \"{resp.text.strip()[:30]}\""), current_dir
             except Exception as e:
@@ -1671,4 +1677,82 @@ class TerminalEngine:
             return "\n".join(output), current_dir
             
         return self.format_red("Usage: hunt notifications [list | read [all | <id>] | detail <id>]"), current_dir
+
+    def cmd_stats(self, args, current_dir):
+        from core.db import get_db_connection
+        import json
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Query overall totals
+            cursor.execute("SELECT COUNT(*) as total_msgs, SUM(tokens_used) as total_toks FROM messages")
+            row = cursor.fetchone()
+            total_msgs = row['total_msgs'] or 0
+            total_toks = row['total_toks'] or 0
+            
+            # Query breakdown by model
+            cursor.execute(
+                """SELECT model_used, COUNT(*) as msg_count, SUM(tokens_used) as tokens 
+                   FROM messages 
+                   GROUP BY model_used 
+                   ORDER BY tokens DESC"""
+            )
+            model_rows = cursor.fetchall()
+            
+            # Query breakdown by key ID
+            cursor.execute(
+                """SELECT key_used, COUNT(*) as msg_count, SUM(tokens_used) as tokens 
+                   FROM messages 
+                   GROUP BY key_used 
+                   ORDER BY msg_count DESC"""
+            )
+            key_rows = cursor.fetchall()
+            conn.close()
+            
+            # Retrieve active keys list to resolve key names / prefixes
+            from core.key_manager import KeyManager
+            km = KeyManager()
+            keys_list = km.get_keys_list()
+            key_map = {str(k['id']): k['label'] or k['masked_key'] for k in keys_list}
+            key_masked_map = {str(k['id']): k['masked_key'] for k in keys_list}
+            
+            # Format output
+            output = [
+                self.format_bold(self.format_cyan("DEVHUNT TOKEN & API METRICS ANALYSIS")),
+                "==================================================",
+                f"  Total Conversations Logged : {self.format_green(str(total_msgs))} exchanges",
+                f"  Total Approximate Tokens   : {self.format_green(str(total_toks))} tokens",
+                "",
+                self.format_bold("MODEL USAGE DISTRIBUTION:"),
+                f"  {'MODEL NAME':<25} | {'REQUESTS':<10} | {'EST. TOKENS':<12}",
+                "  " + "-" * 53
+            ]
+            
+            for r in model_rows:
+                model = r['model_used'] or "Unknown"
+                cnt = r['msg_count']
+                tok = r['tokens'] or 0
+                output.append(f"  {model:<25} | {cnt:<10} | {tok:<12}")
+                
+            output.append("")
+            output.append(self.format_bold("API KEY WORKLOAD ANALYSIS:"))
+            output.append(f"  {'KEY LABEL / MASKED':<25} | {'REQUESTS':<10} | {'EST. TOKENS':<12}")
+            output.append("  " + "-" * 53)
+            
+            for r in key_rows:
+                kid = str(r['key_used'])
+                label = key_map.get(kid, f"Key ID: {kid}")
+                masked = key_masked_map.get(kid, "N/A")
+                display_name = label if label != masked else masked
+                cnt = r['msg_count']
+                tok = r['tokens'] or 0
+                output.append(f"  {display_name:<25} | {cnt:<10} | {tok:<12}")
+                
+            output.append("")
+            output.append(self.format_muted("* Token approximations are estimated as character length divided by 4."))
+            return "\n".join(output), current_dir
+            
+        except Exception as e:
+            return self.format_red(f"Error fetching stats: {str(e)}"), current_dir
 
