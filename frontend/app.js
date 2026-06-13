@@ -787,6 +787,30 @@ if (collapseAllPathBtn) {
   });
 }
 
+window.jumpToRoadmapDay = (dayNum) => {
+  // 1. Switch to Hunt Path panel
+  switchPanel('path');
+
+  // 2. Expand this day node if not already expanded
+  const card = document.querySelector(`.node[data-day="${dayNum}"]`);
+  if (card) {
+    if (!expandedDays.has(dayNum)) {
+      expandedDays.add(dayNum);
+      card.classList.add('expanded');
+      const toggleIcon = card.querySelector('.node-toggle-icon');
+      if (toggleIcon) toggleIcon.textContent = '▲';
+    }
+    // 3. Scroll to the card smoothly
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // 4. Temporarily add a visual highlight/pulse effect
+    card.classList.add('pulse-highlight');
+    setTimeout(() => {
+      card.classList.remove('pulse-highlight');
+    }, 2000);
+  }
+};
+
 function updateChatSidebarTargets(path) {
   const listEl = document.querySelector('.target-list');
   if (!listEl) return;
@@ -807,22 +831,36 @@ function updateChatSidebarTargets(path) {
 
   if (activeDay) {
     const topicsHtml = (activeDay.topics || []).map(topic =>
-      `<li><span class="tag tag-high">ACTIVE</span> ${topic}</li>`
+      `<li class="touchable-target" onclick="window.jumpToRoadmapDay(${activeDay.day})">
+        <span class="tag tag-active">ACTIVE</span>
+        <span class="target-text">${topic}</span>
+        <span class="target-arrow">→</span>
+      </li>`
     ).join('');
 
     const tasksHtml = (activeDay.tasks || []).map(task =>
-      `<li><span class="tag tag-med">TASK</span> ${task}</li>`
+      `<li class="touchable-target" onclick="window.jumpToRoadmapDay(${activeDay.day})">
+        <span class="tag tag-task">TASK</span>
+        <span class="target-text">${task}</span>
+        <span class="target-arrow">→</span>
+      </li>`
     ).join('');
 
     listEl.innerHTML = `
-      <div style="font-weight:700; font-size:11px; margin-bottom:6px; color:var(--neon-cyan)">
-        Day ${activeDay.day}: ${activeDay.title}
+      <div class="target-day-card" onclick="window.jumpToRoadmapDay(${activeDay.day})">
+        <div class="target-day-badge">Day ${activeDay.day}</div>
+        <div class="target-day-info">
+          <div class="target-day-title">${activeDay.title}</div>
+          <div class="target-day-action">View in Hunt Path →</div>
+        </div>
       </div>
-      ${topicsHtml}
-      ${tasksHtml}
+      <div class="target-items-container">
+        ${topicsHtml}
+        ${tasksHtml}
+      </div>
     `;
   } else {
-    listEl.innerHTML = `<li class="muted">No targets active. Complete/regenerate Hunt Path.</li>`;
+    listEl.innerHTML = `<li class="muted" style="font-size:11px; padding:10px; text-align:center;">No targets active. Complete/regenerate Hunt Path.</li>`;
   }
 }
 
@@ -921,10 +959,16 @@ function updateChatSidebarQuests(todos) {
 
   if (activeQuests.length > 0) {
     miniList.innerHTML = activeQuests.map(q =>
-      `<li><label><input type="checkbox" onclick="completeQuest(${q.id})"/> ${q.title}</label></li>`
+      `<li class="quest-mini-item">
+        <input type="checkbox" id="quest-check-${q.id}" onclick="completeQuest(${q.id})"/>
+        <label for="quest-check-${q.id}">
+          <span class="checkbox-box"></span>
+          <span class="quest-mini-title">${q.title}</span>
+        </label>
+      </li>`
     ).join('');
   } else {
-    miniList.innerHTML = `<li class="muted">No active quests. Add some via Quest Board!</li>`;
+    miniList.innerHTML = `<li class="muted" style="font-size:11px; padding:10px; text-align:center;">No active quests. Add some via Quest Board!</li>`;
   }
 }
 
