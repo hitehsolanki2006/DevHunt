@@ -52,6 +52,7 @@
           <div class="dropdown-divider"></div>
           <a class="dropdown-link" href="#" onclick="setAppTheme('slate')">Industrial Slate Theme</a>
           <a class="dropdown-link" href="#" onclick="setAppTheme('neon')">Cyberpunk Neon Theme</a>
+          <a class="dropdown-link" href="#" onclick="setAppTheme('light')">Minimalist Light Theme</a>
         </div>
       </div>
       <div class="menu-item">
@@ -68,6 +69,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Center Window Title (VS Code / Antigravity style) -->
+    <div class="topbar-center-title" id="topbar-center-title">DevHunt</div>
 
     <!-- Header Right elements: Music and System Badges -->
     <div class="topbar-right">
@@ -92,10 +96,10 @@
   <div class="app-workspace">
     <!-- 2. SLIM ACTIVITY BAR (Far Left) -->
     <aside class="activity-bar">
-      <div class="activity-item active" data-tab-panel="editor" title="Code Editor">
+      <div class="activity-item" data-tab-panel="editor" title="Code Editor">
         <svg viewBox="0 0 24 24"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" fill="currentColor"/></svg>
       </div>
-      <div class="activity-item" data-tab-panel="mentor" title="AI Assistant">
+      <div class="activity-item active" data-tab-panel="mentor" title="AI Assistant">
         <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z" fill="currentColor"/></svg>
       </div>
       <div class="activity-item" data-tab-panel="path" title="Hunt Path">
@@ -143,8 +147,8 @@
       
       <!-- Top header panel tabs (shows active tab) -->
       <div class="panel-tabs-bar" id="panel-tabs-bar">
-        <div class="tab-item active" data-panel="editor">Code Editor</div>
-        <div class="tab-item" data-panel="mentor">AI Assistant</div>
+        <div class="tab-item" data-panel="editor">Code Editor</div>
+        <div class="tab-item active" data-panel="mentor">AI Assistant</div>
         <div class="tab-item" data-panel="path">Hunt Path</div>
         <div class="tab-item" data-panel="quests">Quest Board</div>
         <div class="tab-item" data-panel="vault">Intel Vault</div>
@@ -162,7 +166,7 @@
       <main class="panels-container">
         
         <!-- NEW CODE EDITOR PANEL -->
-        <section class="panel active" id="panel-editor">
+        <section class="panel" id="panel-editor">
           <div class="editor-workspace">
             <div class="editor-header-bar">
               <span id="active-file-path" class="active-file-path">// Select a file from the explorer sidebar to begin editing</span>
@@ -176,7 +180,7 @@
         </section>
 
         <!-- MENTOR PANEL -->
-        <section class="panel" id="panel-mentor">
+        <section class="panel active" id="panel-mentor">
           <div class="mentor-grid">
             <div class="card chat">
               <div class="card-head">
@@ -493,6 +497,7 @@
                   <select id="theme-selector" style="font-size:12px; padding:6px; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
                     <option value="slate">Industrial Slate</option>
                     <option value="neon">Cyberpunk Neon</option>
+                    <option value="light">Minimalist Light</option>
                   </select>
                 </div>
               </div>
