@@ -1,0 +1,7 @@
+#!/bin/bash
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$DIR/backend/venv/bin/python" ]; then
+    "$DIR/backend/venv/bin/python" "$DIR/backend/hunter_cli.py" "$@"
+else
+    python3 "$DIR/backend/hunter_cli.py" "$@"
+fi

@@ -14,8 +14,10 @@ from bs4 import BeautifulSoup
 class TerminalEngine:
     def __init__(self):
         self.os_type = platform.system()
-        # Default starting directory is the project workspace root
-        self.workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        # Default starting directory is the empty workspace folder
+        self.workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "empty_workspace"))
+        if not os.path.exists(self.workspace_root):
+            os.makedirs(self.workspace_root, exist_ok=True)
 
     def parse_arguments(self, command_str):
         """Safely split command string into arguments using shell-like parsing."""
@@ -227,7 +229,43 @@ class TerminalEngine:
             return "CLEAR_SIGNAL", current_dir
         
         if first_token != "hunt":
-            return self.format_red("Error: Command must start with 'hunt' (type 'hunt help' for info)."), current_dir
+            # Real shell command execution!
+            if first_token == "cd":
+                target = args[1] if len(args) > 1 else self.workspace_root
+                abs_target = os.path.abspath(os.path.join(current_dir, target))
+                if os.path.exists(abs_target) and os.path.isdir(abs_target):
+                    current_dir = abs_target
+                    return f"Switched context directory to: {current_dir}", current_dir
+                else:
+                    return self.format_red(f"cd: no such file or directory: {target}"), current_dir
+            
+            try:
+                import html
+                res = subprocess.run(
+                    cmd_line,
+                    shell=True,
+                    cwd=current_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    errors='ignore'
+                )
+                
+                stdout_escaped = html.escape(res.stdout) if res.stdout else ""
+                stderr_escaped = html.escape(res.stderr) if res.stderr else ""
+                
+                output = stdout_escaped
+                if stderr_escaped:
+                    output += f'<span class="ansi-red">{stderr_escaped}</span>'
+                
+                if not output:
+                    output = self.format_muted("// executed successfully (no output)")
+                    
+                return output, current_dir
+            except subprocess.TimeoutExpired:
+                return self.format_red("Error: Process timed out (15 second limit)."), current_dir
+            except Exception as e:
+                return self.format_red(f"Error executing command: {str(e)}"), current_dir
 
         if len(args) < 2:
             return self.cmd_help([], current_dir)

@@ -25,7 +25,9 @@ No subscriptions. No third-party data tracking. Everything is stored on your mac
 *   **🎮 Offline Game Arcade**: A local-first suite of developer-themed games (Git Commit Snake, Data Lane Runner, Terminal Decrypt, Hex Malware Sweeper) running on canvas with custom non-blocking overlays and unified keyboard event controls.
 *   **📐 Layout Polish & Sidebar Minimize**: Minimize the left navigation sidebar to an icon-only column via a settings toggle, top hamburger button, or global `Ctrl + B`/`Cmd + B` keyboard hotkey. Independently scrollable navigation list that pins Brand header and status footer. Duplicate top panel tabs bar is hidden (`display: none`) to maximize vertical code editing space.
 *   **⚙️ Feature Access Switches**: Enable/disable workspace modules (Music Player, Quest Board, Intel Vault, Doc Forensics, Game Arcade) with automatic homepage routing fallbacks.
-*   **💻 Integrated Workspace IDE & Editor**: Collapsible File Explorer tree (recursive scans filtering `.git`, `node_modules`, etc.). File Explorer automatically collapses on non-editor tabs and only opens on the Code Editor tab. No-popup inline file creation (`+` button or `Ctrl+N`) inserts a tree text field for rapid creation. Features monospaced code editing pane with scroll-synchronized line numbers, dynamic tab spacing, centered window title-bar path display, and key shortcut handlers (`Ctrl+S`, `Ctrl+B`, `Ctrl+K`, `Ctrl+N`).
+*   **💻 Integrated Workspace IDE & Editor**: Collapsible File Explorer tree (recursive scans filtering `.git`, `node_modules`, etc.). File Explorer automatically collapses on non-editor tabs. Features monospaced code editing pane with scroll-synchronized line numbers, multi-tab editing workspace (with local storage draft recovery every 4 seconds), context menus (create, rename, delete files/folders), document outlines (for JS, Py, HTML, MD), document indentation formatter (`Shift+Alt+F`), and floating Find & Replace. Easily mount local directories temporarily via the **Browser File System Access API** (`Ctrl+Alt+O` to open folder, `Ctrl+O` for file).
+*   **📟 Split-Screen Integrated Terminal**: Toggle an integrated bottom terminal panel inside the editor workspace (via header button or keyboard settings). Executes both built-in `hunt` commands and **native host system commands** (e.g. `npm`, `git`, `python`, `ipconfig`) using your host shell with synchronized CWD prompts.
+*   **🔌 Host CLI DevTerminal Launcher**: Connect to the running DevHunt backend terminal session directly from your host command line window by running `hunter -dt` (or `hunter.bat -dt` on Windows).
 *   **🎨 Multi-Theme System**: Instantly switch between the default **Industrial Slate** theme (professional dark slate-gray), the high-contrast **Minimalist Light** theme (polished with premium Indigo `#4f46e5` accents, white inputs, Indigo/gray chat bubbles, and white Kanban cards), and the **Cyberpunk Neon** theme. Includes theme-aware canvas charts that auto-adjust grids, text, and colors, and client-side canvas loop suspension when dark/light themes are active to save CPU cycles.
 
 ---
@@ -78,6 +80,11 @@ DevHunt is designed to require zero manual Python environment configuration.
     *   Open the DevHunt dashboard at `http://localhost:5000`.
     *   Navigate to **Settings & Nodes** in the sidebar, paste your key, and click **+ Register Key**.
 
+4.  **Connect via Host Command Line (Optional)**:
+    *   To execute commands in the DevHunt workspace directly from your native Command Prompt, PowerShell, or terminal window, open a new window and run:
+        *   **Windows**: `hunter.bat -dt`
+        *   **macOS / Linux**: `./hunter -dt`
+
 ### Manual Installation (Optional fallback)
 
 If you prefer to set up your environment manually:
@@ -109,6 +116,7 @@ Local-AI/
 │   ├── config.py             # App paths, settings constants, and AES secrets
 │   ├── requirements.txt      # Python modules list
 │   ├── check_requirements.py # Fast dependency verification script
+│   ├── hunter_cli.py         # Host command prompt CLI connector client
 │   └── core/
 │       ├── chat_engine.py    # SSE stream generation & tag extraction logic
 │       ├── rag_pipeline.py   # Vector ingestion, URLs parser, & DB matching
@@ -134,6 +142,8 @@ Local-AI/
 │   └── styles.css            # Custom CSS themes & glassmorphism styling
 ├── run.bat                   # Automated Windows launcher
 ├── run.sh                    # Automated macOS/Linux launcher
+├── hunter.bat                # Host console connection batch file (Windows)
+├── hunter                    # Host console connection shell script (Unix)
 └── README.md
 ```
 

@@ -22,4 +22,5 @@ backend/data/*.log
 
 # User Uploads and temporary assets
 backend/uploads/
+empty_workspace/
 

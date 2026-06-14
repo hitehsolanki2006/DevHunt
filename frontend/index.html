@@ -1,14 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>DevHunt — AI Assistant &amp; IDE</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&family=Caveat:wght@700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevHunt — AI Assistant &amp; IDE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&family=Caveat:wght@700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
+
 <body class="theme-slate">
   <canvas id="dragon-bg"></canvas>
 
@@ -18,12 +22,13 @@
       <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="dg-slate" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stop-color="#3b82f6"/>
-            <stop offset="100%" stop-color="#1d4ed8"/>
+            <stop offset="0%" stop-color="#3b82f6" />
+            <stop offset="100%" stop-color="#1d4ed8" />
           </linearGradient>
         </defs>
-        <path fill="url(#dg-slate)" d="M8 36c4-8 12-10 18-6 2-6 8-10 14-8 4 2 6 6 4 10-2 4-8 4-10 0 2 6-2 12-8 12-4 0-8-2-10-6-2 6 2 12 8 14-8 2-18-4-16-16zm38-16c2 0 4 2 4 4s-2 4-4 4-4-2-4-4 2-4 4-4z"/>
-        <circle cx="46" cy="22" r="1.5" fill="#1e1e24"/>
+        <path fill="url(#dg-slate)"
+          d="M8 36c4-8 12-10 18-6 2-6 8-10 14-8 4 2 6 6 4 10-2 4-8 4-10 0 2 6-2 12-8 12-4 0-8-2-10-6-2 6 2 12 8 14-8 2-18-4-16-16zm38-16c2 0 4 2 4 4s-2 4-4 4-4-2-4-4 2-4 4-4z" />
+        <circle cx="46" cy="22" r="1.5" fill="#1e1e24" />
       </svg>
       <span class="brand-name">DevHunt</span>
     </div>
@@ -36,6 +41,10 @@
           <a class="dropdown-link" href="#" id="menu-new-file">New File</a>
           <a class="dropdown-link" href="#" id="menu-save-file">Save File (Ctrl+S)</a>
           <div class="dropdown-divider"></div>
+          <a class="dropdown-link" href="#" id="menu-open-local-folder">Open Local Folder (Ctrl+Alt+O)</a>
+          <a class="dropdown-link" href="#" id="menu-open-local-file">Open Local File (Ctrl+O)</a>
+          <a class="dropdown-link" href="#" id="menu-close-local" style="display:none;">Close Local Folder</a>
+          <div class="dropdown-divider"></div>
           <a class="dropdown-link" href="#" id="menu-refresh-files">Refresh Explorer</a>
         </div>
       </div>
@@ -43,6 +52,7 @@
         <span>Edit</span>
         <div class="dropdown-menu">
           <a class="dropdown-link" href="#" id="menu-clear-editor">Clear Editor</a>
+          <a class="dropdown-link" href="#" id="menu-format-doc">Format Document (Shift+Alt+F)</a>
         </div>
       </div>
       <div class="menu-item">
@@ -97,44 +107,99 @@
     <!-- 2. SLIM ACTIVITY BAR (Far Left) -->
     <aside class="activity-bar">
       <div class="activity-item" data-tab-panel="editor" title="Code Editor">
-        <svg viewBox="0 0 24 24"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"
+            fill="currentColor" />
+        </svg>
+      </div>
+      <div class="activity-item" data-tab-panel="search" title="Search &amp; Replace">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+            fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item active" data-tab-panel="mentor" title="AI Assistant">
-        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"
+            fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item" data-tab-panel="path" title="Hunt Path">
-        <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"
+            fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item" data-tab-panel="quests" title="Quest Board">
-        <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"
+            fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item" data-tab-panel="vault" title="Intel Vault">
-        <svg viewBox="0 0 24 24"><path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V8h14v10zm-7-9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V8h14v10zm-7-9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
+            fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item" data-tab-panel="doc-analysis" title="Doc Forensics">
-        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+            fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item" data-tab-panel="stats" title="Terminal Stats">
-        <svg viewBox="0 0 24 24"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z" fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item" data-tab-panel="music" title="Music Player">
-        <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h6V3h-8zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h6V3h-8zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"
+            fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item" data-tab-panel="arcade" title="Game Arcade">
-        <svg viewBox="0 0 24 24"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5S18.67 9 19.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5S18.67 9 19.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
+            fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item" data-tab-panel="terminal" title="Hunt Terminal">
-        <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 12H4v-2h8v2zm9-4l-9 4V8l9 4z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 12H4v-2h8v2zm9-4l-9 4V8l9 4z"
+            fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item" data-tab-panel="notifications" title="System Messages">
-        <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"
+            fill="currentColor" />
+        </svg>
         <span class="activity-badge" id="activity-notifications-badge" style="display: none;">0</span>
       </div>
       <div class="activity-item" data-tab-panel="linkedin" title="LinkedIn Drafts">
-        <svg viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"
+            fill="currentColor" />
+        </svg>
       </div>
       <div class="activity-item" data-tab-panel="settings" title="Settings">
-        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+            fill="currentColor" />
+        </svg>
       </div>
     </aside>
 
@@ -143,11 +208,16 @@
       <div class="explorer-header">
         <span id="explorer-title">EXPLORER: LOCAL-AI</span>
         <div style="display: flex; gap: 6px; align-items: center;">
-          <button id="explorer-new-file-btn" class="explorer-action-btn" title="New File" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px;">
-            <svg viewBox="0 0 24 24" style="width:14px; height:14px;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" fill="currentColor"/></svg>
+          <button id="explorer-new-file-btn" class="explorer-action-btn" title="New File"
+            style="background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px;">
+            <svg viewBox="0 0 24 24" style="width:14px; height:14px;">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" fill="currentColor" />
+            </svg>
           </button>
           <button id="explorer-collapse-btn" class="explorer-action-btn" title="Collapse Explorer">
-            <svg viewBox="0 0 24 24" style="width:14px; height:14px;"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" fill="currentColor"/></svg>
+            <svg viewBox="0 0 24 24" style="width:14px; height:14px;">
+              <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" fill="currentColor" />
+            </svg>
           </button>
         </div>
       </div>
@@ -155,14 +225,26 @@
         <!-- File tree list will render here -->
         <div id="file-explorer-tree" class="file-tree"></div>
       </div>
+
+      <!-- Symbol Outline accordion section -->
+      <div class="sidebar-outline-section" id="sidebar-outline-section" style="display: none;">
+        <div class="outline-header">
+          <span>Outline / Symbols</span>
+          <span class="muted" style="font-size: 8px;">ACTIVE FILE</span>
+        </div>
+        <div class="outline-content-tree" id="outline-content-tree">
+          <div class="muted" style="font-size: 10px; font-style: italic;">No symbols scanned</div>
+        </div>
+      </div>
     </aside>
 
     <!-- 4. WORKSPACE PANELS CONTAINER -->
     <div class="main-content-pane">
-      
+
       <!-- Top header panel tabs (shows active tab) -->
       <div class="panel-tabs-bar" id="panel-tabs-bar">
         <div class="tab-item" data-panel="editor">Code Editor</div>
+        <div class="tab-item" data-panel="search">Search &amp; Replace</div>
         <div class="tab-item active" data-panel="mentor">AI Assistant</div>
         <div class="tab-item" data-panel="path">Hunt Path</div>
         <div class="tab-item" data-panel="quests">Quest Board</div>
@@ -172,7 +254,8 @@
         <div class="tab-item" data-panel="arcade">Game Arcade</div>
         <div class="tab-item" data-panel="terminal">Hunt Terminal</div>
         <div class="tab-item" data-panel="notifications" id="nav-notifications">
-          System Messages <span class="badge" id="notification-unread-count" style="display:none; margin-left:6px; background:var(--red); color:#fff; border-color:var(--red); font-weight:bold; font-size:9px; padding:1px 4px; border-radius:10px;">0</span>
+          System Messages <span class="badge" id="notification-unread-count"
+            style="display:none; margin-left:6px; background:var(--red); color:#fff; border-color:var(--red); font-weight:bold; font-size:9px; padding:1px 4px; border-radius:10px;">0</span>
         </div>
         <div class="tab-item" data-panel="linkedin">LinkedIn Drafts</div>
         <div class="tab-item" data-panel="settings">Settings</div>
@@ -180,17 +263,109 @@
 
       <!-- WORKSPACE PANELS -->
       <main class="panels-container">
-        
+
         <!-- NEW CODE EDITOR PANEL -->
         <section class="panel" id="panel-editor">
-          <div class="editor-workspace">
+          <div class="editor-workspace" style="position: relative;">
+            <!-- Editor Workspace Tabs Bar -->
+            <div class="editor-tabs-bar" id="editor-tabs-bar"></div>
+
             <div class="editor-header-bar">
-              <span id="active-file-path" class="active-file-path">// Select a file from the explorer sidebar to begin editing</span>
-              <button id="editor-save-btn" class="btn-primary" style="padding: 6px 12px; font-size: 11px; margin-left: auto;" disabled>Save File (Ctrl+S)</button>
+              <span id="active-file-path" class="active-file-path">// Select a file from the explorer sidebar to begin
+                editing</span>
+              <button id="editor-save-btn" class="btn-primary"
+                style="padding: 6px 12px; font-size: 11px; margin-left: auto;" disabled>Save File (Ctrl+S)</button>
+              <button id="editor-toggle-terminal-btn" class="btn-ghost"
+                style="padding: 6px 12px; font-size: 11px; margin-left: 8px;">📟 Terminal</button>
             </div>
+
+            <!-- Floating Find & Replace Widget -->
+            <div class="editor-find-widget" id="editor-find-widget">
+              <div class="find-input-row">
+                <input type="text" id="find-input" placeholder="Find term..." autocomplete="off" />
+                <button class="find-btn find-btn-primary" id="find-next" title="Next Match (Enter)">↓</button>
+                <button class="find-btn" id="find-prev" title="Previous Match (Shift+Enter)">↑</button>
+                <button class="find-close" id="find-close" title="Close (Esc)">✕</button>
+              </div>
+              <div class="replace-input-row">
+                <input type="text" id="replace-input" placeholder="Replace with..." autocomplete="off" />
+                <button class="find-btn" id="replace-btn" title="Replace Current Match">Replace</button>
+                <button class="find-btn" id="replace-all-btn" title="Replace All Matches">All</button>
+              </div>
+              <div class="find-widget-stats" id="find-widget-stats">0 of 0</div>
+            </div>
+
             <div class="editor-container-inner">
               <div class="editor-line-numbers" id="editor-line-numbers">1</div>
-              <textarea id="editor-textarea" class="editor-textarea" placeholder="// Select a file from the Explorer Sidebar or click File -> New File to write code..." disabled></textarea>
+              <textarea id="editor-textarea" class="editor-textarea"
+                placeholder="// Select a file from the Explorer Sidebar or click File -> New File to write code..."
+                disabled></textarea>
+            </div>
+
+            <!-- Bottom Terminal Panel inside Editor Workspace -->
+            <div class="editor-bottom-terminal" id="editor-bottom-terminal" style="display: none; height: 250px; border-top: 1px solid var(--border); flex-direction: column;">
+              <div class="editor-terminal-header" style="height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px;">
+                <span style="font-weight: bold; color: var(--accent);">📟 INTEGRATED TERMINAL</span>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn-ghost" id="editor-terminal-clear-btn" style="padding: 2px 6px; font-size: 10px; border-color: rgba(255,255,255,0.15);">Clear</button>
+                  <button class="btn-ghost" id="editor-terminal-close-btn" style="padding: 2px 6px; font-size: 10px; color: var(--red); border-color: rgba(255,77,109,0.25);">✕ Close</button>
+                </div>
+              </div>
+              <div class="terminal-body" id="editor-terminal-body" style="flex: 1; overflow-y: auto; padding: 10px; font-family: var(--mono); font-size: 12px; line-height: 1.5; background: #0c0f12; color: #fff;">
+                <div class="terminal-output" id="editor-terminal-output">
+                  <div class="terminal-line"><span class="ansi-cyan">DevHunt Integrated Terminal v1.0</span></div>
+                  <div class="terminal-line"><span class="ansi-muted">----------------------------------------------------------------------------------------------------</span></div>
+                </div>
+                <div class="terminal-input-line" style="display: flex; align-items: center; margin-top: 4px;">
+                  <span class="terminal-prompt" id="editor-terminal-prompt">guest@devhunt:~$</span>
+                  <input type="text" class="terminal-input" id="editor-terminal-input" autocomplete="off" spellcheck="false" placeholder="Enter command..." style="flex: 1; border: none; background: transparent; color: inherit; font-family: inherit; font-size: inherit; outline: none; margin-left: 6px;" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- GLOBAL SEARCH & REPLACE PANEL -->
+        <section class="panel" id="panel-search">
+          <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+            <div class="card-head">
+              <h2>Find &amp; Replace in All Files</h2>
+              <div class="hud">
+                <span class="hud-pill"><i class="dot dot-green"></i> NOTEPAD++ ENGINE</span>
+              </div>
+            </div>
+
+            <div class="search-inputs-wrap">
+              <div class="search-input-field">
+                <label for="global-search-input">Find</label>
+                <div class="form-row">
+                  <input type="text" id="global-search-input" placeholder="Text to search..." autocomplete="off" />
+                  <button class="btn-primary" id="global-search-btn"
+                    style="padding: 6px 14px; font-size: 11px;">Search</button>
+                </div>
+              </div>
+              <div class="search-input-field">
+                <label for="global-replace-input">Replace With</label>
+                <div class="form-row">
+                  <input type="text" id="global-replace-input" placeholder="Replacement text..." autocomplete="off" />
+                  <button class="btn-ghost" id="global-replace-btn"
+                    style="padding: 6px 14px; font-size: 11px; color: var(--red); border-color: rgba(255,77,109,0.3);">Replace
+                    All</button>
+                </div>
+              </div>
+              <div class="search-controls">
+                <div class="search-options-row">
+                  <button class="search-option-btn" id="search-opt-case" title="Match Case">Aa</button>
+                  <button class="search-option-btn" id="search-opt-word" title="Match Whole Word">ab</button>
+                  <button class="search-option-btn" id="search-opt-regex" title="Use Regular Expression">.*</button>
+                </div>
+                <span class="muted" id="global-search-status"
+                  style="margin-left: auto; font-family: var(--mono); font-size: 10.5px;"></span>
+              </div>
+            </div>
+
+            <div class="search-results-list" id="global-search-results">
+              <div class="muted" style="text-align: center; padding: 40px 0;">// Enter a query and run Search</div>
             </div>
           </div>
         </section>
@@ -200,9 +375,14 @@
           <div class="mentor-grid">
             <!-- Sidebar for Chat History Sessions -->
             <aside class="card chat-history-sidebar collapsed" id="mentor-history-sidebar">
-              <div class="card-head" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px;">
-                <h3 style="font-size: 12px; font-family: var(--display); letter-spacing: 1.5px; margin: 0; text-transform: uppercase; color: var(--cyan);">Chats</h3>
-                <button class="btn-primary btn-xs" id="mentor-new-chat-btn" style="padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; background: var(--accent); color: #fff;">+ New</button>
+              <div class="card-head"
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px;">
+                <h3
+                  style="font-size: 12px; font-family: var(--display); letter-spacing: 1.5px; margin: 0; text-transform: uppercase; color: var(--cyan);">
+                  Chats</h3>
+                <button class="btn-primary btn-xs" id="mentor-new-chat-btn"
+                  style="padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; background: var(--accent); color: #fff;">+
+                  New</button>
               </div>
               <div class="history-sessions-list" id="mentor-history-sessions-list">
                 <!-- Rendered sessions grouped by date -->
@@ -212,7 +392,8 @@
             <div class="card chat">
               <div class="card-head">
                 <h2 style="display: flex; align-items: center; gap: 8px; font-family: var(--display);">
-                  <button id="btn-toggle-history" class="btn-ghost btn-xs" style="padding: 4px 8px; font-size:11px;" title="Toggle Chat History">🕒 History</button>
+                  <button id="btn-toggle-history" class="btn-ghost btn-xs" style="padding: 4px 8px; font-size:11px;"
+                    title="Toggle Chat History">🕒 History</button>
                   AI Assistant
                 </h2>
                 <div class="hud">
@@ -228,18 +409,22 @@
             </div>
 
             <aside class="card chat-side">
-              <div class="card-head"><h3>Today's Targets</h3></div>
+              <div class="card-head">
+                <h3>Today's Targets</h3>
+              </div>
               <ul class="target-list">
                 <li><span class="tag tag-high">HIGH</span> Docker volumes deep-dive</li>
                 <li><span class="tag tag-high">HIGH</span> K8s pod lifecycle</li>
                 <li><span class="tag tag-med">MED</span> Bash scripting refresher</li>
                 <li><span class="tag tag-med">MED</span> Git rebase patterns</li>
               </ul>
-              <div class="card-head"><h3>Quick Quests</h3></div>
+              <div class="card-head">
+                <h3>Quick Quests</h3>
+              </div>
               <ul class="quest-mini">
-                <li><label><input type="checkbox"/> Review CI/CD notes</label></li>
-                <li><label><input type="checkbox" checked/> Read Terraform doc</label></li>
-                <li><label><input type="checkbox"/> Lab: nginx reverse proxy</label></li>
+                <li><label><input type="checkbox" /> Review CI/CD notes</label></li>
+                <li><label><input type="checkbox" checked /> Read Terraform doc</label></li>
+                <li><label><input type="checkbox" /> Lab: nginx reverse proxy</label></li>
               </ul>
             </aside>
           </div>
@@ -251,7 +436,9 @@
             <div class="card-head">
               <h2>Hunt Path · Roadmap</h2>
               <div class="row gap">
-                <div class="progress"><div class="bar" style="width:38%" id="roadmap-progress-bar"></div></div>
+                <div class="progress">
+                  <div class="bar" style="width:38%" id="roadmap-progress-bar"></div>
+                </div>
                 <span class="muted" id="roadmap-progress-text">38% complete</span>
                 <button class="btn-ghost" id="expand-all-path">⛶ Expand All</button>
                 <button class="btn-ghost" id="collapse-all-path">⛶ Collapse All</button>
@@ -278,50 +465,68 @@
           <!-- Upload/Scrape Grid -->
           <div class="vault-grid" id="vault-grid">
             <div class="card">
-              <div class="card-head"><h3>Drop Files</h3></div>
+              <div class="card-head">
+                <h3>Drop Files</h3>
+              </div>
               <div class="dropzone" id="dropzone">
                 <div class="dz-icon">⇩</div>
-                <div>Drop PDF · TXT · MD here<br/><span class="muted">or click to browse</span></div>
-                <input type="file" id="filein" hidden multiple/>
+                <div>Drop PDF · TXT · MD here<br /><span class="muted">or click to browse</span></div>
+                <input type="file" id="filein" hidden multiple />
               </div>
             </div>
             <div class="card">
-              <div class="card-head"><h3>Scrape URL</h3></div>
-              <div class="form-row"><input id="url-in" placeholder="https://docs.example.com"/><button class="btn-primary" id="url-btn">Index</button></div>
-              <div class="card-head" style="margin-top:18px"><h3>Custom Note</h3></div>
-              <input id="note-title" placeholder="Note title"/>
+              <div class="card-head">
+                <h3>Scrape URL</h3>
+              </div>
+              <div class="form-row"><input id="url-in" placeholder="https://docs.example.com" /><button
+                  class="btn-primary" id="url-btn">Index</button></div>
+              <div class="card-head" style="margin-top:18px">
+                <h3>Custom Note</h3>
+              </div>
+              <input id="note-title" placeholder="Note title" />
               <textarea id="note-body" placeholder="Write a note to index..." rows="4"></textarea>
               <button class="btn-primary" id="note-btn" style="margin-top:10px">Save Note</button>
             </div>
             <div class="card vault-table-wrap">
-              <div class="card-head"><h3>Indexed Sources</h3></div>
+              <div class="card-head">
+                <h3>Indexed Sources</h3>
+              </div>
               <table class="data-table" id="vault-table"></table>
             </div>
           </div>
 
           <!-- Split Document Viewer & Chat Analyst (Hidden by default) -->
           <div class="vault-viewer-grid" id="vault-viewer-grid" style="display: none;">
-            <div class="card doc-reader-card" style="display: flex; flex-direction: column; height: calc(100vh - 160px);">
+            <div class="card doc-reader-card"
+              style="display: flex; flex-direction: column; height: calc(100vh - 160px);">
               <div class="card-head" style="border-bottom: 1px solid var(--border); padding-bottom: 10px;">
-                <h2 id="doc-viewer-title" style="margin: 0; font-family: var(--display); color: var(--green);">Document Viewer</h2>
+                <h2 id="doc-viewer-title" style="margin: 0; font-family: var(--display); color: var(--green);">Document
+                  Viewer</h2>
                 <button class="btn-ghost" onclick="closeDocViewer()">✕ Close Analyst</button>
               </div>
-              <div class="doc-viewer-body" id="doc-viewer-content" style="flex: 1; overflow-y: auto; padding: 14px 0; font-family: var(--mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; color: var(--text);">
+              <div class="doc-viewer-body" id="doc-viewer-content"
+                style="flex: 1; overflow-y: auto; padding: 14px 0; font-family: var(--mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; color: var(--text);">
                 <!-- Concatenated document chunks -->
               </div>
             </div>
 
             <div class="card doc-chat-card" style="display: flex; flex-direction: column; height: calc(100vh - 160px);">
-              <div class="card-head" style="border-bottom: 1px solid var(--border); padding-bottom: 10px; justify-content: space-between;">
+              <div class="card-head"
+                style="border-bottom: 1px solid var(--border); padding-bottom: 10px; justify-content: space-between;">
                 <h3 style="margin: 0; font-family: var(--display); color: var(--cyan);">Document Analyst Chat</h3>
-                <button class="btn-ghost" id="doc-chat-clear" style="font-size: 10px; color: var(--red); border-color: rgba(255,77,109,.3);">✕ Clear Chat</button>
+                <button class="btn-ghost" id="doc-chat-clear"
+                  style="font-size: 10px; color: var(--red); border-color: rgba(255,77,109,.3);">✕ Clear Chat</button>
               </div>
-              <div class="doc-chat-feed" id="doc-chat-feed" style="flex: 1; overflow-y: auto; padding: 14px 0; display: flex; flex-direction: column; gap: 12px;">
+              <div class="doc-chat-feed" id="doc-chat-feed"
+                style="flex: 1; overflow-y: auto; padding: 14px 0; display: flex; flex-direction: column; gap: 12px;">
                 <!-- Specific doc chat feed -->
               </div>
-              <div class="chat-input" style="border-top: 1px solid var(--border); padding-top: 10px; display: flex; gap: 8px;">
-                <textarea id="doc-chat-input" placeholder="Ask anything about this document..." rows="2" style="flex: 1; resize: none; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-family: inherit; font-size: 12px; color: var(--text);"></textarea>
-                <button class="btn-primary" id="doc-chat-send" style="padding: 0 16px; font-weight: bold; font-size: 11px;">TRANSMIT →</button>
+              <div class="chat-input"
+                style="border-top: 1px solid var(--border); padding-top: 10px; display: flex; gap: 8px;">
+                <textarea id="doc-chat-input" placeholder="Ask anything about this document..." rows="2"
+                  style="flex: 1; resize: none; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-family: inherit; font-size: 12px; color: var(--text);"></textarea>
+                <button class="btn-primary" id="doc-chat-send"
+                  style="padding: 0 16px; font-weight: bold; font-size: 11px;">TRANSMIT →</button>
               </div>
             </div>
           </div>
@@ -330,27 +535,45 @@
         <!-- TERMINAL STATS -->
         <section class="panel" id="panel-stats" style="overflow-y:auto; max-height:calc(100vh - 140px);">
           <div class="stats-grid">
-            <div class="stat-card"><div class="stat-num" id="stat-hours">0.0</div><div class="stat-label">Study Hours</div></div>
-            <div class="stat-card"><div class="stat-num" id="stat-quests">0</div><div class="stat-label">Completed Quests</div></div>
-            <div class="stat-card"><div class="stat-num" id="stat-streak">0🔥</div><div class="stat-label">Daily Streak</div></div>
-            <div class="stat-card"><div class="stat-num" id="stat-consistency">0%</div><div class="stat-label">Consistency</div></div>
+            <div class="stat-card">
+              <div class="stat-num" id="stat-hours">0.0</div>
+              <div class="stat-label">Study Hours</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-num" id="stat-quests">0</div>
+              <div class="stat-label">Completed Quests</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-num" id="stat-streak">0🔥</div>
+              <div class="stat-label">Daily Streak</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-num" id="stat-consistency">0%</div>
+              <div class="stat-label">Consistency</div>
+            </div>
           </div>
 
           <div class="stats-row">
             <div class="card">
-              <div class="card-head"><h3>Profile Editor</h3></div>
+              <div class="card-head">
+                <h3>Profile Editor</h3>
+              </div>
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px;">
-                <label style="margin:0;">Display name<input id="profile-name" value=""/></label>
-                <label style="margin:0;">Career goal<input id="profile-goal" value=""/></label>
+                <label style="margin:0;">Display name<input id="profile-name" value="" /></label>
+                <label style="margin:0;">Career goal<input id="profile-goal" value="" /></label>
               </div>
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
-                <label style="margin:0;">Daily target (min)<input id="profile-target" type="number" value="240"/></label>
-                <label style="margin:0;">Start date<input id="profile-start-date" type="date" value="2025-09-01"/></label>
+                <label style="margin:0;">Daily target (min)<input id="profile-target" type="number"
+                    value="240" /></label>
+                <label style="margin:0;">Start date<input id="profile-start-date" type="date"
+                    value="2025-09-01" /></label>
               </div>
               <button class="btn-primary" id="profile-save" style="width:100%;">Save Profile</button>
             </div>
             <div class="card">
-              <div class="card-head"><h3>7-Day Activity</h3></div>
+              <div class="card-head">
+                <h3>7-Day Activity</h3>
+              </div>
               <svg id="chart" viewBox="0 0 420 200" preserveAspectRatio="none"></svg>
               <div class="legend">
                 <span><i class="sw sw-green"></i> Questions Asked</span>
@@ -358,121 +581,166 @@
               </div>
             </div>
             <div class="card">
-              <div class="card-head"><h3>Skills Matrix</h3></div>
+              <div class="card-head">
+                <h3>Skills Matrix</h3>
+              </div>
               <div id="skills"></div>
             </div>
           </div>
 
           <div style="display:flex; align-items:center; gap:14px; margin:28px 0 20px;">
             <div style="flex:1; height:1px; background:var(--border);"></div>
-            <div style="font-family:var(--display); font-size:11px; letter-spacing:2px; color:var(--cyan); white-space:nowrap;">▰ API &amp; TOKEN METRICS</div>
+            <div
+              style="font-family:var(--display); font-size:11px; letter-spacing:2px; color:var(--cyan); white-space:nowrap;">
+              ▰ API &amp; TOKEN METRICS</div>
             <div style="flex:1; height:1px; background:var(--border);"></div>
           </div>
 
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
-            <div class="muted" style="font-size:11px; font-family:var(--mono);">// Live aggregated token usage, model distribution, and API key workload</div>
-            <button class="btn-ghost" id="stats-refresh-btn" style="font-size:11px; display:flex; align-items:center; gap:6px;">
+          <div
+            style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
+            <div class="muted" style="font-size:11px; font-family:var(--mono);">// Live aggregated token usage, model
+              distribution, and API key workload</div>
+            <button class="btn-ghost" id="stats-refresh-btn"
+              style="font-size:11px; display:flex; align-items:center; gap:6px;">
               <span id="stats-refresh-icon">⟳</span> Refresh Data
             </button>
           </div>
 
-          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px;" id="stats-kpi-row">
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px;"
+            id="stats-kpi-row">
             <div class="card" style="padding:16px 18px; text-align:center;">
-              <div style="font-size:9px; font-family:var(--mono); color:var(--muted); letter-spacing:1.5px; margin-bottom:6px;">TOTAL MESSAGES</div>
-              <div id="kpi-total-msgs" style="font-family:var(--display); font-size:28px; color:var(--accent); font-weight:700;">—</div>
+              <div
+                style="font-size:9px; font-family:var(--mono); color:var(--muted); letter-spacing:1.5px; margin-bottom:6px;">
+                TOTAL MESSAGES</div>
+              <div id="kpi-total-msgs"
+                style="font-family:var(--display); font-size:28px; color:var(--accent); font-weight:700;">—</div>
               <div style="font-size:10px; color:var(--muted); margin-top:4px;">exchanges logged</div>
             </div>
             <div class="card" style="padding:16px 18px; text-align:center;">
-              <div style="font-size:9px; font-family:var(--mono); color:var(--muted); letter-spacing:1.5px; margin-bottom:6px;">EST. TOKENS USED</div>
-              <div id="kpi-total-tokens" style="font-family:var(--display); font-size:28px; color:var(--accent); font-weight:700;">—</div>
+              <div
+                style="font-size:9px; font-family:var(--mono); color:var(--muted); letter-spacing:1.5px; margin-bottom:6px;">
+                EST. TOKENS USED</div>
+              <div id="kpi-total-tokens"
+                style="font-family:var(--display); font-size:28px; color:var(--accent); font-weight:700;">—</div>
               <div style="font-size:10px; color:var(--muted); margin-top:4px;">≈ chars ÷ 4</div>
             </div>
             <div class="card" style="padding:16px 18px; text-align:center;">
-              <div style="font-size:9px; font-family:var(--mono); color:var(--muted); letter-spacing:1.5px; margin-bottom:6px;">ACTIVE MODELS</div>
-              <div id="kpi-models" style="font-family:var(--display); font-size:28px; color:var(--accent); font-weight:700;">—</div>
+              <div
+                style="font-size:9px; font-family:var(--mono); color:var(--muted); letter-spacing:1.5px; margin-bottom:6px;">
+                ACTIVE MODELS</div>
+              <div id="kpi-models"
+                style="font-family:var(--display); font-size:28px; color:var(--accent); font-weight:700;">—</div>
               <div style="font-size:10px; color:var(--muted); margin-top:4px;">model variants</div>
             </div>
             <div class="card" style="padding:16px 18px; text-align:center;">
-              <div style="font-size:9px; font-family:var(--mono); color:var(--muted); letter-spacing:1.5px; margin-bottom:6px;">API KEYS ACTIVE</div>
-              <div id="kpi-keys" style="font-family:var(--display); font-size:28px; color:var(--accent); font-weight:700;">—</div>
+              <div
+                style="font-size:9px; font-family:var(--mono); color:var(--muted); letter-spacing:1.5px; margin-bottom:6px;">
+                API KEYS ACTIVE</div>
+              <div id="kpi-keys"
+                style="font-family:var(--display); font-size:28px; color:var(--accent); font-weight:700;">—</div>
               <div style="font-size:10px; color:var(--muted); margin-top:4px;">registered keys</div>
             </div>
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
             <div class="card" style="padding:16px;">
-              <div class="card-head" style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
+              <div class="card-head"
+                style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
                 <h3 style="font-size:12px; letter-spacing:1px;">MODEL USAGE DISTRIBUTION</h3>
                 <span class="badge" style="font-size:9px;">requests</span>
               </div>
               <canvas id="chart-models" height="160" style="width:100%; display:block;"></canvas>
-              <div id="model-legend" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; font-size:10px; font-family:var(--mono);"></div>
+              <div id="model-legend"
+                style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; font-size:10px; font-family:var(--mono);">
+              </div>
             </div>
             <div class="card" style="padding:16px;">
-              <div class="card-head" style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
+              <div class="card-head"
+                style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
                 <h3 style="font-size:12px; letter-spacing:1px;">API KEY WORKLOAD</h3>
                 <span class="badge" style="font-size:9px;">requests</span>
               </div>
               <canvas id="chart-keys" height="160" style="width:100%; display:block;"></canvas>
-              <div id="key-legend" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; font-size:10px; font-family:var(--mono);"></div>
+              <div id="key-legend"
+                style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; font-size:10px; font-family:var(--mono);">
+              </div>
             </div>
           </div>
 
           <div style="display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-bottom:14px;">
             <div class="card" style="padding:16px;">
-              <div class="card-head" style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
+              <div class="card-head"
+                style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
                 <h3 style="font-size:12px; letter-spacing:1px;">14-DAY MESSAGE ACTIVITY</h3>
                 <span class="badge" style="font-size:9px;">daily</span>
               </div>
               <canvas id="chart-daily" height="140" style="width:100%; display:block;"></canvas>
             </div>
-            <div class="card" style="padding:16px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-              <div class="card-head" style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border); width:100%;">
+            <div class="card"
+              style="padding:16px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+              <div class="card-head"
+                style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border); width:100%;">
                 <h3 style="font-size:12px; letter-spacing:1px;">USER vs AI SPLIT</h3>
               </div>
               <canvas id="chart-role" width="140" height="140" style="display:block;"></canvas>
-              <div id="role-legend" style="margin-top:12px; font-size:10.5px; font-family:var(--mono); text-align:center; display:flex; gap:14px; flex-wrap:wrap; justify-content:center;"></div>
+              <div id="role-legend"
+                style="margin-top:12px; font-size:10.5px; font-family:var(--mono); text-align:center; display:flex; gap:14px; flex-wrap:wrap; justify-content:center;">
+              </div>
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:14px; margin-bottom:14px;" id="stats-bottom-row">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:14px; margin-bottom:14px;"
+            id="stats-bottom-row">
             <div class="card" style="padding:16px;">
-              <div class="card-head" style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
+              <div class="card-head"
+                style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
                 <h3 style="font-size:12px; letter-spacing:1px;">EST. TOKENS PER MODEL</h3>
                 <span class="badge" style="font-size:9px;">tokens</span>
               </div>
               <div id="token-model-bars" style="display:flex; flex-direction:column; gap:10px;"></div>
             </div>
             <div class="card" style="padding:16px;">
-              <div class="card-head" style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
+              <div class="card-head"
+                style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
                 <h3 style="font-size:12px; letter-spacing:1px;">TOP SESSIONS</h3>
                 <span class="badge" style="font-size:9px;">by volume</span>
               </div>
               <table style="width:100%; border-collapse:collapse; font-family:var(--mono); font-size:10.5px;">
                 <thead>
                   <tr style="border-bottom:1px solid var(--border);">
-                    <th style="text-align:left; padding:4px 6px; color:var(--muted); font-weight:600; font-size:9px; letter-spacing:1px;">SESSION ID</th>
-                    <th style="text-align:right; padding:4px 6px; color:var(--muted); font-weight:600; font-size:9px; letter-spacing:1px;">MSGS</th>
-                    <th style="text-align:right; padding:4px 6px; color:var(--muted); font-weight:600; font-size:9px; letter-spacing:1px;">~TOKENS</th>
+                    <th
+                      style="text-align:left; padding:4px 6px; color:var(--muted); font-weight:600; font-size:9px; letter-spacing:1px;">
+                      SESSION ID</th>
+                    <th
+                      style="text-align:right; padding:4px 6px; color:var(--muted); font-weight:600; font-size:9px; letter-spacing:1px;">
+                      MSGS</th>
+                    <th
+                      style="text-align:right; padding:4px 6px; color:var(--muted); font-weight:600; font-size:9px; letter-spacing:1px;">
+                      ~TOKENS</th>
                   </tr>
                 </thead>
                 <tbody id="sessions-table-body">
-                  <tr><td colspan="3" style="text-align:center; color:var(--muted); padding:20px;">Loading...</td></tr>
+                  <tr>
+                    <td colspan="3" style="text-align:center; color:var(--muted); padding:20px;">Loading...</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
             <div class="card" style="padding:16px;">
-              <div class="card-head" style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
+              <div class="card-head"
+                style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
                 <h3 style="font-size:12px; letter-spacing:1px;">ADVANCED CYBER INSIGHTS</h3>
                 <span class="badge" style="font-size:9px;">efficiency</span>
               </div>
-              <div id="advanced-insights-content" style="display:flex; flex-direction:column; gap:10px; font-family:var(--mono); font-size:11px;">
+              <div id="advanced-insights-content"
+                style="display:flex; flex-direction:column; gap:10px; font-family:var(--mono); font-size:11px;">
                 <!-- loaded dynamically -->
               </div>
             </div>
           </div>
 
-          <div style="text-align:right; font-size:10px; font-family:var(--mono); color:var(--muted); margin-top:4px; margin-bottom:20px;">
+          <div
+            style="text-align:right; font-size:10px; font-family:var(--mono); color:var(--muted); margin-top:4px; margin-bottom:20px;">
             <span id="stats-last-updated">// Not yet loaded</span>
           </div>
         </section>
@@ -506,20 +774,24 @@
 
             <!-- Scrollable Content Panes -->
             <div class="settings-content-area">
-              
+
               <!-- 1. APPEARANCE & GENERAL -->
               <div class="settings-pane active" id="settings-pane-general">
                 <!-- Theme Select & Base Toggles -->
                 <div class="card">
-                  <div class="card-head"><h2>Theme &amp; Layout</h2></div>
+                  <div class="card-head">
+                    <h2>Theme &amp; Layout</h2>
+                  </div>
                   <div style="display:flex; flex-direction:column; gap:12px;">
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">Select UI Theme</div>
-                        <div class="muted">Switch between Industrial Slate, Deep Space Dark, and Minimalist Light themes.</div>
+                        <div class="muted">Switch between Industrial Slate, Deep Space Dark, and Minimalist Light
+                          themes.</div>
                       </div>
                       <div style="width: 180px; flex-shrink:0;">
-                        <select id="theme-selector" style="width:100%; font-size:12px; padding:6px; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                        <select id="theme-selector"
+                          style="width:100%; font-size:12px; padding:6px; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
                           <option value="slate">Industrial Slate</option>
                           <option value="neon">Deep Space Dark</option>
                           <option value="light">Minimalist Light</option>
@@ -532,66 +804,80 @@
                         <div class="toggle-title">English Communication Helper</div>
                         <div class="muted">Prepends a "Grammar &amp; Phrasing Tip" callout to every AI response.</div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="grammar-toggle" checked/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="grammar-toggle" checked /><span></span></label>
                     </div>
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">Minimize Sidebar Panel</div>
-                        <div class="muted">Collapse the left file explorer panel into a hidden state (Hotkey configurable).</div>
+                        <div class="muted">Collapse the left file explorer panel into a hidden state (Hotkey
+                          configurable).</div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="sidebar-collapse-toggle"/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="sidebar-collapse-toggle" /><span></span></label>
                     </div>
                   </div>
                 </div>
 
                 <!-- Font & Media Settings -->
                 <div class="card" style="margin-top:18px;">
-                  <div class="card-head"><h2>Typography &amp; Environment</h2></div>
+                  <div class="card-head">
+                    <h2>Typography &amp; Environment</h2>
+                  </div>
                   <div style="display:flex; flex-direction:column; gap:16px;">
                     <!-- Particle Bg -->
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">Canvas Particles Animation</div>
-                        <div class="muted">Toggle the glowing network animation in Deep Space Dark Theme (turn off to save CPU).</div>
+                        <div class="muted">Toggle the glowing network animation in Deep Space Dark Theme (turn off to
+                          save CPU).</div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="toggle-canvas-particles" checked/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="toggle-canvas-particles"
+                          checked /><span></span></label>
                     </div>
                     <!-- Sound effects -->
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">Interface Sound Effects</div>
-                        <div class="muted">Play micro-feedback audio sounds during clicks and key events in Game Arcade or Vault.</div>
+                        <div class="muted">Play micro-feedback audio sounds during clicks and key events in Game Arcade
+                          or Vault.</div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="toggle-sound-effects" checked/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="toggle-sound-effects"
+                          checked /><span></span></label>
                     </div>
-                    
+
                     <!-- Font family / size editor -->
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; border-top:1px solid var(--border); padding-top:16px;">
+                    <div
+                      style="display:grid; grid-template-columns:1fr 1fr; gap:16px; border-top:1px solid var(--border); padding-top:16px;">
                       <div>
                         <label class="toggle-title" style="margin-bottom:6px;">Code Editor Font</label>
-                        <select id="font-family-editor" style="width:100%; font-size:12px; padding:6px; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 4px; color: var(--text); margin-bottom:10px;">
+                        <select id="font-family-editor"
+                          style="width:100%; font-size:12px; padding:6px; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 4px; color: var(--text); margin-bottom:10px;">
                           <option value="JetBrains Mono">JetBrains Mono (Sleek)</option>
                           <option value="Orbitron">Orbitron (Retro Tech)</option>
                           <option value="Outfit">Outfit (Round Geometric)</option>
                           <option value="Inter">Inter (Neo-Grotesque)</option>
                         </select>
                         <div style="display:flex; align-items:center; gap:10px;">
-                          <input type="range" id="font-size-editor" min="11" max="22" step="1" value="14" style="flex:1; accent-color:var(--accent);"/>
-                          <span id="font-size-editor-val" class="badge" style="width:36px; text-align:center;">14px</span>
+                          <input type="range" id="font-size-editor" min="11" max="22" step="1" value="14"
+                            style="flex:1; accent-color:var(--accent);" />
+                          <span id="font-size-editor-val" class="badge"
+                            style="width:36px; text-align:center;">14px</span>
                         </div>
                       </div>
 
                       <div>
                         <label class="toggle-title" style="margin-bottom:6px;">Terminal Font</label>
-                        <select id="font-family-terminal" style="width:100%; font-size:12px; padding:6px; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 4px; color: var(--text); margin-bottom:10px;">
+                        <select id="font-family-terminal"
+                          style="width:100%; font-size:12px; padding:6px; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 4px; color: var(--text); margin-bottom:10px;">
                           <option value="JetBrains Mono">JetBrains Mono (Sleek)</option>
                           <option value="Orbitron">Orbitron (Retro Tech)</option>
                           <option value="Outfit">Outfit (Round Geometric)</option>
                           <option value="Inter">Inter (Neo-Grotesque)</option>
                         </select>
                         <div style="display:flex; align-items:center; gap:10px;">
-                          <input type="range" id="font-size-terminal" min="10" max="20" step="1" value="13" style="flex:1; accent-color:var(--accent);"/>
-                          <span id="font-size-terminal-val" class="badge" style="width:36px; text-align:center;">13px</span>
+                          <input type="range" id="font-size-terminal" min="10" max="20" step="1" value="13"
+                            style="flex:1; accent-color:var(--accent);" />
+                          <span id="font-size-terminal-val" class="badge"
+                            style="width:36px; text-align:center;">13px</span>
                         </div>
                       </div>
                     </div>
@@ -600,57 +886,72 @@
 
                 <!-- Feature Access toggles -->
                 <div class="card" style="margin-top:18px;">
-                  <div class="card-head"><h2>Feature Access Toggles</h2></div>
-                  <p class="muted" style="margin-bottom:12px; font-family:var(--mono); font-size:10.5px;">// Enable/disable specific application modules dynamically (changes hide/show elements in UI)</p>
+                  <div class="card-head">
+                    <h2>Feature Access Toggles</h2>
+                  </div>
+                  <p class="muted" style="margin-bottom:12px; font-family:var(--mono); font-size:10.5px;">//
+                    Enable/disable specific application modules dynamically (changes hide/show elements in UI)</p>
                   <div style="display:flex; flex-direction:column; gap:10px;">
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">Music Player &amp; Widgets</div>
-                        <div class="muted">Toggle display of the Music tab and global topbar/sidebar playback controllers.</div>
+                        <div class="muted">Toggle display of the Music tab and global topbar/sidebar playback
+                          controllers.</div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="toggle-feat-music" checked/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="toggle-feat-music"
+                          checked /><span></span></label>
                     </div>
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">Hunt Path Roadmap</div>
-                        <div class="muted">Toggle display of curriculum map tracks, study milestones, and progress meters.</div>
+                        <div class="muted">Toggle display of curriculum map tracks, study milestones, and progress
+                          meters.</div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="toggle-feat-path" checked/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="toggle-feat-path" checked /><span></span></label>
                     </div>
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">Quest Board</div>
-                        <div class="muted">Toggle display of developer quest cards, priority queues, and Kanban columns.</div>
+                        <div class="muted">Toggle display of developer quest cards, priority queues, and Kanban columns.
+                        </div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="toggle-feat-quests" checked/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="toggle-feat-quests"
+                          checked /><span></span></label>
                     </div>
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">Intel Vault (RAG)</div>
-                        <div class="muted">Toggle display of text/PDF upload dropzones and similarity matching chat references.</div>
+                        <div class="muted">Toggle display of text/PDF upload dropzones and similarity matching chat
+                          references.</div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="toggle-feat-vault" checked/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="toggle-feat-vault"
+                          checked /><span></span></label>
                     </div>
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">Doc Forensics</div>
-                        <div class="muted">Toggle display of Error Level Analysis (ELA) scanners, metadata verifiers, and PII alerts.</div>
+                        <div class="muted">Toggle display of Error Level Analysis (ELA) scanners, metadata verifiers,
+                          and PII alerts.</div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="toggle-feat-doc-analysis" checked/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="toggle-feat-doc-analysis"
+                          checked /><span></span></label>
                     </div>
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">Game Arcade</div>
-                        <div class="muted">Toggle display of the Game Arcade tab containing offline developer games.</div>
+                        <div class="muted">Toggle display of the Game Arcade tab containing offline developer games.
+                        </div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="toggle-feat-arcade" checked/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="toggle-feat-arcade"
+                          checked /><span></span></label>
                     </div>
                     <div class="toggle-row">
                       <div>
                         <div class="toggle-title">LinkedIn Drafts</div>
                         <div class="muted">Access drafts, schedule, and refine LinkedIn content.</div>
                       </div>
-                      <label class="switch"><input type="checkbox" id="toggle-feat-linkedin" checked/><span></span></label>
+                      <label class="switch"><input type="checkbox" id="toggle-feat-linkedin"
+                          checked /><span></span></label>
                     </div>
                   </div>
                 </div>
@@ -659,37 +960,47 @@
               <!-- 2. TERMINAL CUSTOMIZER -->
               <div class="settings-pane" id="settings-pane-terminal">
                 <div class="card">
-                  <div class="card-head"><h2>Terminal Prompt Layout</h2></div>
-                  <p class="muted" style="margin-bottom:14px; font-family:var(--mono);">// Customize your shell prompt configurations. Prompts reflect: user@hostname:cwd symbol</p>
-                  
+                  <div class="card-head">
+                    <h2>Terminal Prompt Layout</h2>
+                  </div>
+                  <p class="muted" style="margin-bottom:14px; font-family:var(--mono);">// Customize your shell prompt
+                    configurations. Prompts reflect: user@hostname:cwd symbol</p>
+
                   <div style="display:flex; flex-direction:column; gap:14px;">
                     <div class="form-grid-2">
                       <div class="form-group">
                         <label class="toggle-title" for="terminal-username-input">Terminal Username</label>
-                        <input type="text" id="terminal-username-input" placeholder="guest" style="width:100%; font-family:var(--mono); font-size:12px; padding:6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);"/>
+                        <input type="text" id="terminal-username-input" placeholder="guest"
+                          style="width:100%; font-family:var(--mono); font-size:12px; padding:6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);" />
                       </div>
                       <div class="form-group">
                         <label class="toggle-title" for="terminal-hostname-input">Terminal Hostname</label>
-                        <input type="text" id="terminal-hostname-input" placeholder="devhunt" style="width:100%; font-family:var(--mono); font-size:12px; padding:6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);"/>
+                        <input type="text" id="terminal-hostname-input" placeholder="devhunt"
+                          style="width:100%; font-family:var(--mono); font-size:12px; padding:6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);" />
                       </div>
                     </div>
-                    
+
                     <div class="form-grid-2">
                       <div class="form-group">
                         <label class="toggle-title" for="terminal-prompt-symbol">Prompt End Symbol</label>
-                        <input type="text" id="terminal-prompt-symbol" placeholder="$" style="width:100%; font-family:var(--mono); font-size:12px; padding:6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);"/>
+                        <input type="text" id="terminal-prompt-symbol" placeholder="$"
+                          style="width:100%; font-family:var(--mono); font-size:12px; padding:6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);" />
                       </div>
                       <div class="form-group">
                         <label class="toggle-title">System Error Beep Alert</label>
                         <div style="padding-top:8px;">
-                          <label class="switch"><input type="checkbox" id="terminal-sound-toggle" checked/><span></span></label>
+                          <label class="switch"><input type="checkbox" id="terminal-sound-toggle"
+                              checked /><span></span></label>
                         </div>
                       </div>
                     </div>
 
-                    <div style="display:flex; gap:10px; margin-top:10px; border-top:1px solid var(--border); padding-top:14px;">
-                      <button class="btn-primary" id="terminal-save-btn" style="padding:6px 14px; font-size:11px;">Apply Prompt Settings</button>
-                      <button class="btn-ghost" id="terminal-reset-btn" style="padding:6px 14px; font-size:11px;">Reset Prompt Defaults</button>
+                    <div
+                      style="display:flex; gap:10px; margin-top:10px; border-top:1px solid var(--border); padding-top:14px;">
+                      <button class="btn-primary" id="terminal-save-btn" style="padding:6px 14px; font-size:11px;">Apply
+                        Prompt Settings</button>
+                      <button class="btn-ghost" id="terminal-reset-btn" style="padding:6px 14px; font-size:11px;">Reset
+                        Prompt Defaults</button>
                     </div>
                   </div>
                 </div>
@@ -698,16 +1009,21 @@
               <!-- 3. KEYBOARD SHORTCUTS -->
               <div class="settings-pane" id="settings-pane-shortcuts">
                 <div class="card">
-                  <div class="card-head"><h2>IDE Keyboard Bindings</h2></div>
-                  <p class="muted" style="margin-bottom:16px;">Customize global workspace shortcuts. Click <b>Edit</b> to map keys (press escape/delete to skip), or <b>Reset</b> back to standard mappings.</p>
-                  
-                  <div id="shortcuts-mapping-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:18px;">
+                  <div class="card-head">
+                    <h2>IDE Keyboard Bindings</h2>
+                  </div>
+                  <p class="muted" style="margin-bottom:16px;">Customize global workspace shortcuts. Click <b>Edit</b>
+                    to map keys (press escape/delete to skip), or <b>Reset</b> back to standard mappings.</p>
+
+                  <div id="shortcuts-mapping-list"
+                    style="display:flex; flex-direction:column; gap:8px; margin-bottom:18px;">
                     <!-- Shortcut items render dynamically in app.js -->
                     <div class="muted">// Loading shortcut registry...</div>
                   </div>
 
                   <div style="display:flex; gap:10px; border-top:1px solid var(--border); padding-top:14px;">
-                    <button class="btn-primary" id="shortcut-reset-btn" style="padding:6px 14px; font-size:11px;">Reset All Keybindings</button>
+                    <button class="btn-primary" id="shortcut-reset-btn" style="padding:6px 14px; font-size:11px;">Reset
+                      All Keybindings</button>
                   </div>
                 </div>
               </div>
@@ -716,7 +1032,9 @@
               <div class="settings-pane" id="settings-pane-ai">
                 <!-- LLM settings -->
                 <div class="card">
-                  <div class="card-head"><h2>AI Execution Parameters</h2></div>
+                  <div class="card-head">
+                    <h2>AI Execution Parameters</h2>
+                  </div>
                   <div style="display:flex; flex-direction:column; gap:16px;">
                     <div class="toggle-row">
                       <div>
@@ -724,7 +1042,8 @@
                         <div class="muted">Change the generation LLM node directly. Auto matches the active pool.</div>
                       </div>
                       <div style="width: 180px; flex-shrink:0;">
-                        <select id="ai-model-select" style="width:100%; font-size:12px; padding:6px; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                        <select id="ai-model-select"
+                          style="width:100%; font-size:12px; padding:6px; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
                           <option value="auto">Auto Pool Decider</option>
                           <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
                           <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
@@ -738,8 +1057,10 @@
                         <div class="toggle-title">Creativity Temperature</div>
                         <span id="ai-temp-val" class="badge">0.7</span>
                       </div>
-                      <div class="muted" style="margin-bottom:4px;">Controls response variety. Lower values are deterministic, higher values are creative.</div>
-                      <input type="range" id="ai-temp-slider" min="0.0" max="1.5" step="0.1" value="0.7" style="width:100%; accent-color:var(--accent);"/>
+                      <div class="muted" style="margin-bottom:4px;">Controls response variety. Lower values are
+                        deterministic, higher values are creative.</div>
+                      <input type="range" id="ai-temp-slider" min="0.0" max="1.5" step="0.1" value="0.7"
+                        style="width:100%; accent-color:var(--accent);" />
                     </div>
 
                     <div class="toggle-row" style="align-items: flex-start; flex-direction:column; gap:6px;">
@@ -747,36 +1068,54 @@
                         <div class="toggle-title">Max Response Token Limit</div>
                         <span id="ai-max-tokens-val" class="badge">2048</span>
                       </div>
-                      <div class="muted" style="margin-bottom:4px;">Limits the maximum generated length size of LLM assistant messages.</div>
-                      <input type="range" id="ai-max-tokens-slider" min="512" max="8192" step="256" value="2048" style="width:100%; accent-color:var(--accent);"/>
+                      <div class="muted" style="margin-bottom:4px;">Limits the maximum generated length size of LLM
+                        assistant messages.</div>
+                      <input type="range" id="ai-max-tokens-slider" min="512" max="8192" step="256" value="2048"
+                        style="width:100%; accent-color:var(--accent);" />
                     </div>
                   </div>
                 </div>
 
                 <!-- Custom System Prompts -->
                 <div class="card" style="margin-top:18px;">
-                  <div class="card-head"><h2>Custom System Instructions</h2></div>
-                  <p class="muted" style="margin-bottom:10px;">Prepend tailored instructions to guide how DevHunt AI profiles code, explanations, and advice.</p>
+                  <div class="card-head">
+                    <h2>Custom System Instructions</h2>
+                  </div>
+                  <p class="muted" style="margin-bottom:10px;">Prepend tailored instructions to guide how DevHunt AI
+                    profiles code, explanations, and advice.</p>
                   <div style="display:flex; flex-direction:column; gap:10px;">
-                    <textarea id="ai-system-prompt" rows="5" placeholder="E.g., You are an expert system administrator. Provide shell command script samples in every single reply." style="width:100%; font-family:var(--mono); font-size:12px; padding:8px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius:4px; color:var(--text); resize:vertical;"></textarea>
+                    <textarea id="ai-system-prompt" rows="5"
+                      placeholder="E.g., You are an expert system administrator. Provide shell command script samples in every single reply."
+                      style="width:100%; font-family:var(--mono); font-size:12px; padding:8px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius:4px; color:var(--text); resize:vertical;"></textarea>
                     <div>
-                      <button class="btn-primary" id="ai-system-prompt-save-btn" style="padding:6px 14px; font-size:11px;">Save Instructions</button>
+                      <button class="btn-primary" id="ai-system-prompt-save-btn"
+                        style="padding:6px 14px; font-size:11px;">Save Instructions</button>
                     </div>
                   </div>
                 </div>
 
                 <!-- AI Memory -->
                 <div class="card" style="margin-top:18px">
-                  <div class="card-head"><h2>AI Core Memory</h2></div>
-                  <div class="muted" style="margin-bottom:12px">View and manage the facts, preferences, and project context that DevHunt AI automatically learns and updates about you daily. Each line represents a distinct fact.</div>
-                  
+                  <div class="card-head">
+                    <h2>AI Core Memory</h2>
+                  </div>
+                  <div class="muted" style="margin-bottom:12px">View and manage the facts, preferences, and project
+                    context that DevHunt AI automatically learns and updates about you daily. Each line represents a
+                    distinct fact.</div>
+
                   <div style="display:flex; flex-direction:column; gap:10px;">
-                    <textarea id="ai-memory-text" rows="8" placeholder="No memories consolidated yet. Click 'Refine Now' or start chatting!" style="font-family:var(--mono); font-size:12px; line-height:1.5; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius:4px; color:var(--text);"></textarea>
-                    
+                    <textarea id="ai-memory-text" rows="8"
+                      placeholder="No memories consolidated yet. Click 'Refine Now' or start chatting!"
+                      style="font-family:var(--mono); font-size:12px; line-height:1.5; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius:4px; color:var(--text);"></textarea>
+
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                      <button class="btn-primary" id="save-memory-btn" style="padding:6px 14px; font-size:11px;">Save Changes</button>
-                      <button class="btn-ghost" id="refine-memory-btn" style="padding:6px 14px; font-size:11px;">Refine Now</button>
-                      <button class="btn-ghost" id="clear-memory-btn" style="color:var(--red); border-color:rgba(255,77,109,.4); padding:6px 14px; font-size:11px;">Clear Memory</button>
+                      <button class="btn-primary" id="save-memory-btn" style="padding:6px 14px; font-size:11px;">Save
+                        Changes</button>
+                      <button class="btn-ghost" id="refine-memory-btn" style="padding:6px 14px; font-size:11px;">Refine
+                        Now</button>
+                      <button class="btn-ghost" id="clear-memory-btn"
+                        style="color:var(--red); border-color:rgba(255,77,109,.4); padding:6px 14px; font-size:11px;">Clear
+                        Memory</button>
                     </div>
                     <div id="memory-status" style="font-size:11px; color:var(--muted); font-family:var(--mono);"></div>
                   </div>
@@ -787,10 +1126,14 @@
               <div class="settings-pane" id="settings-pane-system">
                 <!-- Keys -->
                 <div class="card">
-                  <div class="card-head"><h2>Key Pool Manager</h2></div>
+                  <div class="card-head">
+                    <h2>Key Pool Manager</h2>
+                  </div>
                   <div class="form-row">
-                    <input id="new-key" placeholder="AIza••• Gemini API key" style="font-family:var(--mono); font-size:12px; padding:6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);"/>
-                    <input id="new-label" placeholder="Label (e.g. primary)" style="font-family:var(--mono); font-size:12px; padding:6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);"/>
+                    <input id="new-key" placeholder="AIza••• Gemini API key"
+                      style="font-family:var(--mono); font-size:12px; padding:6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);" />
+                    <input id="new-label" placeholder="Label (e.g. primary)"
+                      style="font-family:var(--mono); font-size:12px; padding:6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);" />
                     <button class="btn-primary" id="add-key">+ Register Key</button>
                   </div>
                   <table class="data-table" id="keys-table"></table>
@@ -798,23 +1141,34 @@
 
                 <!-- Updates -->
                 <div class="card" style="margin-top:18px">
-                  <div class="card-head"><h3>System Updates</h3></div>
+                  <div class="card-head">
+                    <h3>System Updates</h3>
+                  </div>
                   <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div
+                      style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                       <div>
-                        <div id="update-status-text" style="font-weight:bold; font-size:12px; color:var(--text)">Checking updates...</div>
+                        <div id="update-status-text" style="font-weight:bold; font-size:12px; color:var(--text)">
+                          Checking updates...</div>
                         <div id="update-version-text" class="muted" style="margin-top:2px;">Current version: N/A</div>
                       </div>
                       <div style="display:flex; gap:8px;">
                         <button class="btn-ghost" id="manual-check-update-btn">Check Updates</button>
-                        <button class="btn-primary" id="apply-update-btn" style="display:none; font-weight:700;">Apply Update</button>
+                        <button class="btn-primary" id="apply-update-btn" style="display:none; font-weight:700;">Apply
+                          Update</button>
                       </div>
                     </div>
-                    <div id="update-details-box" style="display:none; background:rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:6px; padding:12px; max-height:160px; overflow-y:auto; margin-top:6px;">
-                      <div style="font-size:11px; font-weight:bold; color:var(--cyan); margin-bottom:6px; letter-spacing:1px;">UPDATE DETAILS (WHAT'S NEW):</div>
-                      <ul id="update-commits-list" style="margin:0; padding-left:16px; font-family:var(--mono); font-size:11.5px; color:var(--text); line-height:1.55;"></ul>
+                    <div id="update-details-box"
+                      style="display:none; background:rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:6px; padding:12px; max-height:160px; overflow-y:auto; margin-top:6px;">
+                      <div
+                        style="font-size:11px; font-weight:bold; color:var(--cyan); margin-bottom:6px; letter-spacing:1px;">
+                        UPDATE DETAILS (WHAT'S NEW):</div>
+                      <ul id="update-commits-list"
+                        style="margin:0; padding-left:16px; font-family:var(--mono); font-size:11.5px; color:var(--text); line-height:1.55;">
+                      </ul>
                     </div>
-                    <div id="update-progress-info" style="display:none; font-size:11px; color:var(--muted); font-family:var(--mono);">
+                    <div id="update-progress-info"
+                      style="display:none; font-size:11px; color:var(--muted); font-family:var(--mono);">
                       <span class="streaming-cursor">▌</span> Updating codebase. Do not close the window...
                     </div>
                   </div>
@@ -822,27 +1176,39 @@
 
                 <!-- Backup -->
                 <div class="card" style="margin-top:18px">
-                  <div class="card-head"><h3>Backup &amp; Restore</h3></div>
+                  <div class="card-head">
+                    <h3>Backup &amp; Restore</h3>
+                  </div>
                   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
-                    <a href="/api/backup/export" class="btn-primary" style="text-decoration:none;padding:8px 14px;font-size:11px">⬇ Full Backup</a>
-                    <a href="/api/history/export" class="btn-ghost" style="text-decoration:none;padding:8px 14px;font-size:11px">⬇ Chat History JSON</a>
+                    <a href="/api/backup/export" class="btn-primary"
+                      style="text-decoration:none;padding:8px 14px;font-size:11px">⬇ Full Backup</a>
+                    <a href="/api/history/export" class="btn-ghost"
+                      style="text-decoration:none;padding:8px 14px;font-size:11px">⬇ Chat History JSON</a>
                     <label class="btn-ghost" style="cursor:pointer;padding:8px 14px;font-size:11px">
                       ⬆ Import Backup
-                      <input type="file" id="import-backup-file" accept=".json" hidden onchange="importBackupFromSettings(this)"/>
+                      <input type="file" id="import-backup-file" accept=".json" hidden
+                        onchange="importBackupFromSettings(this)" />
                     </label>
-                    <a href="/logs" target="_blank" class="btn-ghost" style="text-decoration:none;padding:8px 14px;font-size:11px">◎ Logs ↗</a>
+                    <a href="/logs" target="_blank" class="btn-ghost"
+                      style="text-decoration:none;padding:8px 14px;font-size:11px">◎ Logs ↗</a>
                   </div>
                   <div id="backup-status" style="margin-top:10px;font-size:11px;color:var(--muted)"></div>
                 </div>
 
                 <!-- Danger Zone -->
                 <div class="card" style="margin-top:18px;border-color:rgba(255,77,106,.3)">
-                  <div class="card-head"><h3 style="color:var(--red)">⚠ Danger Zone</h3></div>
-                  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
-                    <button class="btn-ghost" onclick="clearChatHistory()" style="border-color:rgba(255,77,106,.4);color:var(--red)">✕ Clear Chat History</button>
-                    <button class="btn-ghost" onclick="clearAllData()" style="border-color:rgba(255,77,106,.6);color:var(--red);font-weight:700">☢ Reset Everything</button>
+                  <div class="card-head">
+                    <h3 style="color:var(--red)">⚠ Danger Zone</h3>
                   </div>
-                  <div class="muted" style="margin-top:8px;font-size:11px">Reset Everything clears all keys, chat history, todos, knowledge base and profile. Cannot be undone. Export backup first.</div>
+                  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+                    <button class="btn-ghost" onclick="clearChatHistory()"
+                      style="border-color:rgba(255,77,106,.4);color:var(--red)">✕ Clear Chat History</button>
+                    <button class="btn-ghost" onclick="clearAllData()"
+                      style="border-color:rgba(255,77,106,.6);color:var(--red);font-weight:700">☢ Reset
+                      Everything</button>
+                  </div>
+                  <div class="muted" style="margin-top:8px;font-size:11px">Reset Everything clears all keys, chat
+                    history, todos, knowledge base and profile. Cannot be undone. Export backup first.</div>
                   <div id="danger-status" style="margin-top:8px;font-size:11px"></div>
                 </div>
               </div>
@@ -857,16 +1223,22 @@
             <div class="card-head">
               <h2>Chat History</h2>
               <div style="display:flex;gap:8px;align-items:center">
-                <select id="history-session-select" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;border-radius:4px">
+                <select id="history-session-select"
+                  style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;border-radius:4px">
                   <option value="default_session">default_session</option>
                 </select>
                 <button class="btn-ghost" onclick="loadHistoryPanel()" style="font-size:11px">⟳ Refresh</button>
-                <a href="/api/history/export" class="btn-ghost" style="text-decoration:none;font-size:11px">⬇ Export JSON</a>
-                <button class="btn-ghost" onclick="clearSessionHistory()" style="font-size:11px;color:var(--red);border-color:rgba(255,77,106,.4)">✕ Clear Session</button>
+                <a href="/api/history/export" class="btn-ghost" style="text-decoration:none;font-size:11px">⬇ Export
+                  JSON</a>
+                <button class="btn-ghost" onclick="clearSessionHistory()"
+                  style="font-size:11px;color:var(--red);border-color:rgba(255,77,106,.4)">✕ Clear Session</button>
               </div>
             </div>
-            <div id="history-stats" style="display:flex;gap:16px;font-size:11px;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:12px"></div>
-            <div id="history-feed" style="display:flex;flex-direction:column;gap:10px;max-height:70vh;overflow-y:auto"></div>
+            <div id="history-stats"
+              style="display:flex;gap:16px;font-size:11px;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:12px">
+            </div>
+            <div id="history-feed" style="display:flex;flex-direction:column;gap:10px;max-height:70vh;overflow-y:auto">
+            </div>
           </div>
         </section>
 
@@ -892,13 +1264,18 @@
               <div class="terminal-body" id="terminal-body">
                 <div class="terminal-output" id="terminal-output">
                   <div class="terminal-line"><span class="ansi-cyan">DevHunt Terminal Core v1.0</span></div>
-                  <div class="terminal-line">Detected Environment: <span class="ansi-yellow" id="terminal-detected-os">Detecting platform...</span></div>
-                  <div class="terminal-line">Type <span class="ansi-green">hunt help</span> to see all available commands.</div>
-                  <div class="terminal-line"><span class="ansi-muted">----------------------------------------------------------------------------------------------------</span></div>
+                  <div class="terminal-line">Detected Environment: <span class="ansi-yellow"
+                      id="terminal-detected-os">Detecting platform...</span></div>
+                  <div class="terminal-line">Type <span class="ansi-green">hunt help</span> to see all available
+                    commands.</div>
+                  <div class="terminal-line"><span
+                      class="ansi-muted">----------------------------------------------------------------------------------------------------</span>
+                  </div>
                 </div>
                 <div class="terminal-input-line">
                   <span class="terminal-prompt" id="terminal-prompt">guest@devhunt:~$</span>
-                  <input type="text" class="terminal-input" id="terminal-input" autocomplete="off" spellcheck="false" placeholder="Enter hunt command..." />
+                  <input type="text" class="terminal-input" id="terminal-input" autocomplete="off" spellcheck="false"
+                    placeholder="Enter hunt command..." />
                 </div>
               </div>
             </div>
@@ -912,15 +1289,21 @@
               <h2>System Messages &amp; Announcements</h2>
               <div style="display:flex; gap:8px;">
                 <button class="btn-ghost" id="btn-notifications-refresh" style="font-size:11px;">⟳ Refresh</button>
-                <button class="btn-primary" id="btn-notifications-read-all" style="font-size:11px; padding:6px 14px;">Mark All As Read</button>
-                <button class="btn-ghost" id="btn-notifications-clear-read" style="font-size:11px; padding:6px 14px; color:var(--red); border-color:rgba(255,77,109,0.2); display:none;">Clear Read</button>
+                <button class="btn-primary" id="btn-notifications-read-all"
+                  style="font-size:11px; padding:6px 14px;">Mark All As Read</button>
+                <button class="btn-ghost" id="btn-notifications-clear-read"
+                  style="font-size:11px; padding:6px 14px; color:var(--red); border-color:rgba(255,77,109,0.2); display:none;">Clear
+                  Read</button>
               </div>
             </div>
-            <p class="muted" style="margin:0;">Monitor remote product news, system status updates, and local error notifications.</p>
+            <p class="muted" style="margin:0;">Monitor remote product news, system status updates, and local error
+              notifications.</p>
           </div>
 
-          <div id="notifications-feed-container" class="notifications-feed" style="display:flex; flex-direction:column; gap:12px; max-height:calc(100vh - 240px); overflow-y:auto; padding-right:4px;">
-            <div class="muted" style="text-align:center; padding:40px;">Initializing connection to notification feed...</div>
+          <div id="notifications-feed-container" class="notifications-feed"
+            style="display:flex; flex-direction:column; gap:12px; max-height:calc(100vh - 240px); overflow-y:auto; padding-right:4px;">
+            <div class="muted" style="text-align:center; padding:40px;">Initializing connection to notification feed...
+            </div>
           </div>
         </section>
 
@@ -930,47 +1313,63 @@
             <div class="card-head">
               <h2>LinkedIn Post Drafts</h2>
               <div style="display:flex; gap:8px;">
-                <button class="btn-primary" id="btn-linkedin-new" style="font-size:11px; padding:6px 14px;">+ New Draft</button>
+                <button class="btn-primary" id="btn-linkedin-new" style="font-size:11px; padding:6px 14px;">+ New
+                  Draft</button>
               </div>
             </div>
-            <p class="muted" style="margin:0;">Write, refine, and organize your LinkedIn posts. Save drafts directly from chat discussions.</p>
+            <p class="muted" style="margin:0;">Write, refine, and organize your LinkedIn posts. Save drafts directly
+              from chat discussions.</p>
           </div>
 
-          <div class="linkedin-layout" style="display: grid; grid-template-columns: 280px 1fr; gap: 16px; min-height: 500px; margin-bottom: 20px;">
+          <div class="linkedin-layout"
+            style="display: grid; grid-template-columns: 280px 1fr; gap: 16px; min-height: 500px; margin-bottom: 20px;">
             <!-- Left Side: Draft list grouped by date -->
-            <div class="card" style="display:flex; flex-direction:column; padding:12px; overflow-y:auto; max-height:calc(100vh - 280px);">
-              <h3 style="font-size:11px; font-family:var(--mono); color:var(--muted); letter-spacing:1px; margin-bottom:10px; text-transform:uppercase;">DRAFT LIST</h3>
+            <div class="card"
+              style="display:flex; flex-direction:column; padding:12px; overflow-y:auto; max-height:calc(100vh - 280px);">
+              <h3
+                style="font-size:11px; font-family:var(--mono); color:var(--muted); letter-spacing:1px; margin-bottom:10px; text-transform:uppercase;">
+                DRAFT LIST</h3>
               <div id="linkedin-drafts-list" style="display:flex; flex-direction:column; gap:8px;">
                 <!-- Loaded dynamically -->
               </div>
             </div>
 
             <!-- Right Side: Editor and Refiner -->
-            <div class="card" id="linkedin-editor-container" style="display:flex; flex-direction:column; gap:12px; padding:16px;">
+            <div class="card" id="linkedin-editor-container"
+              style="display:flex; flex-direction:column; gap:12px; padding:16px;">
               <!-- Initially shows empty state or active editor -->
               <div id="linkedin-editor-empty" class="muted" style="text-align:center; padding:100px 20px;">
                 Select a draft to view or edit, or click "+ New Draft" to create one.
               </div>
               <div id="linkedin-editor-active" style="display:none; flex-direction:column; gap:12px; height:100%;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap: 10px;">
-                  <input id="linkedin-draft-title" placeholder="Post Title (internal reference)" style="font-size:13px; font-weight:bold; font-family:var(--display); padding:8px 10px; width:65%;" />
+                  <input id="linkedin-draft-title" placeholder="Post Title (internal reference)"
+                    style="font-size:13px; font-weight:bold; font-family:var(--display); padding:8px 10px; width:65%;" />
                   <span id="linkedin-draft-date" class="muted" style="font-family:var(--mono); font-size:10px;">—</span>
                 </div>
-                <textarea id="linkedin-draft-content" placeholder="Write your post here..." style="font-family:var(--display); font-size:12.5px; line-height:1.6; padding:10px; flex:1; min-height:180px; resize:vertical;"></textarea>
-                
+                <textarea id="linkedin-draft-content" placeholder="Write your post here..."
+                  style="font-family:var(--display); font-size:12.5px; line-height:1.6; padding:10px; flex:1; min-height:180px; resize:vertical;"></textarea>
+
                 <!-- Refinement Block -->
-                <div style="border-top:1px dashed var(--border); padding-top:12px; margin-top:6px; display:flex; flex-direction:column; gap:8px;">
-                  <div style="font-family:var(--mono); font-size:10.5px; color:var(--cyan); font-weight:bold;">✨ AI COPYWRITING REFINE</div>
+                <div
+                  style="border-top:1px dashed var(--border); padding-top:12px; margin-top:6px; display:flex; flex-direction:column; gap:8px;">
+                  <div style="font-family:var(--mono); font-size:10.5px; color:var(--cyan); font-weight:bold;">✨ AI
+                    COPYWRITING REFINE</div>
                   <div style="display:flex; gap:8px;">
-                    <input id="linkedin-refine-prompt" placeholder="Refine instruction (e.g., 'make it punchier', 'add emojis and tags')" style="font-size:11.5px; padding:7px 10px; flex:1;" />
-                    <button class="btn-ghost" id="btn-linkedin-refine" style="padding:0 14px; font-size:11px; font-weight:bold;">Refine Post</button>
+                    <input id="linkedin-refine-prompt"
+                      placeholder="Refine instruction (e.g., 'make it punchier', 'add emojis and tags')"
+                      style="font-size:11.5px; padding:7px 10px; flex:1;" />
+                    <button class="btn-ghost" id="btn-linkedin-refine"
+                      style="padding:0 14px; font-size:11px; font-weight:bold;">Refine Post</button>
                   </div>
                 </div>
 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                  <button class="btn-danger" id="btn-linkedin-delete" style="font-size:11px; padding:6px 12px;">Delete</button>
+                  <button class="btn-danger" id="btn-linkedin-delete"
+                    style="font-size:11px; padding:6px 12px;">Delete</button>
                   <div style="display:flex; gap:8px;">
-                    <button class="btn-ghost" id="btn-linkedin-save" style="font-size:11px; padding:6px 14px;">Save Draft</button>
+                    <button class="btn-ghost" id="btn-linkedin-save" style="font-size:11px; padding:6px 14px;">Save
+                      Draft</button>
                   </div>
                 </div>
               </div>
@@ -980,138 +1379,206 @@
 
         <!-- DOCUMENT FORENSICS / ANALYSIS -->
         <section class="panel" id="panel-doc-analysis">
-          <div class="forensics-grid" style="display: grid; grid-template-columns: 320px 1fr; gap: 16px; height: calc(100vh - 140px);">
+          <div class="forensics-grid"
+            style="display: grid; grid-template-columns: 320px 1fr; gap: 16px; height: calc(100vh - 140px);">
             <!-- Left Panel: Dropzone & File List -->
             <div class="card" style="display: flex; flex-direction: column; gap: 14px; height: 100%; overflow: hidden;">
-              <div class="card-head" style="margin-bottom: 4px;"><h3>Drop Document</h3></div>
-              <div class="dropzone" id="forensics-dropzone" style="padding: 24px 10px; flex-shrink: 0; min-height: 120px;">
+              <div class="card-head" style="margin-bottom: 4px;">
+                <h3>Drop Document</h3>
+              </div>
+              <div class="dropzone" id="forensics-dropzone"
+                style="padding: 24px 10px; flex-shrink: 0; min-height: 120px;">
                 <div class="dz-icon" style="font-size: 26px; margin-bottom: 4px;">⇩</div>
-                <div style="font-size: 11px;">Drop PDF or Image here<br/><span class="muted">or click to browse</span></div>
+                <div style="font-size: 11px;">Drop PDF or Image here<br /><span class="muted">or click to browse</span>
+                </div>
                 <input type="file" id="forensics-filein" hidden />
               </div>
-              
-              <div class="card-head" style="margin-top: 10px; margin-bottom: 4px; flex-shrink: 0;"><h3>Forensics Archive</h3></div>
-              <div id="forensics-history-list" style="display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; padding-right: 4px;">
+
+              <div class="card-head" style="margin-top: 10px; margin-bottom: 4px; flex-shrink: 0;">
+                <h3>Forensics Archive</h3>
+              </div>
+              <div id="forensics-history-list"
+                style="display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; padding-right: 4px;">
                 <div class="muted" style="text-align: center; padding: 20px 0;">No records found</div>
               </div>
             </div>
-            
+
             <!-- Right Panel: Report Dashboard & Q&A Chat Side-by-Side -->
             <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; height: 100%; overflow: hidden;">
               <!-- Dashboard details -->
-              <div class="card" style="display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 16px;">
-                <div class="card-head" style="border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-shrink: 0; margin-bottom: 10px;">
+              <div class="card"
+                style="display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 16px;">
+                <div class="card-head"
+                  style="border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-shrink: 0; margin-bottom: 10px;">
                   <h2>Forensic Scan Report</h2>
                   <span class="badge" id="forensics-file-badge">No File Selected</span>
                 </div>
-                
+
                 <!-- Scrollable dashboard body -->
-                <div style="flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 14px;">
+                <div
+                  style="flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 14px;">
                   <!-- State A: Empty state -->
-                  <div id="forensics-state-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; padding: 60px 20px;">
+                  <div id="forensics-state-empty"
+                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; padding: 60px 20px;">
                     <div style="font-size: 40px; margin-bottom: 12px; animation: pulse 2s infinite;">🕵️‍♂️</div>
-                    <h3 style="font-family: var(--display); color: var(--cyan); margin-bottom: 6px;">AI Forensic Inspector</h3>
+                    <h3 style="font-family: var(--display); color: var(--cyan); margin-bottom: 6px;">AI Forensic
+                      Inspector</h3>
                     <p class="muted" style="max-width: 280px; font-size: 11px; line-height: 1.45;">
-                      Upload a file on the left panel to execute an agent-based authenticity sweep, ELA heatmaps, signature checks, and entity parsing.
+                      Upload a file on the left panel to execute an agent-based authenticity sweep, ELA heatmaps,
+                      signature checks, and entity parsing.
                     </p>
                   </div>
-                  
+
                   <!-- State B: Processing Loader -->
-                  <div id="forensics-state-loading" style="display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; padding: 40px 20px;">
+                  <div id="forensics-state-loading"
+                    style="display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; padding: 40px 20px;">
                     <div class="streaming-cursor" style="font-size: 28px; margin-bottom: 12px;">▌</div>
-                    <h4 style="font-family: var(--mono); color: var(--cyan); margin-bottom: 4px;" id="forensics-loading-title">Orchestrating Forensic Agents...</h4>
-                    <p class="muted" style="max-width: 240px; font-size: 10.5px; font-family: var(--mono);" id="forensics-loading-subtitle">Contacting cognitive node...</p>
+                    <h4 style="font-family: var(--mono); color: var(--cyan); margin-bottom: 4px;"
+                      id="forensics-loading-title">Orchestrating Forensic Agents...</h4>
+                    <p class="muted" style="max-width: 240px; font-size: 10.5px; font-family: var(--mono);"
+                      id="forensics-loading-subtitle">Contacting cognitive node...</p>
                   </div>
-                  
+
                   <!-- State C: Dashboard Content -->
                   <div id="forensics-state-report" style="display: none; flex-direction: column; gap: 14px;">
                     <!-- Scores badge -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; flex-shrink: 0;">
+                    <div
+                      style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; flex-shrink: 0;">
                       <div>
-                        <div style="font-size: 9px; font-weight: bold; color: var(--muted); letter-spacing: 1px; font-family: var(--mono);">FORENSIC VERDICT</div>
-                        <div id="f-verdict-text" style="font-family: var(--display); font-size: 14px; color: var(--accent); margin-top: 1px;">AUTHENTIC</div>
+                        <div
+                          style="font-size: 9px; font-weight: bold; color: var(--muted); letter-spacing: 1px; font-family: var(--mono);">
+                          FORENSIC VERDICT</div>
+                        <div id="f-verdict-text"
+                          style="font-family: var(--display); font-size: 14px; color: var(--accent); margin-top: 1px;">
+                          AUTHENTIC</div>
                       </div>
                       <div style="text-align: right;">
-                        <div style="font-size: 9px; font-weight: bold; color: var(--muted); letter-spacing: 1px; font-family: var(--mono);">SECURITY SCORE</div>
-                        <div id="f-score-text" style="font-family: var(--display); font-size: 16px; color: #ffffff; margin-top: 1px;">95.0 <span style="font-size: 10px; color: var(--muted);">/ 100</span></div>
+                        <div
+                          style="font-size: 9px; font-weight: bold; color: var(--muted); letter-spacing: 1px; font-family: var(--mono);">
+                          SECURITY SCORE</div>
+                        <div id="f-score-text"
+                          style="font-family: var(--display); font-size: 16px; color: #ffffff; margin-top: 1px;">95.0
+                          <span style="font-size: 10px; color: var(--muted);">/ 100</span>
+                        </div>
                       </div>
                     </div>
-                    
+
                     <!-- Matplotlib charts -->
                     <div style="display: flex; flex-direction: column; gap: 12px;">
-                      <div class="card" style="padding: 8px; background: rgba(0,0,0,0.15); border-color: var(--border); text-align: center;">
-                        <div style="font-size: 9px; font-weight: bold; color: var(--accent); text-align: left; margin-bottom: 4px; font-family: var(--mono);">FORENSIC CHART OVERVIEW</div>
-                        <img id="f-chart-img" src="" alt="Forensic Analysis Chart" style="max-width: 100%; border-radius: 4px; border: 1px solid var(--border);" />
+                      <div class="card"
+                        style="padding: 8px; background: rgba(0,0,0,0.15); border-color: var(--border); text-align: center;">
+                        <div
+                          style="font-size: 9px; font-weight: bold; color: var(--accent); text-align: left; margin-bottom: 4px; font-family: var(--mono);">
+                          FORENSIC CHART OVERVIEW</div>
+                        <img id="f-chart-img" src="" alt="Forensic Analysis Chart"
+                          style="max-width: 100%; border-radius: 4px; border: 1px solid var(--border);" />
                       </div>
-                      
-                      <div class="card" id="f-ela-card" style="padding: 8px; background: rgba(0,0,0,0.15); border-color: var(--border); text-align: center; display: none;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                          <div style="font-size: 9px; font-weight: bold; color: var(--accent); font-family: var(--mono);">ERROR LEVEL ANALYSIS (ELA)</div>
+
+                      <div class="card" id="f-ela-card"
+                        style="padding: 8px; background: rgba(0,0,0,0.15); border-color: var(--border); text-align: center; display: none;">
+                        <div
+                          style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                          <div
+                            style="font-size: 9px; font-weight: bold; color: var(--accent); font-family: var(--mono);">
+                            ERROR LEVEL ANALYSIS (ELA)</div>
                         </div>
-                        <img id="f-ela-img" src="" alt="Error Level Heatmap" style="max-width: 100%; border-radius: 4px; border: 1px solid var(--border); filter: brightness(1);" />
-                        <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 9.5px; font-family: var(--mono); color: var(--text);">
+                        <img id="f-ela-img" src="" alt="Error Level Heatmap"
+                          style="max-width: 100%; border-radius: 4px; border: 1px solid var(--border); filter: brightness(1);" />
+                        <div
+                          style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 9.5px; font-family: var(--mono); color: var(--text);">
                           <span>Heatmap Contrast:</span>
-                          <input type="range" id="f-ela-contrast-range" min="0.5" max="3" step="0.1" value="1.0" oninput="adjustForensicsElaContrast(this.value)" style="flex: 1; accent-color: var(--accent);" />
+                          <input type="range" id="f-ela-contrast-range" min="0.5" max="3" step="0.1" value="1.0"
+                            oninput="adjustForensicsElaContrast(this.value)"
+                            style="flex: 1; accent-color: var(--accent);" />
                           <span id="f-ela-contrast-val">1.0x</span>
                         </div>
                       </div>
                     </div>
-                    
+
                     <!-- Summary -->
                     <div class="card" style="padding: 10px; border-color: var(--border);">
-                      <div style="font-size: 9px; font-weight: bold; color: var(--accent); margin-bottom: 4px; letter-spacing: 1px; font-family: var(--mono);">AI DOCUMENT SUMMARY</div>
+                      <div
+                        style="font-size: 9px; font-weight: bold; color: var(--accent); margin-bottom: 4px; letter-spacing: 1px; font-family: var(--mono);">
+                        AI DOCUMENT SUMMARY</div>
                       <div id="f-summary" style="font-size: 11px; line-height: 1.45; color: var(--text);"></div>
                     </div>
-                    
+
                     <!-- Expert view -->
-                    <div class="card" style="padding: 10px; border-left: 3px solid var(--accent); border-color: var(--border);">
-                      <div style="font-size: 9px; font-weight: bold; color: var(--accent); margin-bottom: 4px; letter-spacing: 1px; font-family: var(--mono);">FORENSICS EXPERT VIEW</div>
-                      <div id="f-expert-view" style="font-size: 11px; line-height: 1.45; color: var(--text); font-style: italic;"></div>
+                    <div class="card"
+                      style="padding: 10px; border-left: 3px solid var(--accent); border-color: var(--border);">
+                      <div
+                        style="font-size: 9px; font-weight: bold; color: var(--accent); margin-bottom: 4px; letter-spacing: 1px; font-family: var(--mono);">
+                        FORENSICS EXPERT VIEW</div>
+                      <div id="f-expert-view"
+                        style="font-size: 11px; line-height: 1.45; color: var(--text); font-style: italic;"></div>
                     </div>
-                    
+
                     <!-- Checklist -->
                     <div class="card" style="padding: 10px; border-color: var(--border);">
-                      <div style="font-size: 9px; font-weight: bold; color: var(--text); margin-bottom: 6px; letter-spacing: 1px; font-family: var(--mono);">FORENSIC CHECKLIST</div>
+                      <div
+                        style="font-size: 9px; font-weight: bold; color: var(--text); margin-bottom: 6px; letter-spacing: 1px; font-family: var(--mono);">
+                        FORENSIC CHECKLIST</div>
                       <div id="f-checklist" style="display: flex; flex-direction: column; gap: 6px;"></div>
                     </div>
-                    
+
                     <!-- Entities -->
                     <div class="card" style="padding: 10px; border-color: var(--border);">
-                      <div style="font-size: 9px; font-weight: bold; color: var(--text); margin-bottom: 6px; letter-spacing: 1px; font-family: var(--mono);">EXTRACTED ENTITIES</div>
-                      <div id="f-entities" style="display: flex; flex-direction: column; gap: 6px; font-size: 10.5px; font-family: var(--mono);"></div>
+                      <div
+                        style="font-size: 9px; font-weight: bold; color: var(--text); margin-bottom: 6px; letter-spacing: 1px; font-family: var(--mono);">
+                        EXTRACTED ENTITIES</div>
+                      <div id="f-entities"
+                        style="display: flex; flex-direction: column; gap: 6px; font-size: 10.5px; font-family: var(--mono);">
+                      </div>
                     </div>
-                    
+
                     <!-- Insights -->
                     <div class="card" style="padding: 10px; border-color: var(--border);">
-                      <div style="font-size: 9px; font-weight: bold; color: var(--accent); margin-bottom: 6px; letter-spacing: 1px; font-family: var(--mono);">AI INSIGHTS &amp; ALERTS</div>
-                      <ul id="f-insights" style="margin: 0; padding-left: 14px; font-size: 11px; color: var(--text); line-height: 1.45; display: flex; flex-direction: column; gap: 3px;"></ul>
+                      <div
+                        style="font-size: 9px; font-weight: bold; color: var(--accent); margin-bottom: 6px; letter-spacing: 1px; font-family: var(--mono);">
+                        AI INSIGHTS &amp; ALERTS</div>
+                      <ul id="f-insights"
+                        style="margin: 0; padding-left: 14px; font-size: 11px; color: var(--text); line-height: 1.45; display: flex; flex-direction: column; gap: 3px;">
+                      </ul>
                     </div>
-                    
+
                     <!-- Metadata table -->
-                    <div class="card" id="f-meta-card" style="padding: 10px; border-color: var(--border); display: none;">
-                      <div style="font-size: 9px; font-weight: bold; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; font-family: var(--mono);">FILE METADATA PROPERTIES</div>
-                      <table style="width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 10px; line-height: 1.45;" id="f-metadata-table"></table>
+                    <div class="card" id="f-meta-card"
+                      style="padding: 10px; border-color: var(--border); display: none;">
+                      <div
+                        style="font-size: 9px; font-weight: bold; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; font-family: var(--mono);">
+                        FILE METADATA PROPERTIES</div>
+                      <table
+                        style="width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 10px; line-height: 1.45;"
+                        id="f-metadata-table"></table>
                     </div>
                   </div>
                 </div>
               </div>
-              
+
               <!-- Chat Pane -->
-              <div class="card" style="display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 16px;">
-                <div class="card-head" style="border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-shrink: 0; margin-bottom: 10px; justify-content: space-between;">
+              <div class="card"
+                style="display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 16px;">
+                <div class="card-head"
+                  style="border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-shrink: 0; margin-bottom: 10px; justify-content: space-between;">
                   <h3 style="margin: 0; font-family: var(--display); color: var(--accent);">Document Chat Analyst</h3>
-                  <button class="btn-ghost" id="f-chat-clear" style="font-size: 9.5px; color: var(--red); border-color: rgba(255,77,109,.3); padding: 3px 6px;">✕ Clear</button>
+                  <button class="btn-ghost" id="f-chat-clear"
+                    style="font-size: 9.5px; color: var(--red); border-color: rgba(255,77,109,.3); padding: 3px 6px;">✕
+                    Clear</button>
                 </div>
-                
+
                 <!-- Chat Feed -->
-                <div id="f-chat-feed" style="flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+                <div id="f-chat-feed"
+                  style="flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
                   <div class="msg ai">// Select or upload a file to start chat analysis</div>
                 </div>
-                
+
                 <!-- Input -->
-                <div class="chat-input" style="border-top: 1px solid var(--border); padding-top: 8px; display: flex; gap: 6px; flex-shrink: 0; margin-top: auto;">
-                  <textarea id="f-chat-input" placeholder="Ask anything about this document..." rows="2" style="flex: 1; resize: none; background: rgba(0,0,0,0.25); font-size: 11.5px; min-height: 38px;"></textarea>
-                  <button class="btn-primary" id="f-chat-send" style="padding: 0 14px; font-size: 10.5px; height: 38px;">SEND →</button>
+                <div class="chat-input"
+                  style="border-top: 1px solid var(--border); padding-top: 8px; display: flex; gap: 6px; flex-shrink: 0; margin-top: auto;">
+                  <textarea id="f-chat-input" placeholder="Ask anything about this document..." rows="2"
+                    style="flex: 1; resize: none; background: rgba(0,0,0,0.25); font-size: 11.5px; min-height: 38px;"></textarea>
+                  <button class="btn-primary" id="f-chat-send"
+                    style="padding: 0 14px; font-size: 10.5px; height: 38px;">SEND →</button>
                 </div>
               </div>
             </div>
@@ -1119,7 +1586,8 @@
         </section>
 
         <!-- MUSIC PLAYER -->
-        <section class="panel" id="panel-music" style="flex-direction:column; height:calc(100vh - 140px); overflow:hidden; gap:0;">
+        <section class="panel" id="panel-music"
+          style="flex-direction:column; height:calc(100vh - 140px); overflow:hidden; gap:0;">
           <!-- Top: Input Controls -->
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; flex-shrink:0;">
             <!-- Upload Audio File -->
@@ -1128,12 +1596,16 @@
                 <h3 style="font-size:12px; letter-spacing:1px;">♪ UPLOAD AUDIO FILE</h3>
                 <span class="badge" style="font-size:9px;">local</span>
               </div>
-              <div class="dropzone" id="music-dropzone" style="padding:20px 14px; cursor:pointer; border-radius:6px;" onclick="document.getElementById('music-filein').click()">
+              <div class="dropzone" id="music-dropzone" style="padding:20px 14px; cursor:pointer; border-radius:6px;"
+                onclick="document.getElementById('music-filein').click()">
                 <div style="font-size:26px; margin-bottom:6px;">🎵</div>
-                <div style="font-size:11px; font-family:var(--mono);">Drop audio file here<br/><span class="muted">MP3, WAV, OGG, FLAC, AAC, M4A</span></div>
-                <input type="file" id="music-filein" hidden accept=".mp3,.wav,.ogg,.flac,.aac,.m4a,.opus" multiple/>
+                <div style="font-size:11px; font-family:var(--mono);">Drop audio file here<br /><span class="muted">MP3,
+                    WAV, OGG, FLAC, AAC, M4A</span></div>
+                <input type="file" id="music-filein" hidden accept=".mp3,.wav,.ogg,.flac,.aac,.m4a,.opus" multiple />
               </div>
-              <div id="music-upload-status" style="margin-top:8px; font-size:10.5px; font-family:var(--mono); color:var(--muted); min-height:16px;"></div>
+              <div id="music-upload-status"
+                style="margin-top:8px; font-size:10.5px; font-family:var(--mono); color:var(--muted); min-height:16px;">
+              </div>
             </div>
 
             <!-- YouTube Converter -->
@@ -1143,30 +1615,44 @@
                 <span class="badge" style="font-size:9px;">convert</span>
               </div>
               <div style="display:flex; gap:8px; margin-bottom:10px;">
-                <input id="music-yt-url" placeholder="https://youtube.com/watch?v=..." style="flex:1; font-family:var(--mono); font-size:11px;"/>
-                <button class="btn-primary" id="music-yt-btn" style="white-space:nowrap; font-size:11px; padding:0 14px;">⬇ Convert</button>
+                <input id="music-yt-url" placeholder="https://youtube.com/watch?v=..."
+                  style="flex:1; font-family:var(--mono); font-size:11px;" />
+                <button class="btn-primary" id="music-yt-btn"
+                  style="white-space:nowrap; font-size:11px; padding:0 14px;">⬇ Convert</button>
               </div>
-              <div id="music-yt-status" style="font-size:10.5px; font-family:var(--mono); color:var(--muted); min-height:16px; line-height:1.5;"></div>
-              <div style="font-size:9.5px; color:var(--muted); margin-top:8px; font-family:var(--mono); border-top:1px solid var(--border); padding-top:8px;">
+              <div id="music-yt-status"
+                style="font-size:10.5px; font-family:var(--mono); color:var(--muted); min-height:16px; line-height:1.5;">
+              </div>
+              <div
+                style="font-size:9.5px; color:var(--muted); margin-top:8px; font-family:var(--mono); border-top:1px solid var(--border); padding-top:8px;">
                 ⚠ Requires <span style="color:var(--accent);">ffmpeg</span> installed and in PATH.
-                <a href="https://ffmpeg.org/download.html" target="_blank" style="color:var(--accent);">Download ffmpeg ↗</a>
+                <a href="https://ffmpeg.org/download.html" target="_blank" style="color:var(--accent);">Download ffmpeg
+                  ↗</a>
               </div>
             </div>
           </div>
 
           <!-- Playback Mode Controls -->
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-shrink:0; flex-wrap:wrap;">
-            <span style="font-size:10px; font-family:var(--mono); color:var(--muted); letter-spacing:1px;">PLAYBACK MODE:</span>
-            <button class="btn-ghost music-mode-btn active" id="mode-sequential" data-mode="sequential" style="font-size:10px; padding:4px 10px;">⟶ Sequential</button>
-            <button class="btn-ghost music-mode-btn" id="mode-shuffle" data-mode="shuffle" style="font-size:10px; padding:4px 10px;">⇌ Shuffle</button>
-            <button class="btn-ghost music-mode-btn" id="mode-repeat" data-mode="repeat" style="font-size:10px; padding:4px 10px;">↺ Repeat One</button>
-            <button class="btn-ghost music-mode-btn" id="mode-repeat-all" data-mode="repeat-all" style="font-size:10px; padding:4px 10px;">↻ Repeat All</button>
+            <span style="font-size:10px; font-family:var(--mono); color:var(--muted); letter-spacing:1px;">PLAYBACK
+              MODE:</span>
+            <button class="btn-ghost music-mode-btn active" id="mode-sequential" data-mode="sequential"
+              style="font-size:10px; padding:4px 10px;">⟶ Sequential</button>
+            <button class="btn-ghost music-mode-btn" id="mode-shuffle" data-mode="shuffle"
+              style="font-size:10px; padding:4px 10px;">⇌ Shuffle</button>
+            <button class="btn-ghost music-mode-btn" id="mode-repeat" data-mode="repeat"
+              style="font-size:10px; padding:4px 10px;">↺ Repeat One</button>
+            <button class="btn-ghost music-mode-btn" id="mode-repeat-all" data-mode="repeat-all"
+              style="font-size:10px; padding:4px 10px;">↻ Repeat All</button>
             <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
               <span style="font-size:9.5px; color:var(--muted); font-family:var(--mono);">VOL</span>
-              <input type="range" id="music-volume" min="0" max="1" step="0.02" value="0.8" style="width:80px; accent-color:var(--accent);" />
-              <span id="music-vol-label" style="font-size:9.5px; color:var(--accent); font-family:var(--mono); width:28px;">80%</span>
+              <input type="range" id="music-volume" min="0" max="1" step="0.02" value="0.8"
+                style="width:80px; accent-color:var(--accent);" />
+              <span id="music-vol-label"
+                style="font-size:9.5px; color:var(--accent); font-family:var(--mono); width:28px;">80%</span>
             </div>
-            <button class="btn-ghost" id="music-refresh-btn" style="font-size:10px; padding:4px 10px;">⟳ Refresh</button>
+            <button class="btn-ghost" id="music-refresh-btn" style="font-size:10px; padding:4px 10px;">⟳
+              Refresh</button>
           </div>
 
           <!-- Track Library -->
@@ -1176,27 +1662,38 @@
               <span id="music-track-count" class="badge" style="font-size:9px;">0 tracks</span>
             </div>
             <div id="music-track-list" style="flex:1; overflow-y:auto; padding:8px;">
-              <div class="muted" style="text-align:center; padding:40px 0; font-family:var(--mono); font-size:11px;">// No tracks yet — upload a file or paste a YouTube link above</div>
+              <div class="muted" style="text-align:center; padding:40px 0; font-family:var(--mono); font-size:11px;">//
+                No tracks yet — upload a file or paste a YouTube link above</div>
             </div>
           </div>
 
           <!-- Sticky Bottom Player Bar -->
-          <div id="music-player-bar" style="flex-shrink:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+          <div id="music-player-bar"
+            style="flex-shrink:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-top:10px; display:flex; flex-direction:column; gap:8px;">
             <!-- Now playing info + controls -->
             <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
               <!-- Track info -->
               <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                <div style="width:36px; height:36px; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;" id="music-album-art">♪</div>
+                <div
+                  style="width:36px; height:36px; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;"
+                  id="music-album-art">♪</div>
                 <div style="min-width:0;">
-                  <div id="music-now-title" style="font-family:var(--display); font-size:12px; color:var(--accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px;">No track selected</div>
-                  <div id="music-now-meta" style="font-size:9.5px; color:var(--muted); font-family:var(--mono); margin-top:1px;">// select a track to play</div>
+                  <div id="music-now-title"
+                    style="font-family:var(--display); font-size:12px; color:var(--accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px;">
+                    No track selected</div>
+                  <div id="music-now-meta"
+                    style="font-size:9.5px; color:var(--muted); font-family:var(--mono); margin-top:1px;">// select a
+                    track to play</div>
                 </div>
               </div>
               <!-- Controls -->
               <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
-                <button id="music-prev" class="btn-ghost" style="padding:5px 10px; font-size:14px;" title="Previous">⏮</button>
-                <button id="music-play-pause" class="btn-primary" style="padding:6px 18px; font-size:16px; min-width:52px;">▶</button>
-                <button id="music-next" class="btn-ghost" style="padding:5px 10px; font-size:14px;" title="Next">⏭</button>
+                <button id="music-prev" class="btn-ghost" style="padding:5px 10px; font-size:14px;"
+                  title="Previous">⏮</button>
+                <button id="music-play-pause" class="btn-primary"
+                  style="padding:6px 18px; font-size:16px; min-width:52px;">▶</button>
+                <button id="music-next" class="btn-ghost" style="padding:5px 10px; font-size:14px;"
+                  title="Next">⏭</button>
               </div>
               <!-- Time display -->
               <div style="font-family:var(--mono); font-size:10.5px; color:var(--muted); flex-shrink:0;">
@@ -1204,8 +1701,12 @@
               </div>
             </div>
             <!-- Progress bar -->
-            <div style="position:relative; height:4px; background:rgba(255,255,255,0.08); border-radius:2px; cursor:pointer;" id="music-progress-track">
-              <div id="music-progress-fill" style="height:100%; width:0%; background:var(--accent); border-radius:2px; transition:width 0.3s linear;"></div>
+            <div
+              style="position:relative; height:4px; background:rgba(255,255,255,0.08); border-radius:2px; cursor:pointer;"
+              id="music-progress-track">
+              <div id="music-progress-fill"
+                style="height:100%; width:0%; background:var(--accent); border-radius:2px; transition:width 0.3s linear;">
+              </div>
             </div>
             <!-- Hidden HTML5 audio element -->
             <audio id="music-audio-el" preload="metadata" style="display:none;"></audio>
@@ -1213,10 +1714,13 @@
         </section>
 
         <!-- GAME ARCADE -->
-        <section class="panel" id="panel-arcade" style="flex-direction:column; height:calc(100vh - 140px); overflow:hidden; gap:0;">
-          <div class="arcade-main-layout" style="display:grid; grid-template-columns: 1fr 300px; gap:16px; height:100%; overflow:hidden;">
+        <section class="panel" id="panel-arcade"
+          style="flex-direction:column; height:calc(100vh - 140px); overflow:hidden; gap:0;">
+          <div class="arcade-main-layout"
+            style="display:grid; grid-template-columns: 1fr 300px; gap:16px; height:100%; overflow:hidden;">
             <!-- Left Column: Game Selection/Arena -->
-            <div class="card" style="display:flex; flex-direction:column; padding:0; overflow:hidden; border-color:var(--border); position:relative;">
+            <div class="card"
+              style="display:flex; flex-direction:column; padding:0; overflow:hidden; border-color:var(--border); position:relative;">
               <!-- Message overlay (replaces legacy alerts) -->
               <div id="arcade-message-overlay" class="arcade-overlay" style="display:none;">
                 <div class="arcade-overlay-content">
@@ -1230,12 +1734,17 @@
               </div>
 
               <!-- Top Selection Menu -->
-              <div id="arcade-menu-view" style="display:flex; flex-direction:column; padding:20px; overflow-y:auto; height:100%;">
-                <h2 style="font-family:var(--display); font-size:15px; color:var(--text); letter-spacing:1px; margin-bottom:4px;">🎮 GAME ARCADE STATIONS</h2>
-                <p class="muted" style="margin-bottom:20px;">Select a local developer-themed mini-game station to boot offline. High scores persist in session cache.</p>
-                
+              <div id="arcade-menu-view"
+                style="display:flex; flex-direction:column; padding:20px; overflow-y:auto; height:100%;">
+                <h2
+                  style="font-family:var(--display); font-size:15px; color:var(--text); letter-spacing:1px; margin-bottom:4px;">
+                  🎮 GAME ARCADE STATIONS</h2>
+                <p class="muted" style="margin-bottom:20px;">Select a local developer-themed mini-game station to boot
+                  offline. High scores persist in session cache.</p>
+
                 <!-- 4-Column top aligned card selector grid -->
-                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:14px; width:100%; align-items:start;">
+                <div
+                  style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:14px; width:100%; align-items:start;">
                   <div class="arcade-selection-card" onclick="bootArcadeGame('snake')">
                     <div class="arcade-card-icon">🐍</div>
                     <h4>Git Commit Snake</h4>
@@ -1264,50 +1773,76 @@
               </div>
 
               <!-- Game Arena View -->
-              <div id="arcade-arena-view" style="display:none; flex-direction:column; height:100%; position:relative; overflow:hidden;">
+              <div id="arcade-arena-view"
+                style="display:none; flex-direction:column; height:100%; position:relative; overflow:hidden;">
                 <!-- Header panel inside arena -->
-                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,0.2); padding:10px 16px; border-bottom:1px solid var(--border); flex-shrink:0;">
-                  <span id="arena-game-title" style="font-family:var(--display); font-size:12px; color:var(--accent); font-weight:700;">GAME STATION</span>
+                <div
+                  style="display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,0.2); padding:10px 16px; border-bottom:1px solid var(--border); flex-shrink:0;">
+                  <span id="arena-game-title"
+                    style="font-family:var(--display); font-size:12px; color:var(--accent); font-weight:700;">GAME
+                    STATION</span>
                   <div style="display:flex; gap:8px;">
-                    <span style="font-family:var(--mono); font-size:11px; color:var(--text);">Score: <b id="arena-current-score" style="color:var(--accent)">0</b></span>
+                    <span style="font-family:var(--mono); font-size:11px; color:var(--text);">Score: <b
+                        id="arena-current-score" style="color:var(--accent)">0</b></span>
                     <span style="color:var(--muted); font-size:11px;">|</span>
-                    <span style="font-family:var(--mono); font-size:11px; color:var(--muted);">Personal Best: <b id="arena-high-score">0</b></span>
+                    <span style="font-family:var(--mono); font-size:11px; color:var(--muted);">Personal Best: <b
+                        id="arena-high-score">0</b></span>
                   </div>
-                  <button class="btn-ghost" onclick="quitArcadeArena()" style="font-size:10px; padding:3px 8px;">✕ Quit Game</button>
+                  <button class="btn-ghost" onclick="quitArcadeArena()" style="font-size:10px; padding:3px 8px;">✕ Quit
+                    Game</button>
                 </div>
-                
+
                 <!-- Visual Canvas Wrapper -->
-                <div style="flex:1; display:flex; align-items:center; justify-content:center; background:#121214; overflow:hidden;" id="arcade-canvas-wrapper">
-                  <canvas id="arcade-canvas" width="400" height="400" style="background:#1e1e24; box-shadow:0 4px 12px rgba(0,0,0,0.5); display:none; max-width:100%; max-height:100%;"></canvas>
-                  
+                <div
+                  style="flex:1; display:flex; align-items:center; justify-content:center; background:#121214; overflow:hidden;"
+                  id="arcade-canvas-wrapper">
+                  <canvas id="arcade-canvas" width="400" height="400"
+                    style="background:#1e1e24; box-shadow:0 4px 12px rgba(0,0,0,0.5); display:none; max-width:100%; max-height:100%;"></canvas>
+
                   <!-- Fallback Decrypt text inputs UI -->
-                  <div id="arcade-game-decrypt" class="arcade-game-container" style="display:none; flex-direction:column; width:100%; height:100%; padding:20px; font-family:var(--mono); font-size:12px;">
-                    <div id="decrypt-console" style="flex:1; background:#0c0f12; border:1px solid var(--border); border-radius:4px; padding:12px; overflow-y:auto; margin-bottom:12px; color:#38bdf8; line-height:1.5;"></div>
+                  <div id="arcade-game-decrypt" class="arcade-game-container"
+                    style="display:none; flex-direction:column; width:100%; height:100%; padding:20px; font-family:var(--mono); font-size:12px;">
+                    <div id="decrypt-console"
+                      style="flex:1; background:#0c0f12; border:1px solid var(--border); border-radius:4px; padding:12px; overflow-y:auto; margin-bottom:12px; color:#38bdf8; line-height:1.5;">
+                    </div>
                     <div style="display:flex; gap:8px; align-items:center;">
                       <span>&gt; ENTER PASSCODE:</span>
-                      <input id="decrypt-input" type="text" style="flex:1; font-family:var(--mono); background:#0c0f12; color:#38bdf8; border:1px solid var(--border);" autocomplete="off"/>
+                      <input id="decrypt-input" type="text"
+                        style="flex:1; font-family:var(--mono); background:#0c0f12; color:#38bdf8; border:1px solid var(--border);"
+                        autocomplete="off" />
                       <button class="btn-primary" id="decrypt-enter-btn" style="padding:8px 16px;">DECRYPT</button>
                     </div>
                   </div>
 
                   <!-- Fallback Sweeper DOM UI -->
-                  <div id="arcade-game-sweeper" class="arcade-game-container" style="display:none; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;">
-                    <div style="display:flex; justify-content:space-between; width:100%; max-width:380px; font-family:var(--mono); font-size:11.5px; color:var(--text); margin-bottom:10px;">
-                      <span>Threats Flagged: <b id="sweeper-flagged" style="color:var(--red)">0</b> / <b id="sweeper-total-mines" style="color:var(--red)">10</b></span>
+                  <div id="arcade-game-sweeper" class="arcade-game-container"
+                    style="display:none; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;">
+                    <div
+                      style="display:flex; justify-content:space-between; width:100%; max-width:380px; font-family:var(--mono); font-size:11.5px; color:var(--text); margin-bottom:10px;">
+                      <span>Threats Flagged: <b id="sweeper-flagged" style="color:var(--red)">0</b> / <b
+                          id="sweeper-total-mines" style="color:var(--red)">10</b></span>
                       <span>Revealed Cells: <b id="sweeper-revealed" style="color:var(--accent)">0</b> / 90</span>
                     </div>
-                    <div id="sweeper-board" style="display:grid; grid-template-columns:repeat(10, 32px); grid-template-rows:repeat(10, 32px); gap:3px; background:#121214; padding:8px; border:2px solid var(--border); border-radius:6px;"></div>
+                    <div id="sweeper-board"
+                      style="display:grid; grid-template-columns:repeat(10, 32px); grid-template-rows:repeat(10, 32px); gap:3px; background:#121214; padding:8px; border:2px solid var(--border); border-radius:6px;">
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             <!-- Right Column: Control Deck & Information -->
-            <div class="card" style="display:flex; flex-direction:column; padding:16px; border-color:var(--border); font-family:var(--mono); font-size:11px; line-height:1.6; overflow-y:auto;">
-              <h3 style="font-family:var(--display); color:var(--accent); font-size:12px; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:6px; letter-spacing:1px;">🕹 CONTROLLER INSTRUCTIONS</h3>
+            <div class="card"
+              style="display:flex; flex-direction:column; padding:16px; border-color:var(--border); font-family:var(--mono); font-size:11px; line-height:1.6; overflow-y:auto;">
+              <h3
+                style="font-family:var(--display); color:var(--accent); font-size:12px; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:6px; letter-spacing:1px;">
+                🕹 CONTROLLER INSTRUCTIONS</h3>
               <div id="arcade-instruction-content" style="flex:1;"></div>
-              <div style="border-top:1px solid var(--border); padding-top:12px; margin-top:12px; display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
-                <button class="btn-primary" id="arcade-reset-btn" style="width:100%; font-size:11px; padding:8px 0; font-family:var(--mono); font-weight:bold;">🎮 RESTART STATION</button>
+              <div
+                style="border-top:1px solid var(--border); padding-top:12px; margin-top:12px; display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
+                <button class="btn-primary" id="arcade-reset-btn"
+                  style="width:100%; font-size:11px; padding:8px 0; font-family:var(--mono); font-weight:bold;">🎮
+                  RESTART STATION</button>
               </div>
             </div>
           </div>
@@ -1328,6 +1863,15 @@
       <span>api :: localhost:5000</span>
     </div>
     <div class="status-bar-right">
+      <span class="status-bar-text" id="status-bar-indent-size">
+        Tab Size:
+        <select id="status-bar-select-indent" class="status-bar-select-indent">
+          <option value="2">2 Spaces</option>
+          <option value="4" selected>4 Spaces</option>
+          <option value="tab">Tabs</option>
+        </select>
+      </span>
+      <span class="status-bar-sep">|</span>
       <span>Developer: Hitesh Solanki</span>
       <span class="status-bar-sep">|</span>
       <a href="/docs" target="_blank">Docs ↗</a>
@@ -1339,14 +1883,20 @@
   <!-- Quest modal -->
   <div class="modal-overlay" id="quest-modal">
     <div class="modal">
-      <div class="modal-head"><h3>New Quest</h3><button id="close-modal" class="icon-btn">✕</button></div>
-      <label>Title<input id="q-title"/></label>
+      <div class="modal-head">
+        <h3>New Quest</h3><button id="close-modal" class="icon-btn">✕</button>
+      </div>
+      <label>Title<input id="q-title" /></label>
       <label>Description<textarea id="q-desc" rows="3"></textarea></label>
       <label>Priority
-        <select id="q-prio"><option>High</option><option selected>Medium</option><option>Low</option></select>
+        <select id="q-prio">
+          <option>High</option>
+          <option selected>Medium</option>
+          <option>Low</option>
+        </select>
       </label>
-      <label>Due date<input type="date" id="q-due"/></label>
-      <label>Tags (comma)<input id="q-tags" placeholder="docker, k8s"/></label>
+      <label>Due date<input type="date" id="q-due" /></label>
+      <label>Tags (comma)<input id="q-tags" placeholder="docker, k8s" /></label>
       <button class="btn-primary" id="q-save">Create Quest</button>
     </div>
   </div>
@@ -1359,19 +1909,25 @@
         <button id="close-update-modal" class="icon-btn">✕</button>
       </div>
       <div style="font-size:12px; margin-bottom:14px; line-height:1.5;">
-        A new update is ready for DevHunt. Your local data, configurations, and API settings will be completely preserved.
+        A new update is ready for DevHunt. Your local data, configurations, and API settings will be completely
+        preserved.
       </div>
-      <div style="background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; padding:12px; margin-bottom:16px;">
-        <div style="font-size:11px; font-weight:bold; color:var(--accent); margin-bottom:6px; letter-spacing:1px;">CHANGES IN THIS VERSION:</div>
+      <div
+        style="background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; padding:12px; margin-bottom:16px;">
+        <div style="font-size:11px; font-weight:bold; color:var(--accent); margin-bottom:6px; letter-spacing:1px;">
+          CHANGES IN THIS VERSION:</div>
         <div style="max-height:180px; overflow-y:auto;">
-          <ul id="modal-update-commits-list" style="margin:0; padding-left:16px; font-family:var(--mono); font-size:11.5px; color:var(--text); line-height:1.5;"></ul>
+          <ul id="modal-update-commits-list"
+            style="margin:0; padding-left:16px; font-family:var(--mono); font-size:11.5px; color:var(--text); line-height:1.5;">
+          </ul>
         </div>
       </div>
       <div style="display:flex; justify-content:flex-end; gap:10px;">
         <button class="btn-ghost" id="cancel-update-btn">Later</button>
         <button class="btn-primary" id="modal-apply-update-btn" style="font-weight:700;">Update Now</button>
       </div>
-      <div id="modal-update-progress" style="display:none; margin-top:12px; font-size:11px; color:var(--accent); font-family:var(--mono);">
+      <div id="modal-update-progress"
+        style="display:none; margin-top:12px; font-size:11px; color:var(--accent); font-family:var(--mono);">
         <span class="streaming-cursor">▌</span> Downloading and installing update...
       </div>
     </div>
@@ -1384,14 +1940,22 @@
         <h3 id="notif-detail-title" style="color:var(--accent);">Notification Details</h3>
         <button id="close-notif-detail-modal" class="icon-btn">✕</button>
       </div>
-      <div id="notif-detail-meta" style="font-size:11px; color:var(--muted); margin-bottom:14px; font-family:var(--mono);">
+      <div id="notif-detail-meta"
+        style="font-size:11px; color:var(--muted); margin-bottom:14px; font-family:var(--mono);">
         Type: news | Date: --
       </div>
-      <div style="background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; padding:14px; margin-bottom:16px;">
-        <div id="notif-detail-message" style="font-size:12.5px; line-height:1.6; color:var(--text); white-space:pre-wrap; max-height:220px; overflow-y:auto; font-family:var(--mono);"></div>
-        <div id="notif-detail-metadata-container" style="display:none; margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
-          <div style="font-size:10px; font-weight:bold; color:var(--accent); margin-bottom:6px; letter-spacing:1px; font-family:var(--mono);">LOG METADATA (RAW JSON):</div>
-          <pre id="notif-detail-metadata" style="margin:0; font-family:var(--mono); font-size:11px; color:var(--muted); overflow-x:auto; background:rgba(0,0,0,0.2); padding:10px; border-radius:4px; max-height:150px; overflow-y:auto;"></pre>
+      <div
+        style="background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; padding:14px; margin-bottom:16px;">
+        <div id="notif-detail-message"
+          style="font-size:12.5px; line-height:1.6; color:var(--text); white-space:pre-wrap; max-height:220px; overflow-y:auto; font-family:var(--mono);">
+        </div>
+        <div id="notif-detail-metadata-container"
+          style="display:none; margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
+          <div
+            style="font-size:10px; font-weight:bold; color:var(--accent); margin-bottom:6px; letter-spacing:1px; font-family:var(--mono);">
+            LOG METADATA (RAW JSON):</div>
+          <pre id="notif-detail-metadata"
+            style="margin:0; font-family:var(--mono); font-size:11px; color:var(--muted); overflow-x:auto; background:rgba(0,0,0,0.2); padding:10px; border-radius:4px; max-height:150px; overflow-y:auto;"></pre>
         </div>
       </div>
       <div style="display:flex; justify-content:flex-end; gap:10px;">
@@ -1404,6 +1968,5 @@
   <script src="app.js"></script>
   <script src="arcade.js"></script>
 </body>
+
 </html>
-
-

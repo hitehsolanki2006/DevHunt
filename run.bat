@@ -153,6 +153,12 @@ start "" "%URL%"
 echo.
 echo  Server running at: http://localhost:5000
 echo  Logs page:         http://localhost:5000/logs
+echo.
+echo  ==================================================================
+echo   To connect a host command line terminal to the DevHunt server:
+echo     Open a new terminal window and run: hunter.bat -dt
+echo  ==================================================================
+echo.
 echo  Press Ctrl+C in server window to stop.
 echo.
 pause

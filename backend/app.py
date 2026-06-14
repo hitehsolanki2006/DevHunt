@@ -1512,9 +1512,11 @@ def music_delete(filename):
 
 
 # ── IDE ENDPOINTS ─────────────────────────────────────────────────────────────
-WORKSPACE_DIR = os.path.dirname(os.path.abspath(__file__))
-if os.path.basename(WORKSPACE_DIR) == 'backend':
-    WORKSPACE_DIR = os.path.dirname(WORKSPACE_DIR)
+WORKSPACE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "empty_workspace")
+if os.path.basename(os.path.dirname(WORKSPACE_DIR)) == 'backend':
+    WORKSPACE_DIR = os.path.abspath(os.path.join(os.path.dirname(WORKSPACE_DIR), "..", "empty_workspace"))
+if not os.path.exists(WORKSPACE_DIR):
+    os.makedirs(WORKSPACE_DIR, exist_ok=True)
 
 def get_project_tree(root_dir):
     ignored_dirs = {'.git', 'venv', '.vscode', '__pycache__', 'node_modules', '.gemini'}
@@ -1592,6 +1594,251 @@ def ide_save_file():
             f.write(content)
         logger.success("system", f"IDE saved file: {rel_path}")
         return jsonify({"success": True, "message": "File saved successfully"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# ── ADVANCED IDE ENDPOINTS ───────────────────────────────────────────────────
+@app.route('/api/ide/search', methods=['GET', 'POST'])
+def ide_search_files():
+    query = (request.args.get('query') or (request.get_json() or {}).get('query', '')).strip()
+    is_case_sensitive = (request.args.get('case_sensitive') == 'true' or (request.get_json() or {}).get('case_sensitive') == True)
+    is_whole_word = (request.args.get('whole_word') == 'true' or (request.get_json() or {}).get('whole_word') == True)
+    is_regex = (request.args.get('regex') == 'true' or (request.get_json() or {}).get('regex') == True)
+
+    if not query:
+        return jsonify({"success": True, "results": []})
+    
+    results = []
+    exclude_dirs = {'.git', 'node_modules', 'venv', 'backend/venv', '__pycache__', '.idea', '.vscode'}
+    exclude_exts = {'.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', '.mp3', '.wav', '.ogg', '.pyc'}
+
+    try:
+        import re
+        if is_regex:
+            flags = 0 if is_case_sensitive else re.IGNORECASE
+            try:
+                pattern = re.compile(query, flags)
+            except Exception as e:
+                return jsonify({"success": False, "error": f"Invalid regex: {str(e)}"}), 400
+        else:
+            escaped = re.escape(query)
+            if is_whole_word:
+                escaped = rf'\b{escaped}\b'
+            flags = 0 if is_case_sensitive else re.IGNORECASE
+            pattern = re.compile(escaped, flags)
+
+        for root, dirs, files in os.walk(WORKSPACE_DIR):
+            dirs[:] = [d for d in dirs if d not in exclude_dirs and os.path.join(root, d) not in [os.path.join(WORKSPACE_DIR, 'backend', 'venv'), os.path.join(WORKSPACE_DIR, 'venv')]]
+            
+            for file in files:
+                ext = os.path.splitext(file)[1].lower()
+                if ext in exclude_exts:
+                    continue
+                
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, WORKSPACE_DIR)
+                
+                try:
+                    with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        lines = f.readlines()
+                    for idx, line in enumerate(lines):
+                        if pattern.search(line):
+                            results.append({
+                                "path": rel_path.replace('\\', '/'),
+                                "line": idx + 1,
+                                "content": line.strip()
+                            })
+                except Exception:
+                    pass
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ide/replace', methods=['POST'])
+def ide_replace_files():
+    data = request.get_json() or {}
+    query = data.get('query', '').strip()
+    replace_term = data.get('replace', '')
+    files_to_modify = data.get('files', [])
+    is_case_sensitive = data.get('case_sensitive', False)
+    is_whole_word = data.get('whole_word', False)
+    is_regex = data.get('regex', False)
+
+    if not query:
+        return jsonify({"success": False, "error": "Query required"}), 400
+        
+    modified_count = 0
+    try:
+        import re
+        if is_regex:
+            flags = 0 if is_case_sensitive else re.IGNORECASE
+            pattern = re.compile(query, flags)
+        else:
+            escaped = re.escape(query)
+            if is_whole_word:
+                escaped = rf'\b{escaped}\b'
+            flags = 0 if is_case_sensitive else re.IGNORECASE
+            pattern = re.compile(escaped, flags)
+
+        paths = []
+        if files_to_modify:
+            paths = [os.path.abspath(os.path.join(WORKSPACE_DIR, p)) for p in files_to_modify]
+        else:
+            exclude_dirs = {'.git', 'node_modules', 'venv', '__pycache__', '.idea', '.vscode'}
+            exclude_exts = {'.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', '.mp3', '.wav', '.ogg', '.pyc'}
+            for root, dirs, files in os.walk(WORKSPACE_DIR):
+                dirs[:] = [d for d in dirs if d not in exclude_dirs]
+                for file in files:
+                    ext = os.path.splitext(file)[1].lower()
+                    if ext in exclude_exts:
+                        continue
+                    full_path = os.path.join(root, file)
+                    paths.append(full_path)
+                    
+        for abs_path in paths:
+            if not abs_path.startswith(os.path.abspath(WORKSPACE_DIR)):
+                continue
+            if not os.path.exists(abs_path) or os.path.isdir(abs_path):
+                continue
+                
+            try:
+                with open(abs_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                
+                if pattern.search(content):
+                    if is_regex or is_whole_word:
+                        new_content = pattern.sub(replace_term, content)
+                    else:
+                        if is_case_sensitive:
+                            new_content = content.replace(query, replace_term)
+                        else:
+                            new_content = pattern.sub(replace_term, content)
+                    
+                    with open(abs_path, 'w', encoding='utf-8') as f:
+                        f.write(new_content)
+                    modified_count += 1
+            except Exception:
+                pass
+                
+        logger.success("system", f"IDE replaced '{query}' with '{replace_term}' in {modified_count} files")
+        return jsonify({"success": True, "modified_count": modified_count})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ide/gitdiff', methods=['GET'])
+def ide_file_gitdiff():
+    rel_path = request.args.get('path', '').strip()
+    if not rel_path:
+        return jsonify({"success": False, "error": "Path required"}), 400
+        
+    abs_path = os.path.abspath(os.path.join(WORKSPACE_DIR, rel_path))
+    if not abs_path.startswith(os.path.abspath(WORKSPACE_DIR)):
+        return jsonify({"success": False, "error": "Access denied"}), 403
+        
+    if not os.path.exists(abs_path):
+        return jsonify({"success": True, "added": [], "modified": [], "deleted": []})
+        
+    try:
+        import subprocess
+        cmd = ["git", "diff", "-U0", "--", abs_path]
+        res = subprocess.run(cmd, cwd=WORKSPACE_DIR, capture_output=True, text=True, errors='ignore')
+        
+        added_lines = []
+        modified_lines = []
+        deleted_lines = []
+        
+        if res.returncode == 0 and res.stdout:
+            import re
+            hunk_re = re.compile(r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
+            for line in res.stdout.splitlines():
+                if line.startswith('@@'):
+                    match = hunk_re.match(line)
+                    if match:
+                        old_start = int(match.group(1))
+                        old_count = int(match.group(2)) if match.group(2) else (0 if ',0' in line.split()[1] else 1)
+                        new_start = int(match.group(3))
+                        new_count = int(match.group(4)) if match.group(4) else (0 if ',0' in line.split()[2] else 1)
+                        
+                        if old_count == 0:
+                            for idx in range(new_start, new_start + new_count):
+                                added_lines.append(idx)
+                        elif new_count == 0:
+                            deleted_lines.append(new_start)
+                        else:
+                            for idx in range(new_start, new_start + min(old_count, new_count)):
+                                modified_lines.append(idx)
+                            if new_count > old_count:
+                                for idx in range(new_start + old_count, new_start + new_count):
+                                    added_lines.append(idx)
+                                    
+        return jsonify({
+            "success": True,
+            "added": added_lines,
+            "modified": modified_lines,
+            "deleted": deleted_lines
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ide/create', methods=['POST'])
+def ide_create_item():
+    data = request.get_json() or {}
+    rel_path = data.get('path', '').strip()
+    item_type = data.get('type', 'file')
+    if not rel_path:
+        return jsonify({"success": False, "error": "Path required"}), 400
+    abs_path = os.path.abspath(os.path.join(WORKSPACE_DIR, rel_path))
+    if not abs_path.startswith(os.path.abspath(WORKSPACE_DIR)):
+        return jsonify({"success": False, "error": "Access denied"}), 403
+    try:
+        if item_type == 'directory':
+            os.makedirs(abs_path, exist_ok=True)
+        else:
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+            with open(abs_path, 'w', encoding='utf-8') as f:
+                f.write('')
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ide/delete', methods=['POST'])
+def ide_delete_item():
+    data = request.get_json() or {}
+    rel_path = data.get('path', '').strip()
+    if not rel_path:
+        return jsonify({"success": False, "error": "Path required"}), 400
+    abs_path = os.path.abspath(os.path.join(WORKSPACE_DIR, rel_path))
+    if not abs_path.startswith(os.path.abspath(WORKSPACE_DIR)):
+        return jsonify({"success": False, "error": "Access denied"}), 403
+    try:
+        if os.path.isdir(abs_path):
+            import shutil
+            shutil.rmtree(abs_path)
+        else:
+            os.remove(abs_path)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ide/rename', methods=['POST'])
+def ide_rename_item():
+    data = request.get_json() or {}
+    old_path = data.get('old_path', '').strip()
+    new_path = data.get('new_path', '').strip()
+    if not old_path or not new_path:
+        return jsonify({"success": False, "error": "Paths required"}), 400
+    abs_old = os.path.abspath(os.path.join(WORKSPACE_DIR, old_path))
+    abs_new = os.path.abspath(os.path.join(WORKSPACE_DIR, new_path))
+    if not abs_old.startswith(os.path.abspath(WORKSPACE_DIR)) or not abs_new.startswith(os.path.abspath(WORKSPACE_DIR)):
+        return jsonify({"success": False, "error": "Access denied"}), 403
+    try:
+        os.rename(abs_old, abs_new)
+        return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

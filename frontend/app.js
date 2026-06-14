@@ -2549,10 +2549,33 @@ async function loadProfileAndSettings() {
         "newFile": "Show New File Inline",
         "openTerminal": "Switch to Terminal Panel",
         "clearEditor": "Clear Editor Content",
-        "refreshExplorer": "Refresh File Explorer"
+        "refreshExplorer": "Refresh File Explorer",
+        "openLocalFolder": "Open Local Folder",
+        "openLocalFile": "Open Local File",
+        "formatDocument": "Format Active Document",
+        "globalSearch": "Global Search & Replace"
+      };
+      
+      const default_shortcuts = {
+        "toggleSidebar": "Ctrl+B",
+        "saveFile": "Ctrl+S",
+        "focusChat": "Ctrl+K",
+        "newFile": "Ctrl+N",
+        "openTerminal": "Ctrl+Shift+P",
+        "clearEditor": "Ctrl+Alt+C",
+        "refreshExplorer": "Ctrl+Alt+R",
+        "openLocalFolder": "Ctrl+Alt+O",
+        "openLocalFile": "Ctrl+O",
+        "formatDocument": "Shift+Alt+F",
+        "globalSearch": "Ctrl+Alt+F"
       };
       
       const currentShortcuts = settings.shortcuts || {};
+      for (const [actionId, combo] of Object.entries(default_shortcuts)) {
+        if (currentShortcuts[actionId] === undefined) {
+          currentShortcuts[actionId] = combo;
+        }
+      }
       window.hotkeys = currentShortcuts;
       
       // Update topbar dropdown labels
@@ -3373,6 +3396,10 @@ function updatePrompt(promptEl) {
     // If not matching, just display basename
     const parts = terminalCwd.split(/[\\/]/);
     displayCwd = parts[parts.length - 1] || terminalCwd;
+  }
+
+  if (displayCwd.endsWith("/empty_workspace")) {
+    displayCwd = "~";
   }
 
   const username = window.terminalUsername || 'guest';
@@ -5517,7 +5544,11 @@ window.addEventListener('DOMContentLoaded', () => {
             "newFile": "Ctrl+N",
             "openTerminal": "Ctrl+Shift+P",
             "clearEditor": "Ctrl+Alt+C",
-            "refreshExplorer": "Ctrl+Alt+R"
+            "refreshExplorer": "Ctrl+Alt+R",
+            "openLocalFolder": "Ctrl+Alt+O",
+            "openLocalFile": "Ctrl+O",
+            "formatDocument": "Shift+Alt+F",
+            "globalSearch": "Ctrl+Alt+F"
           };
           await saveSettingsAPI({ shortcuts: default_shortcuts });
           loadProfileAndSettings();
@@ -5766,7 +5797,11 @@ window.addEventListener('keydown', (e) => {
         newFile: () => window.showInlineNewFileInput(),
         openTerminal: () => switchPanel('terminal'),
         clearEditor: () => { const clearBtn = document.getElementById('menu-clear-editor'); if (clearBtn) clearBtn.click(); },
-        refreshExplorer: () => { if (typeof window.refreshExplorer === 'function') window.refreshExplorer(); }
+        refreshExplorer: () => { if (typeof window.refreshExplorer === 'function') window.refreshExplorer(); },
+        openLocalFolder: () => { if (typeof window.openLocalFolder === 'function') window.openLocalFolder(); },
+        openLocalFile: () => { if (typeof window.openLocalFile === 'function') window.openLocalFile(); },
+        formatDocument: () => { if (typeof window.formatActiveDocument === 'function') window.formatActiveDocument(); },
+        globalSearch: () => { switchPanel('search'); const gsi = document.getElementById('global-search-input'); if (gsi) { gsi.focus(); gsi.select(); } }
       };
 
       if (shortcutActions[matchedActionId]) {
@@ -6109,4 +6144,1399 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+/* ========== ADVANCED IDE WORKSPACE IMPLEMENTATION ========== */
 
+// Core state
+window.isUsingLocalFolder = false;
+window.localFolderHandle = null;
+window.localFileHandles = {};
+window.localDirHandles = {};
+window.localActiveFileHandle = null;
+window.openTabs = [];
+window.activeTabPath = null;
+window.editorIndentSize = 4;
+window.lastGlobalSearchResults = null;
+
+// Original function wrappers
+const originalOpenFile = window.openFileInEditor;
+window.openFileInEditor = async (path) => {
+  if (window.isUsingLocalFolder) {
+    await window.openLocalFileInEditor(path);
+  } else {
+    await originalOpenFile(path);
+    await window.triggerGitDiffHighlight(path);
+  }
+  window.scanCodeOutline();
+};
+
+const originalSaveFile = window.saveActiveFile;
+window.saveActiveFile = async () => {
+  if (window.isUsingLocalFolder) {
+    await window.saveLocalActiveFile();
+  } else {
+    await originalSaveFile();
+    if (window.activeEditingFilePath) {
+      await window.triggerGitDiffHighlight(window.activeEditingFilePath);
+    }
+  }
+  window.scanCodeOutline();
+};
+
+const originalRefreshExplorer = window.refreshExplorer;
+window.refreshExplorer = async () => {
+  const treeContainer = document.getElementById('file-explorer-tree');
+  if (!treeContainer) return;
+  
+  if (window.isUsingLocalFolder && window.localFolderHandle) {
+    treeContainer.innerHTML = `<div class="muted">// scanning local folder...</div>`;
+    try {
+      window.localFileHandles = {};
+      window.localDirHandles = {};
+      window.localDirHandles[''] = window.localFolderHandle;
+      
+      const tree = await buildLocalTree(window.localFolderHandle);
+      window.explorerTreeData = tree;
+      window.renderExplorerTree();
+    } catch (err) {
+      treeContainer.innerHTML = `<div class="error" style="color:var(--red);">Scan failed: ${err.message}</div>`;
+    }
+  } else {
+    await originalRefreshExplorer();
+  }
+};
+
+const originalRenderExplorerTree = window.renderExplorerTree;
+window.renderExplorerTree = () => {
+  originalRenderExplorerTree();
+  
+  const treeContainer = document.getElementById('file-explorer-tree');
+  if (!treeContainer) return;
+  
+  treeContainer.querySelectorAll('.file-tree-node').forEach(el => {
+    el.addEventListener('contextmenu', (e) => {
+      const path = el.dataset.path;
+      const isDir = el.classList.contains('directory');
+      window.showExplorerContextMenu(e, path, isDir);
+    });
+  });
+  
+  treeContainer.querySelectorAll('.file-tree-node.file').forEach(el => {
+    const clone = el.cloneNode(true);
+    el.parentNode.replaceChild(clone, el);
+    
+    clone.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const path = clone.dataset.path;
+      window.addTab(path);
+    });
+    
+    clone.addEventListener('contextmenu', (e) => {
+      const path = clone.dataset.path;
+      window.showExplorerContextMenu(e, path, false);
+    });
+  });
+};
+
+// Local Folder filesystem builder
+async function buildLocalTree(dirHandle, relativePath = '') {
+  const children = [];
+  for await (const entry of dirHandle.values()) {
+    const entryPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+    if (entry.kind === 'directory') {
+      if (['node_modules', '.git', '.venv', 'venv', '__pycache__', '.idea', '.vscode'].includes(entry.name)) {
+        continue;
+      }
+      const subTree = await buildLocalTree(entry, entryPath);
+      children.push({
+        name: entry.name,
+        path: entryPath,
+        isDir: true,
+        children: subTree
+      });
+      window.localDirHandles[entryPath] = entry;
+    } else {
+      children.push({
+        name: entry.name,
+        path: entryPath,
+        isDir: false
+      });
+      window.localFileHandles[entryPath] = entry;
+    }
+  }
+  
+  children.sort((a, b) => {
+    if (a.isDir && !b.isDir) return -1;
+    if (!a.isDir && b.isDir) return 1;
+    return a.name.localeCompare(b.name);
+  });
+  return children;
+}
+
+// Local File Open & Folder Open
+window.openLocalFolder = async () => {
+  try {
+    const dirHandle = await window.showDirectoryPicker();
+    window.localFolderHandle = dirHandle;
+    window.localFileHandles = {};
+    window.localDirHandles = {};
+    window.isUsingLocalFolder = true;
+    
+    window.openTabs = [];
+    window.activeTabPath = null;
+    window.renderTabs();
+    
+    window.localDirHandles[''] = dirHandle;
+    
+    const menuCloseLocal = document.getElementById('menu-close-local');
+    if (menuCloseLocal) menuCloseLocal.style.display = 'block';
+    
+    const explTitle = document.getElementById('explorer-title');
+    if (explTitle) explTitle.textContent = `EXPLORER: LOCAL [${dirHandle.name}]`;
+    
+    await window.refreshExplorer();
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      alert('Error opening folder: ' + err.message);
+    }
+  }
+};
+
+window.openLocalFile = async () => {
+  try {
+    const [fileHandle] = await window.showOpenFilePicker();
+    const file = await fileHandle.getFile();
+    const content = await file.text();
+    
+    window.isUsingLocalFolder = true;
+    window.localFileHandles[file.name] = fileHandle;
+    window.addTab(file.name);
+    
+    window.explorerTreeData = [{
+      name: file.name,
+      path: file.name,
+      isDir: false
+    }];
+    window.renderExplorerTree();
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      alert('Error opening file: ' + err.message);
+    }
+  }
+};
+
+window.closeLocalFolder = () => {
+  window.isUsingLocalFolder = false;
+  window.localFolderHandle = null;
+  window.localFileHandles = {};
+  window.localDirHandles = {};
+  window.openTabs = [];
+  window.activeTabPath = null;
+  
+  const menuCloseLocal = document.getElementById('menu-close-local');
+  if (menuCloseLocal) menuCloseLocal.style.display = 'none';
+  
+  const explTitle = document.getElementById('explorer-title');
+  if (explTitle) explTitle.textContent = `EXPLORER: LOCAL-AI`;
+  
+  window.renderTabs();
+  window.refreshExplorer();
+};
+
+window.openLocalFileInEditor = async (path) => {
+  const handle = window.localFileHandles[path];
+  if (!handle) return;
+  
+  const editorTextarea = document.getElementById('editor-textarea');
+  const lineNumbers = document.getElementById('editor-line-numbers');
+  const activeFilePath = document.getElementById('active-file-path');
+  const saveBtn = document.getElementById('editor-save-btn');
+  
+  if (!editorTextarea || !lineNumbers || !activeFilePath || !saveBtn) return;
+  
+  editorTextarea.disabled = true;
+  saveBtn.disabled = true;
+  activeFilePath.textContent = `// Loading ${path}...`;
+  updateTopbarTitle(path);
+  
+  try {
+    const file = await handle.getFile();
+    const content = await file.text();
+    
+    window.activeEditingFilePath = path;
+    window.localActiveFileHandle = handle;
+    
+    editorTextarea.value = content;
+    editorTextarea.disabled = false;
+    saveBtn.disabled = false;
+    activeFilePath.textContent = `Local File: ${path}`;
+    updateTopbarTitle(path);
+    
+    document.querySelectorAll('.file-tree-node.file').forEach(el => {
+      el.classList.toggle('active', el.dataset.path === path);
+    });
+    
+    window.updateEditorLineNumbers();
+    switchPanel('editor');
+  } catch (err) {
+    activeFilePath.textContent = `// Error loading file: ${err.message}`;
+  }
+};
+
+window.saveLocalActiveFile = async () => {
+  if (!window.activeEditingFilePath || !window.localActiveFileHandle) return;
+  
+  const saveBtn = document.getElementById('editor-save-btn');
+  const textarea = document.getElementById('editor-textarea');
+  if (!saveBtn || !textarea) return;
+  
+  const originalText = saveBtn.textContent;
+  saveBtn.textContent = 'Saving...';
+  saveBtn.disabled = true;
+  
+  try {
+    const writable = await window.localActiveFileHandle.createWritable();
+    await writable.write(textarea.value);
+    await writable.close();
+    
+    saveBtn.textContent = '✓ Saved';
+    setTimeout(() => {
+      saveBtn.textContent = originalText;
+      saveBtn.disabled = false;
+    }, 1500);
+  } catch (err) {
+    alert('Failed to save file: ' + err.message);
+    saveBtn.textContent = 'Save Failed';
+    saveBtn.disabled = false;
+  }
+};
+
+// Workspace Tabs Management
+window.addTab = (path) => {
+  if (!window.openTabs.includes(path)) {
+    window.openTabs.push(path);
+  }
+  window.selectTab(path);
+};
+
+window.selectTab = async (path) => {
+  window.activeTabPath = path;
+  window.renderTabs();
+  await window.openFileInEditor(path);
+  if (!window.isUsingLocalFolder) {
+    window.recoverDraft(path);
+  }
+};
+
+window.closeTab = (path, event) => {
+  if (event) event.stopPropagation();
+  window.openTabs = window.openTabs.filter(p => p !== path);
+  
+  if (window.activeTabPath === path) {
+    if (window.openTabs.length > 0) {
+      window.selectTab(window.openTabs[window.openTabs.length - 1]);
+    } else {
+      window.activeTabPath = null;
+      window.activeEditingFilePath = null;
+      const textarea = document.getElementById('editor-textarea');
+      const activeFilePath = document.getElementById('active-file-path');
+      if (textarea) {
+        textarea.value = '';
+        textarea.disabled = true;
+        window.updateEditorLineNumbers();
+      }
+      if (activeFilePath) {
+        activeFilePath.textContent = '// Select a file from the explorer sidebar to begin editing';
+      }
+      const saveBtn = document.getElementById('editor-save-btn');
+      if (saveBtn) saveBtn.disabled = true;
+      document.querySelectorAll('.file-tree-node.file').forEach(el => el.classList.remove('active'));
+      
+      const outlineSection = document.getElementById('sidebar-outline-section');
+      if (outlineSection) outlineSection.style.display = 'none';
+      updateTopbarTitle(null);
+    }
+  }
+  window.renderTabs();
+};
+
+window.renderTabs = () => {
+  const tabsBar = document.getElementById('editor-tabs-bar');
+  if (!tabsBar) return;
+  
+  if (window.openTabs.length === 0) {
+    tabsBar.innerHTML = '';
+    return;
+  }
+  
+  tabsBar.innerHTML = window.openTabs.map(path => {
+    const filename = path.split('/').pop();
+    const isActive = path === window.activeTabPath;
+    const activeClass = isActive ? 'active' : '';
+    return `
+      <div class="editor-tab-item ${activeClass}" onclick="window.selectTab('${path}')">
+        <span>📄 ${filename}</span>
+        <span class="editor-tab-close" onclick="window.closeTab('${path}', event)">✕</span>
+      </div>
+    `;
+  }).join('');
+};
+
+// Context Menu Operations
+document.addEventListener('click', () => {
+  const existingMenu = document.getElementById('explorer-context-menu');
+  if (existingMenu) existingMenu.remove();
+});
+
+window.showExplorerContextMenu = (e, path, isDir) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  const existingMenu = document.getElementById('explorer-context-menu');
+  if (existingMenu) existingMenu.remove();
+  
+  const menu = document.createElement('ul');
+  menu.id = 'explorer-context-menu';
+  menu.className = 'context-menu';
+  menu.style.top = `${e.pageY}px`;
+  menu.style.left = `${e.pageX}px`;
+  
+  const items = [
+    { label: '📄 New File', action: () => window.createNewItemPrompt(path, 'file', isDir) },
+    { label: '📁 New Folder', action: () => window.createNewItemPrompt(path, 'directory', isDir) },
+    { label: '✏️ Rename', action: () => window.renameItemPrompt(path) },
+    { label: '🗑️ Delete', action: () => window.deleteItemConfirm(path, isDir) }
+  ];
+  
+  menu.innerHTML = items.map((item, idx) => `
+    <li class="context-menu-item" onclick="window.runContextAction(${idx})">${item.label}</li>
+  `).join('');
+  
+  window.currentContextActions = items.map(item => item.action);
+  document.body.appendChild(menu);
+};
+
+window.runContextAction = (idx) => {
+  if (window.currentContextActions && window.currentContextActions[idx]) {
+    window.currentContextActions[idx]();
+  }
+  const existingMenu = document.getElementById('explorer-context-menu');
+  if (existingMenu) existingMenu.remove();
+};
+
+window.createNewItemPrompt = async (parentPath, type, parentIsDir) => {
+  const name = prompt(`Enter new ${type} name:`);
+  if (!name) return;
+  
+  let targetPath = parentPath;
+  if (!parentIsDir && parentPath) {
+    const parts = parentPath.split('/');
+    parts.pop();
+    targetPath = parts.join('/');
+  }
+  
+  const finalPath = targetPath ? `${targetPath}/${name}` : name;
+  
+  if (window.isUsingLocalFolder) {
+    try {
+      const parentDirHandle = window.localDirHandles[targetPath] || window.localFolderHandle;
+      if (type === 'directory') {
+        const handle = await parentDirHandle.getDirectoryHandle(name, { create: true });
+        window.localDirHandles[finalPath] = handle;
+      } else {
+        const handle = await parentDirHandle.getFileHandle(name, { create: true });
+        window.localFileHandles[finalPath] = handle;
+        const writable = await handle.createWritable();
+        await writable.write('');
+        await writable.close();
+      }
+      await window.refreshExplorer();
+    } catch (err) {
+      alert('Failed to create local item: ' + err.message);
+    }
+  } else {
+    try {
+      const res = await fetch(`${API_BASE}/ide/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: finalPath, type })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await window.refreshExplorer();
+      } else {
+        alert('Failed: ' + data.error);
+      }
+    } catch (err) {
+      alert('Connection error');
+    }
+  }
+};
+
+window.renameItemPrompt = async (path) => {
+  const parts = path.split('/');
+  const oldName = parts.pop();
+  const parentPath = parts.join('/');
+  
+  const newName = prompt(`Rename "${oldName}" to:`, oldName);
+  if (!newName || newName === oldName) return;
+  
+  const newPath = parentPath ? `${parentPath}/${newName}` : newName;
+  
+  if (window.isUsingLocalFolder) {
+    try {
+      const parentDirHandle = window.localDirHandles[parentPath] || window.localFolderHandle;
+      const fileHandle = window.localFileHandles[path];
+      if (fileHandle) {
+        const newFileHandle = await parentDirHandle.getFileHandle(newName, { create: true });
+        const file = await fileHandle.getFile();
+        const text = await file.text();
+        const writable = await newFileHandle.createWritable();
+        await writable.write(text);
+        await writable.close();
+        
+        await parentDirHandle.removeEntry(oldName);
+        delete window.localFileHandles[path];
+        window.localFileHandles[newPath] = newFileHandle;
+        
+        if (window.openTabs.includes(path)) {
+          window.openTabs = window.openTabs.map(p => p === path ? newPath : p);
+          if (window.activeTabPath === path) window.activeTabPath = newPath;
+        }
+      }
+      await window.refreshExplorer();
+    } catch (e) {
+      alert('Error renaming: ' + e.message);
+    }
+  } else {
+    try {
+      const res = await fetch(`${API_BASE}/ide/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ old_path: path, new_path: newPath })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (window.openTabs.includes(path)) {
+          window.openTabs = window.openTabs.map(p => p === path ? newPath : p);
+          if (window.activeTabPath === path) window.activeTabPath = newPath;
+        }
+        await window.refreshExplorer();
+      } else {
+        alert('Rename failed: ' + data.error);
+      }
+    } catch (e) {
+      alert('Connection lost');
+    }
+  }
+};
+
+window.deleteItemConfirm = async (path, isDir) => {
+  if (!confirm(`Are you sure you want to delete "${path}"?`)) return;
+  
+  const parts = path.split('/');
+  const name = parts.pop();
+  const parentPath = parts.join('/');
+  
+  if (window.isUsingLocalFolder) {
+    try {
+      const parentDirHandle = window.localDirHandles[parentPath] || window.localFolderHandle;
+      await parentDirHandle.removeEntry(name, { recursive: isDir });
+      delete window.localFileHandles[path];
+      delete window.localDirHandles[path];
+      
+      if (window.openTabs.includes(path)) {
+        window.closeTab(path);
+      }
+      await window.refreshExplorer();
+    } catch (err) {
+      alert('Delete failed: ' + err.message);
+    }
+  } else {
+    try {
+      const res = await fetch(`${API_BASE}/ide/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (window.openTabs.includes(path)) {
+          window.closeTab(path);
+        }
+        await window.refreshExplorer();
+      } else {
+        alert('Delete failed: ' + data.error);
+      }
+    } catch (err) {
+      alert('Connection lost');
+    }
+  }
+};
+
+// Git Diff Highlights Gutter
+window.triggerGitDiffHighlight = async (path) => {
+  const lineNumbers = document.getElementById('editor-line-numbers');
+  if (!lineNumbers || window.isUsingLocalFolder) return;
+  
+  try {
+    const res = await fetch(`${API_BASE}/ide/gitdiff?path=${encodeURIComponent(path)}`);
+    const data = await res.json();
+    if (data.success) {
+      const added = new Set(data.added || []);
+      const modified = new Set(data.modified || []);
+      const deleted = new Set(data.deleted || []);
+      
+      const lines = lineNumbers.children;
+      for (let i = 0; i < lines.length; i++) {
+        const lineDiv = lines[i];
+        const lineNum = i + 1;
+        lineDiv.classList.remove('line-added', 'line-modified', 'line-deleted');
+        if (added.has(lineNum)) {
+          lineDiv.classList.add('line-added');
+        } else if (modified.has(lineNum)) {
+          lineDiv.classList.add('line-modified');
+        } else if (deleted.has(lineNum)) {
+          lineDiv.classList.add('line-deleted');
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load git diff details', error);
+  }
+};
+
+// Code Outline Symbol Scanner
+window.scanCodeOutline = () => {
+  const textarea = document.getElementById('editor-textarea');
+  const outlineSection = document.getElementById('sidebar-outline-section');
+  const outlineTree = document.getElementById('outline-content-tree');
+  if (!textarea || !outlineSection || !outlineTree || !window.activeEditingFilePath) return;
+  
+  outlineSection.style.display = 'block';
+  const content = textarea.value;
+  const ext = window.activeEditingFilePath.split('.').pop().toLowerCase();
+  
+  let symbols = [];
+  const lines = content.split('\n');
+  
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    if (ext === 'py') {
+      if (trimmed.startsWith('def ') || trimmed.startsWith('class ')) {
+        const type = trimmed.startsWith('class ') ? 'class' : 'method';
+        const parts = trimmed.split(' ');
+        if (parts.length > 1) {
+          const name = parts[1].split('(')[0].split(':')[0];
+          symbols.push({ name, line: idx + 1, type });
+        }
+      }
+    } else if (ext === 'js' || ext === 'ts' || ext === 'javascript' || ext === 'json') {
+      if (trimmed.startsWith('function ') || trimmed.startsWith('class ') || trimmed.includes(' = () =>') || trimmed.includes(' = function(')) {
+        let name = '';
+        let type = 'method';
+        if (trimmed.startsWith('function ')) {
+          const parts = trimmed.split(' ');
+          if (parts.length > 1) name = parts[1].split('(')[0];
+        } else if (trimmed.startsWith('class ')) {
+          const parts = trimmed.split(' ');
+          if (parts.length > 1) {
+            name = parts[1].split('{')[0].trim();
+            type = 'class';
+          }
+        } else {
+          name = trimmed.split(/[ =]/)[0];
+        }
+        if (name) symbols.push({ name, line: idx + 1, type });
+      }
+    } else if (ext === 'md' || ext === 'markdown') {
+      if (trimmed.startsWith('#')) {
+        const m = trimmed.match(/^#+/);
+        if (m) {
+          const level = m[0].length;
+          const name = trimmed.replace(/^#+/, '').trim();
+          symbols.push({ name, line: idx + 1, type: 'heading', level });
+        }
+      }
+    } else if (ext === 'html') {
+      if (trimmed.startsWith('<div') && trimmed.includes('id=')) {
+        const idMatch = trimmed.match(/id=["']([^"']+)["']/);
+        if (idMatch) {
+          symbols.push({ name: '#' + idMatch[1], line: idx + 1, type: 'element' });
+        }
+      }
+    }
+  });
+  
+  if (symbols.length === 0) {
+    outlineTree.innerHTML = `<div class="muted" style="font-size: 10px; font-style: italic;">No symbols found</div>`;
+    return;
+  }
+  
+  outlineTree.innerHTML = symbols.map(sym => {
+    let padding = 0;
+    if (sym.type === 'heading') {
+      padding = (sym.level - 1) * 8;
+    }
+    const icon = sym.type === 'class' ? '🧩' : (sym.type === 'heading' ? '🔖' : '⚡');
+    return `
+      <div class="outline-item" style="padding-left: ${padding}px" onclick="window.scrollToEditorLine(${sym.line})">
+        <span class="outline-icon">${icon}</span>
+        <span>${sym.name}</span>
+      </div>
+    `;
+  }).join('');
+};
+
+// Document Indentation Formatter
+window.formatBracketsIndentation = (text, indentStr) => {
+  const lines = text.split('\n');
+  let level = 0;
+  return lines.map(line => {
+    let trimmed = line.trim();
+    if (trimmed.startsWith('}') || trimmed.startsWith(']')) {
+      level = Math.max(0, level - 1);
+    }
+    const indented = indentStr.repeat(level) + trimmed;
+    if (trimmed.endsWith('{') || trimmed.endsWith('[')) {
+      level++;
+    }
+    return indented;
+  }).join('\n');
+};
+
+window.formatHTMLIndentation = (text, indentStr) => {
+  const lines = text.split('\n');
+  let level = 0;
+  return lines.map(line => {
+    let trimmed = line.trim();
+    if (trimmed.startsWith('</')) {
+      level = Math.max(0, level - 1);
+    }
+    const indented = indentStr.repeat(level) + trimmed;
+    if (trimmed.startsWith('<') && !trimmed.startsWith('</') && !trimmed.endsWith('/>') && !trimmed.includes('</') && !trimmed.startsWith('<!')) {
+      const parts = trimmed.split(/[ >]/);
+      if (parts.length > 0) {
+        const tagName = parts[0].substring(1);
+        const selfClosing = ['img', 'br', 'hr', 'input', 'meta', 'link'].includes(tagName.toLowerCase());
+        if (!selfClosing) {
+          level++;
+        }
+      }
+    }
+    return indented;
+  }).join('\n');
+};
+
+window.formatPythonIndentation = (text, indentStr) => {
+  const lines = text.split('\n');
+  let level = 0;
+  return lines.map(line => {
+    let trimmed = line.trim();
+    const indented = indentStr.repeat(level) + trimmed;
+    if (trimmed.endsWith(':')) {
+      level++;
+    } else if (trimmed === 'break' || trimmed === 'return' || trimmed.startsWith('return ') || trimmed === 'pass' || trimmed === 'continue') {
+      level = Math.max(0, level - 1);
+    }
+    return indented;
+  }).join('\n');
+};
+
+window.formatActiveDocument = () => {
+  const textarea = document.getElementById('editor-textarea');
+  if (!textarea || textarea.disabled || !window.activeEditingFilePath) return;
+  
+  const content = textarea.value;
+  const ext = window.activeEditingFilePath.split('.').pop().toLowerCase();
+  const indentType = document.getElementById('status-bar-select-indent').value;
+  
+  let indentStr = '    ';
+  if (indentType === '2') indentStr = '  ';
+  else if (indentType === 'tab') indentStr = '\t';
+  
+  let formatted = content;
+  
+  try {
+    if (ext === 'json') {
+      const obj = JSON.parse(content);
+      formatted = JSON.stringify(obj, null, indentStr === '\t' ? '\t' : parseInt(indentType));
+    } else if (ext === 'js' || ext === 'javascript' || ext === 'ts') {
+      formatted = window.formatBracketsIndentation(content, indentStr);
+    } else if (ext === 'css') {
+      formatted = window.formatBracketsIndentation(content, indentStr);
+    } else if (ext === 'html') {
+      formatted = window.formatHTMLIndentation(content, indentStr);
+    } else if (ext === 'py') {
+      formatted = window.formatPythonIndentation(content, indentStr);
+    }
+    
+    textarea.value = formatted;
+    window.updateEditorLineNumbers();
+    
+    const saveBtn = document.getElementById('editor-save-btn');
+    if (saveBtn) {
+      const origText = saveBtn.textContent;
+      saveBtn.textContent = '✓ Formatted';
+      setTimeout(() => { saveBtn.textContent = origText; }, 1000);
+    }
+  } catch (err) {
+    alert('Failed to format document: ' + err.message);
+  }
+};
+
+// In-File Find Widget
+window.findMatches = [];
+window.findMatchIndex = -1;
+
+window.toggleFindWidget = () => {
+  const widget = document.getElementById('editor-find-widget');
+  if (!widget) return;
+  
+  const isActive = widget.classList.contains('active');
+  if (isActive) {
+    widget.classList.remove('active');
+  } else {
+    widget.classList.add('active');
+    const input = document.getElementById('find-input');
+    if (input) {
+      input.focus();
+      input.select();
+      window.runFindSearch();
+    }
+  }
+};
+
+window.runFindSearch = () => {
+  const textarea = document.getElementById('editor-textarea');
+  const query = document.getElementById('find-input').value;
+  const stats = document.getElementById('find-widget-stats');
+  if (!textarea || !stats) return;
+  
+  if (!query) {
+    window.findMatches = [];
+    window.findMatchIndex = -1;
+    stats.textContent = '0 of 0';
+    return;
+  }
+  
+  const content = textarea.value;
+  window.findMatches = [];
+  
+  let index = 0;
+  while ((index = content.toLowerCase().indexOf(query.toLowerCase(), index)) !== -1) {
+    window.findMatches.push(index);
+    index += query.length;
+  }
+  
+  if (window.findMatches.length > 0) {
+    window.findMatchIndex = 0;
+    stats.textContent = `1 of ${window.findMatches.length}`;
+    window.highlightFindMatch();
+  } else {
+    window.findMatchIndex = -1;
+    stats.textContent = '0 of 0';
+  }
+};
+
+window.highlightFindMatch = () => {
+  const textarea = document.getElementById('editor-textarea');
+  const query = document.getElementById('find-input').value;
+  if (!textarea || window.findMatchIndex === -1 || window.findMatches.length === 0) return;
+  
+  const startChar = window.findMatches[window.findMatchIndex];
+  const endChar = startChar + query.length;
+  
+  textarea.focus();
+  textarea.selectionStart = startChar;
+  textarea.selectionEnd = endChar;
+  
+  const linesBefore = textarea.value.substring(0, startChar).split('\n').length;
+  const lineHeight = 19.2;
+  textarea.scrollTop = (linesBefore - 1) * lineHeight - (textarea.clientHeight / 2);
+};
+
+window.findNextMatch = () => {
+  if (window.findMatches.length === 0) return;
+  window.findMatchIndex = (window.findMatchIndex + 1) % window.findMatches.length;
+  document.getElementById('find-widget-stats').textContent = `${window.findMatchIndex + 1} of ${window.findMatches.length}`;
+  window.highlightFindMatch();
+};
+
+window.findPrevMatch = () => {
+  if (window.findMatches.length === 0) return;
+  window.findMatchIndex = (window.findMatchIndex - 1 + window.findMatches.length) % window.findMatches.length;
+  document.getElementById('find-widget-stats').textContent = `${window.findMatchIndex + 1} of ${window.findMatches.length}`;
+  window.highlightFindMatch();
+};
+
+window.replaceCurrentMatch = () => {
+  const textarea = document.getElementById('editor-textarea');
+  const replaceVal = document.getElementById('replace-input').value;
+  const query = document.getElementById('find-input').value;
+  if (!textarea || window.findMatchIndex === -1 || window.findMatches.length === 0) return;
+  
+  const startChar = window.findMatches[window.findMatchIndex];
+  const endChar = startChar + query.length;
+  
+  const content = textarea.value;
+  textarea.value = content.substring(0, startChar) + replaceVal + content.substring(endChar);
+  window.updateEditorLineNumbers();
+  window.runFindSearch();
+};
+
+window.replaceAllMatches = () => {
+  const textarea = document.getElementById('editor-textarea');
+  const replaceVal = document.getElementById('replace-input').value;
+  const query = document.getElementById('find-input').value;
+  if (!textarea || !query) return;
+  
+  const content = textarea.value;
+  const regex = new RegExp(query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi');
+  textarea.value = content.replace(regex, replaceVal);
+  window.updateEditorLineNumbers();
+  window.runFindSearch();
+};
+
+// Global Workspace Search & Replace
+window.runGlobalSearch = async () => {
+  const query = document.getElementById('global-search-input').value.trim();
+  const resultsContainer = document.getElementById('global-search-results');
+  const statusEl = document.getElementById('global-search-status');
+  if (!resultsContainer || !statusEl) return;
+  
+  if (!query) {
+    resultsContainer.innerHTML = `<div class="muted" style="text-align: center; padding: 40px 0;">// Enter a query and run Search</div>`;
+    statusEl.textContent = '';
+    return;
+  }
+  
+  resultsContainer.innerHTML = `<div class="muted" style="text-align: center; padding: 40px 0;">// searching files...</div>`;
+  statusEl.textContent = 'Searching...';
+  
+  const isCase = document.getElementById('search-opt-case').classList.contains('active');
+  const isWord = document.getElementById('search-opt-word').classList.contains('active');
+  const isRegex = document.getElementById('search-opt-regex').classList.contains('active');
+  
+  let results = [];
+  
+  if (window.isUsingLocalFolder) {
+    results = await runLocalGlobalSearch(query, isCase, isWord, isRegex);
+  } else {
+    try {
+      const res = await fetch(`${API_BASE}/ide/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          case_sensitive: isCase,
+          whole_word: isWord,
+          regex: isRegex
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        results = data.results || [];
+      } else {
+        resultsContainer.innerHTML = `<div class="error" style="color:var(--red); padding: 20px 0;">Search failed: ${data.error}</div>`;
+        statusEl.textContent = 'Error';
+        return;
+      }
+    } catch (err) {
+      resultsContainer.innerHTML = `<div class="error" style="color:var(--red); padding: 20px 0;">Connection lost</div>`;
+      statusEl.textContent = 'Failed';
+      return;
+    }
+  }
+  
+  window.lastGlobalSearchResults = results;
+  window.renderGlobalSearchResults();
+};
+
+async function runLocalGlobalSearch(query, isCase, isWord, isRegex) {
+  const results = [];
+  const filesList = Object.entries(window.localFileHandles);
+  
+  let regex;
+  try {
+    if (isRegex) {
+      regex = new RegExp(query, isCase ? '' : 'i');
+    } else {
+      let escaped = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      if (isWord) escaped = `\\b${escaped}\\b`;
+      regex = new RegExp(escaped, isCase ? '' : 'i');
+    }
+  } catch (err) {
+    alert('Invalid search query: ' + err.message);
+    return [];
+  }
+  
+  for (const [path, handle] of filesList) {
+    try {
+      const file = await handle.getFile();
+      const text = await file.text();
+      const lines = text.split('\n');
+      lines.forEach((line, idx) => {
+        if (regex.test(line)) {
+          results.push({
+            path,
+            line: idx + 1,
+            content: line.trim()
+          });
+        }
+      });
+    } catch (e) {}
+  }
+  return results;
+}
+
+window.renderGlobalSearchResults = () => {
+  const resultsContainer = document.getElementById('global-search-results');
+  const statusEl = document.getElementById('global-search-status');
+  const query = document.getElementById('global-search-input').value;
+  if (!resultsContainer || !window.lastGlobalSearchResults) return;
+  
+  const results = window.lastGlobalSearchResults;
+  statusEl.textContent = `${results.length} matches found`;
+  
+  if (results.length === 0) {
+    resultsContainer.innerHTML = `<div class="muted" style="text-align: center; padding: 40px 0;">No matches found</div>`;
+    return;
+  }
+  
+  const groups = {};
+  results.forEach(res => {
+    groups[res.path] = groups[res.path] || [];
+    groups[res.path].push(res);
+  });
+  
+  resultsContainer.innerHTML = Object.entries(groups).map(([path, matches]) => {
+    const matchesHtml = matches.map(match => {
+      const escapedLine = match.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      let highlighted = escapedLine;
+      try {
+        const regex = new RegExp(query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi');
+        highlighted = escapedLine.replace(regex, m => `<span class="search-result-highlight">${m}</span>`);
+      } catch (e) {}
+      
+      return `
+        <div class="search-result-match" onclick="window.openFileAndScrollToLine('${path}', ${match.line})">
+          <span class="search-result-line-num">${match.line}:</span> ${highlighted}
+        </div>
+      `;
+    }).join('');
+    
+    return `
+      <div class="search-results-group">
+        <div class="search-results-file-header" onclick="window.openFileInEditor('${path}')">📁 ${path}</div>
+        ${matchesHtml}
+      </div>
+    `;
+  }).join('');
+};
+
+window.openFileAndScrollToLine = async (path, line) => {
+  window.addTab(path);
+  setTimeout(() => {
+    window.scrollToEditorLine(line);
+  }, 300);
+};
+
+window.scrollToEditorLine = (lineNumber) => {
+  const textarea = document.getElementById('editor-textarea');
+  if (!textarea) return;
+  
+  const lines = textarea.value.split('\n');
+  if (lineNumber < 1 || lineNumber > lines.length) return;
+  
+  let charIndex = 0;
+  for (let i = 0; i < lineNumber - 1; i++) {
+    charIndex += lines[i].length + 1;
+  }
+  
+  textarea.focus();
+  textarea.selectionStart = charIndex;
+  textarea.selectionEnd = charIndex + lines[lineNumber - 1].length;
+  
+  const lineHeight = 19.2;
+  textarea.scrollTop = (lineNumber - 1) * lineHeight - (textarea.clientHeight / 2);
+};
+
+window.runGlobalReplace = async () => {
+  const query = document.getElementById('global-search-input').value.trim();
+  const replaceTerm = document.getElementById('global-replace-input').value;
+  if (!query) return;
+  
+  if (!confirm(`Are you sure you want to replace all occurrences of "${query}" with "${replaceTerm}"?`)) return;
+  
+  const isCase = document.getElementById('search-opt-case').classList.contains('active');
+  const isWord = document.getElementById('search-opt-word').classList.contains('active');
+  const isRegex = document.getElementById('search-opt-regex').classList.contains('active');
+  
+  if (window.isUsingLocalFolder) {
+    let count = 0;
+    let regex;
+    try {
+      if (isRegex) {
+        regex = new RegExp(query, 'g' + (isCase ? '' : 'i'));
+      } else {
+        let escaped = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        if (isWord) escaped = `\\b${escaped}\\b`;
+        regex = new RegExp(escaped, 'g' + (isCase ? '' : 'i'));
+      }
+    } catch (e) {
+      alert('Invalid regex query.');
+      return;
+    }
+    
+    for (const [path, handle] of Object.entries(window.localFileHandles)) {
+      try {
+        const file = await handle.getFile();
+        const text = await file.text();
+        if (regex.test(text)) {
+          const newText = text.replace(regex, replaceTerm);
+          const writable = await handle.createWritable();
+          await writable.write(newText);
+          await writable.close();
+          count++;
+          if (window.activeEditingFilePath === path) {
+            const textarea = document.getElementById('editor-textarea');
+            if (textarea) {
+              textarea.value = newText;
+              window.updateEditorLineNumbers();
+            }
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    alert(`Successfully replaced in ${count} files.`);
+    window.runGlobalSearch();
+  } else {
+    try {
+      const res = await fetch(`${API_BASE}/ide/replace`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          replace: replaceTerm,
+          case_sensitive: isCase,
+          whole_word: isWord,
+          regex: isRegex
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Successfully replaced in ${data.modified_count} files.`);
+        if (window.activeEditingFilePath) {
+          window.openFileInEditor(window.activeEditingFilePath);
+        }
+        window.runGlobalSearch();
+      } else {
+        alert('Replacement failed: ' + data.error);
+      }
+    } catch (err) {
+      alert('Connection lost to DevHunt server');
+    }
+  }
+};
+
+// Draft recovery & Auto-Save
+setInterval(() => {
+  if (window.activeEditingFilePath && !window.isUsingLocalFolder) {
+    const textarea = document.getElementById('editor-textarea');
+    if (textarea && !textarea.disabled) {
+      const val = textarea.value;
+      localStorage.setItem(`devhunt-draft-${window.activeEditingFilePath}`, val);
+    }
+  }
+}, 4000);
+
+window.recoverDraft = (path) => {
+  const draft = localStorage.getItem(`devhunt-draft-${path}`);
+  if (draft) {
+    const textarea = document.getElementById('editor-textarea');
+    if (textarea && confirm(`Recover unsaved draft changes for "${path}"?`)) {
+      textarea.value = draft;
+      window.updateEditorLineNumbers();
+    }
+  }
+};
+
+// Integrated Editor Bottom Terminal functions
+let editorTerminalInitialized = false;
+
+window.toggleEditorTerminal = () => {
+  const term = document.getElementById('editor-bottom-terminal');
+  if (!term) return;
+  const isHidden = term.style.display === 'none';
+  if (isHidden) {
+    term.style.display = 'flex';
+    window.initEditorTerminal();
+    const input = document.getElementById('editor-terminal-input');
+    if (input) {
+      input.focus();
+    }
+  } else {
+    term.style.display = 'none';
+  }
+};
+
+window.initEditorTerminal = () => {
+  const inputEl = document.getElementById('editor-terminal-input');
+  const outputEl = document.getElementById('editor-terminal-output');
+  const promptEl = document.getElementById('editor-terminal-prompt');
+  const bodyEl = document.getElementById('editor-terminal-body');
+  
+  if (!inputEl || !outputEl) return;
+  
+  // Sync prompt initially
+  window.updatePrompt(promptEl);
+  
+  if (editorTerminalInitialized) return;
+  editorTerminalInitialized = true;
+  
+  if (bodyEl) {
+    bodyEl.addEventListener('click', () => {
+      inputEl.focus();
+    });
+  }
+  
+  inputEl.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      const cmd = inputEl.value;
+      if (!cmd.trim()) return;
+      
+      inputEl.value = "";
+      
+      // Append prompt and command to history
+      const linePrompt = document.createElement('div');
+      linePrompt.className = 'terminal-line';
+      linePrompt.innerHTML = `<span class="terminal-prompt">${promptEl.textContent}</span> <span class="ansi-cyan">${mdEscape(cmd)}</span>`;
+      outputEl.appendChild(linePrompt);
+      
+      terminalHistory.push(cmd);
+      terminalHistoryIndex = terminalHistory.length;
+      
+      const trimmed = cmd.trim();
+      if (trimmed.toLowerCase() === "clear" || trimmed.toLowerCase() === "hunt clear") {
+        outputEl.innerHTML = "";
+        scrollToBottom(bodyEl);
+        return;
+      }
+      
+      const lineLoader = document.createElement('div');
+      lineLoader.className = 'terminal-line ansi-muted';
+      lineLoader.innerHTML = `// running task...`;
+      outputEl.appendChild(lineLoader);
+      scrollToBottom(bodyEl);
+      
+      try {
+        const res = await fetch(`${API_BASE}/terminal/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: cmd, cwd: terminalCwd })
+        });
+        const data = await res.json();
+        
+        if (outputEl.contains(lineLoader)) {
+          outputEl.removeChild(lineLoader);
+        }
+        
+        const lineResult = document.createElement('div');
+        lineResult.className = 'terminal-line';
+        
+        if (data.success) {
+          if (data.output === "CLEAR_SIGNAL") {
+            outputEl.innerHTML = "";
+          } else {
+            lineResult.innerHTML = data.output;
+            outputEl.appendChild(lineResult);
+          }
+          if (data.cwd) {
+            terminalCwd = data.cwd;
+            // Sync prompts in both terminals
+            window.updatePrompt(promptEl);
+            const mainPromptEl = document.getElementById('terminal-prompt');
+            if (mainPromptEl) window.updatePrompt(mainPromptEl);
+          }
+        } else {
+          lineResult.innerHTML = `<span class="ansi-red">Error: ${mdEscape(data.error)}</span>`;
+          outputEl.appendChild(lineResult);
+          playTerminalBeep();
+        }
+      } catch (err) {
+        if (outputEl.contains(lineLoader)) {
+          outputEl.removeChild(lineLoader);
+        }
+        const lineResult = document.createElement('div');
+        lineResult.className = 'terminal-line ansi-red';
+        lineResult.innerHTML = `Error: Connection lost to DevHunt core backend node.`;
+        outputEl.appendChild(lineResult);
+        playTerminalBeep();
+      }
+      scrollToBottom(bodyEl);
+    }
+    
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (terminalHistory.length === 0) return;
+      if (terminalHistoryIndex > 0) {
+        terminalHistoryIndex--;
+        inputEl.value = terminalHistory[terminalHistoryIndex];
+      }
+    }
+    
+    else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (terminalHistoryIndex < terminalHistory.length - 1) {
+        terminalHistoryIndex++;
+        inputEl.value = terminalHistory[terminalHistoryIndex];
+      } else {
+        terminalHistoryIndex = terminalHistory.length;
+        inputEl.value = "";
+      }
+    }
+    
+    else if (e.key === 'Tab') {
+      e.preventDefault();
+      const val = inputEl.value;
+      if (!val) {
+        printHelpAutocomplete(outputEl, HUNT_COMMANDS);
+        scrollToBottom(bodyEl);
+        return;
+      }
+      const matches = HUNT_COMMANDS.filter(c => c.startsWith(val.toLowerCase()));
+      if (matches.length === 1) {
+        inputEl.value = matches[0] + " ";
+      } else if (matches.length > 1) {
+        printHelpAutocomplete(outputEl, matches);
+        scrollToBottom(bodyEl);
+      }
+    }
+  });
+};
+
+// Wire up events
+document.addEventListener('DOMContentLoaded', () => {
+  const openFolderBtn = document.getElementById('menu-open-local-folder');
+  if (openFolderBtn) openFolderBtn.addEventListener('click', (e) => { e.preventDefault(); window.openLocalFolder(); });
+  
+  const openFileBtn = document.getElementById('menu-open-local-file');
+  if (openFileBtn) openFileBtn.addEventListener('click', (e) => { e.preventDefault(); window.openLocalFile(); });
+  
+  const closeLocalBtn = document.getElementById('menu-close-local');
+  if (closeLocalBtn) closeLocalBtn.addEventListener('click', (e) => { e.preventDefault(); window.closeLocalFolder(); });
+  
+  const formatDocBtn = document.getElementById('menu-format-doc');
+  if (formatDocBtn) formatDocBtn.addEventListener('click', (e) => { e.preventDefault(); window.formatActiveDocument(); });
+  
+  const globalSearchBtn = document.getElementById('global-search-btn');
+  if (globalSearchBtn) globalSearchBtn.addEventListener('click', window.runGlobalSearch);
+  
+  const globalReplaceBtn = document.getElementById('global-replace-btn');
+  if (globalReplaceBtn) globalReplaceBtn.addEventListener('click', window.runGlobalReplace);
+  
+  const findNextBtn = document.getElementById('find-next');
+  if (findNextBtn) findNextBtn.addEventListener('click', window.findNextMatch);
+  
+  const findPrevBtn = document.getElementById('find-prev');
+  if (findPrevBtn) findPrevBtn.addEventListener('click', window.findPrevMatch);
+  
+  const findCloseBtn = document.getElementById('find-close');
+  if (findCloseBtn) findCloseBtn.addEventListener('click', window.toggleFindWidget);
+  
+  const replaceBtn = document.getElementById('replace-btn');
+  if (replaceBtn) replaceBtn.addEventListener('click', window.replaceCurrentMatch);
+  
+  const replaceAllBtn = document.getElementById('replace-all-btn');
+  if (replaceAllBtn) replaceAllBtn.addEventListener('click', window.replaceAllMatches);
+  
+  const indentSelect = document.getElementById('status-bar-select-indent');
+  if (indentSelect) {
+    indentSelect.addEventListener('change', (e) => {
+      window.editorIndentSize = e.target.value;
+    });
+  }
+  
+  ['search-opt-case', 'search-opt-word', 'search-opt-regex'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('active');
+        window.runGlobalSearch();
+      });
+    }
+  });
+  
+  const globalSearchInput = document.getElementById('global-search-input');
+  if (globalSearchInput) {
+    globalSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        window.runGlobalSearch();
+      }
+    });
+  }
+  
+  const globalReplaceInput = document.getElementById('global-replace-input');
+  if (globalReplaceInput) {
+    globalReplaceInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        window.runGlobalReplace();
+      }
+    });
+  }
+  
+  const findInput = document.getElementById('find-input');
+  if (findInput) {
+    findInput.addEventListener('input', () => {
+      window.runFindSearch();
+    });
+    findInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          window.findPrevMatch();
+        } else {
+          window.findNextMatch();
+        }
+      } else if (e.key === 'Escape') {
+        window.toggleFindWidget();
+      }
+    });
+  }
+  
+  const replaceInput = document.getElementById('replace-input');
+  if (replaceInput) {
+    replaceInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        window.replaceCurrentMatch();
+      }
+    });
+  }
+  
+  const textarea = document.getElementById('editor-textarea');
+  if (textarea) {
+    textarea.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'f') {
+        e.preventDefault();
+        window.toggleFindWidget();
+      }
+    });
+  }
+  
+  const toggleTermBtn = document.getElementById('editor-toggle-terminal-btn');
+  if (toggleTermBtn) toggleTermBtn.addEventListener('click', () => { window.toggleEditorTerminal(); });
+  
+  const closeTermBtn = document.getElementById('editor-terminal-close-btn');
+  if (closeTermBtn) closeTermBtn.addEventListener('click', () => { window.toggleEditorTerminal(); });
+  
+  const clearTermBtn = document.getElementById('editor-terminal-clear-btn');
+  if (clearTermBtn) clearTermBtn.addEventListener('click', () => {
+    const out = document.getElementById('editor-terminal-output');
+    if (out) out.innerHTML = "";
+  });
+});
