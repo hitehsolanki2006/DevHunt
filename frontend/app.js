@@ -29,7 +29,7 @@ const API_BASE = '/api';
 
   let t = 0;
   function loop() {
-    if (!document.body.classList.contains('theme-neon')) {
+    if (!document.body.classList.contains('theme-neon') || window.canvasParticlesEnabled === false) {
       ctx.clearRect(0, 0, W, H);
       requestAnimationFrame(loop);
       return;
@@ -48,9 +48,9 @@ const API_BASE = '/api';
       i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
     });
     ctx.closePath();
-    ctx.strokeStyle = 'rgba(0,255,163,0.35)';
+    ctx.strokeStyle = 'rgba(52,211,153,0.35)';
     ctx.lineWidth = 1.2 * devicePixelRatio;
-    ctx.shadowColor = '#00ffa3';
+    ctx.shadowColor = '#34d399';
     ctx.shadowBlur = 25 * devicePixelRatio;
     ctx.stroke();
     ctx.restore();
@@ -62,8 +62,8 @@ const API_BASE = '/api';
       if (n.y < 0 || n.y > H) n.vy *= -1;
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r * devicePixelRatio, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0,212,255,0.7)';
-      ctx.shadowColor = '#00d4ff'; ctx.shadowBlur = 8 * devicePixelRatio;
+      ctx.fillStyle = 'rgba(56,189,248,0.7)';
+      ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 8 * devicePixelRatio;
       ctx.fill();
     }
     ctx.shadowBlur = 0;
@@ -72,7 +72,7 @@ const API_BASE = '/api';
         const a = nodes[i], b = nodes[j];
         const dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy);
         if (d < 140 * devicePixelRatio) {
-          ctx.strokeStyle = `rgba(0,255,163,${.15 * (1 - d / (140 * devicePixelRatio))})`;
+          ctx.strokeStyle = `rgba(52,211,153,${.15 * (1 - d / (140 * devicePixelRatio))})`;
           ctx.lineWidth = .5 * devicePixelRatio;
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
@@ -86,11 +86,13 @@ const API_BASE = '/api';
 /* ========== Sidebar navigation & Themes ========== */
 // Apply initial theme from localStorage immediately to prevent FOUC
 const initialTheme = localStorage.getItem('devhunt-theme') || 'slate';
-document.body.classList.remove('theme-slate', 'theme-neon', 'theme-light');
+document.body.classList.remove('theme-slate', 'theme-neon', 'theme-light', 'theme-devil');
 if (initialTheme === 'neon') {
   document.body.classList.add('theme-neon');
 } else if (initialTheme === 'light') {
   document.body.classList.add('theme-light');
+} else if (initialTheme === 'devil') {
+  document.body.classList.add('theme-devil');
 } else {
   document.body.classList.add('theme-slate');
 }
@@ -100,14 +102,17 @@ const crumb = document.getElementById('crumb-current');
 
 window.setAppTheme = async (themeName, saveToBackend = true) => {
   const body = document.body;
-  body.classList.remove('theme-slate', 'theme-neon', 'theme-light');
+  body.classList.remove('theme-slate', 'theme-neon', 'theme-light', 'theme-devil');
   if (themeName === 'neon') {
     body.classList.add('theme-neon');
   } else if (themeName === 'light') {
     body.classList.add('theme-light');
+  } else if (themeName === 'devil') {
+    body.classList.add('theme-devil');
   } else {
     body.classList.add('theme-slate');
   }
+
   
   // Update select dropdown if present
   const selector = document.getElementById('theme-selector');
@@ -188,6 +193,9 @@ function switchPanel(panelId) {
   }
   if (panelId === 'music') {
     initMusicPlayer();
+  }
+  if (panelId === 'linkedin') {
+    loadLinkedInDrafts();
   }
   if (panelId === 'arcade') {
     if (typeof window.initArcadePanel === 'function') window.initArcadePanel();
@@ -283,17 +291,7 @@ if (sidebarCollapseToggle) {
   });
 }
 
-// Keyboard shortcut (Ctrl+B / Cmd+B) to toggle sidebar minimized state
-window.addEventListener('keydown', (e) => {
-  // Avoid interrupting typing if user is focused inside input elements
-  if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement.isContentEditable)) {
-    return;
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
-    e.preventDefault();
-    toggleExplorerSidebar();
-  }
-});
+// Keyboard shortcut (Ctrl+B) removed in favor of centralized registry
 
 /* ========== Mini Markdown renderer ========== */
 function md(src) {
@@ -396,6 +394,51 @@ function addMsg(role, text, meta) {
   }
 
   div.innerHTML = body;
+
+  // Save to LinkedIn Drafts button injection
+  if (role === 'assistant' && text && text.toLowerCase().includes('linkedin')) {
+    const chatSaveBtn = document.createElement('button');
+    chatSaveBtn.className = 'btn-ghost btn-xs';
+    chatSaveBtn.style.marginTop = '8px';
+    chatSaveBtn.style.display = 'inline-flex';
+    chatSaveBtn.style.alignItems = 'center';
+    chatSaveBtn.style.gap = '6px';
+    chatSaveBtn.style.fontFamily = 'var(--mono)';
+    chatSaveBtn.innerHTML = `💼 Save to LinkedIn Drafts`;
+    chatSaveBtn.addEventListener('click', async () => {
+      chatSaveBtn.disabled = true;
+      chatSaveBtn.textContent = 'Saving to drafts...';
+      try {
+        const res = await fetch('/api/linkedin/drafts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: 'Saved from Chat',
+            content: text,
+            status: 'draft'
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          chatSaveBtn.innerHTML = `✓ Saved to LinkedIn Drafts`;
+          chatSaveBtn.style.color = 'var(--green)';
+          const activeTab = document.querySelector('.tab-item.active');
+          if (activeTab && activeTab.dataset.panel === 'linkedin') {
+            loadLinkedInDrafts();
+          }
+        } else {
+          chatSaveBtn.textContent = 'Failed to Save';
+          chatSaveBtn.disabled = false;
+        }
+      } catch (err) {
+        console.error(err);
+        chatSaveBtn.textContent = 'Error Saving';
+        chatSaveBtn.disabled = false;
+      }
+    });
+    div.appendChild(chatSaveBtn);
+  }
+
   feed.appendChild(div);
   feed.scrollTop = feed.scrollHeight;
 }
@@ -1249,6 +1292,25 @@ function updateChatSidebarTargets(path) {
 }
 
 /* ========== Quest Board (Todo Kanban) ========== */
+function formatDescriptionWithLinks(text) {
+  if (!text) return '';
+  const escaped = mdEscape(text);
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return escaped.replace(urlRegex, url => `<a href="${url}" target="_blank" class="qc-desc-link">${url}</a>`);
+}
+
+window.goToRoadmapDay = async (dayNum) => {
+  expandedDays.add(dayNum);
+  switchPanel('path');
+  await loadRoadmap();
+  const card = document.querySelector(`.node[data-day="${dayNum}"]`);
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('pulse-highlight');
+    setTimeout(() => card.classList.remove('pulse-highlight'), 3000);
+  }
+};
+
 async function loadTodos() {
   const kanban = document.getElementById('kanban');
   if (!kanban) return;
@@ -1273,16 +1335,30 @@ async function loadTodos() {
       if (counterEl) counterEl.textContent = colList.length;
 
       const cardsHtml = colList.map(q => {
-        const tagBadges = (q.tags || []).map(t => `<span>#${t}</span>`).join('');
+        const tagBadges = (q.tags || []).map(t => `<span>#${mdEscape(t)}</span>`).join('');
         const isAi = q.source === 'ai_detected';
+
+        let dayNum = null;
+        if (q.tags && q.tags.length > 0) {
+          for (const tag of q.tags) {
+            const match = tag.match(/^day-(\d+)$/i);
+            if (match) {
+              dayNum = parseInt(match[1], 10);
+              break;
+            }
+          }
+        }
+
+        const roadmapLinkHtml = dayNum !== null ? `<a href="#" class="qc-link-btn" onclick="event.preventDefault(); goToRoadmapDay(${dayNum})">🗺 Open Roadmap Day ${dayNum} ↗</a>` : '';
 
         return `
           <div class="quest-card">
-            <div class="qc-title">${q.title}</div>
-            ${q.description ? `<div class="qc-desc">${q.description}</div>` : ''}
+            <div class="qc-title">${mdEscape(q.title)}</div>
+            ${q.description ? `<div class="qc-desc">${formatDescriptionWithLinks(q.description)}</div>` : ''}
+            ${roadmapLinkHtml}
             <div class="qc-tags">${tagBadges}</div>
             <div class="qc-meta">
-              <span>📅 ${q.due_date || 'No Date'}</span>
+              <span>📅 ${mdEscape(q.due_date || 'No Date')}</span>
               <span class="src-pill ${isAi ? 'src-ai' : 'src-manual'}">${isAi ? 'AI-Detected' : 'Manual'}</span>
             </div>
             <div class="qc-actions">
@@ -2345,7 +2421,8 @@ async function loadProfileAndSettings() {
       quests: true,
       vault: true,
       'doc-analysis': true,
-      arcade: true
+      arcade: true,
+      linkedin: true
     };
     const toggles = settings.feature_toggles || defaultToggles;
     
@@ -2357,7 +2434,7 @@ async function loadProfileAndSettings() {
     }
     
     // Check checkboxes and apply visibility
-    const featureKeys = ['music', 'path', 'quests', 'vault', 'doc-analysis', 'arcade'];
+    const featureKeys = ['music', 'path', 'quests', 'vault', 'doc-analysis', 'arcade', 'linkedin'];
     featureKeys.forEach(key => {
       const chk = document.getElementById(`toggle-feat-${key}`);
       if (chk) {
@@ -2365,6 +2442,131 @@ async function loadProfileAndSettings() {
       }
       updateFeatureVisibility(key, toggles[key]);
     });
+
+    // Font parameters loading and live variables override
+    const fontEditor = settings.font_family_editor || 'JetBrains Mono';
+    const fontTerminal = settings.font_family_terminal || 'JetBrains Mono';
+    const sizeEditor = settings.font_size_editor || 14;
+    const sizeTerminal = settings.font_size_terminal || 13;
+
+    const editorFamilySelect = document.getElementById('font-family-editor');
+    const editorSizeSlider = document.getElementById('font-size-editor');
+    const editorSizeVal = document.getElementById('font-size-editor-val');
+    
+    if (editorFamilySelect) editorFamilySelect.value = fontEditor;
+    if (editorSizeSlider) editorSizeSlider.value = sizeEditor;
+    if (editorSizeVal) editorSizeVal.textContent = `${sizeEditor}px`;
+
+    const terminalFamilySelect = document.getElementById('font-family-terminal');
+    const terminalSizeSlider = document.getElementById('font-size-terminal');
+    const terminalSizeVal = document.getElementById('font-size-terminal-val');
+    
+    if (terminalFamilySelect) terminalFamilySelect.value = fontTerminal;
+    if (terminalSizeSlider) terminalSizeSlider.value = sizeTerminal;
+    if (terminalSizeVal) terminalSizeVal.textContent = `${sizeTerminal}px`;
+
+    document.documentElement.style.setProperty('--editor-font-size', sizeEditor + 'px');
+    document.documentElement.style.setProperty('--editor-font-family', fontEditor);
+    document.documentElement.style.setProperty('--terminal-font-size', sizeTerminal + 'px');
+    document.documentElement.style.setProperty('--terminal-font-family', fontTerminal);
+
+    // Canvas Particles Animation toggles
+    const particlesCheckbox = document.getElementById('toggle-canvas-particles');
+    const particlesEnabled = settings.canvas_particles !== false;
+    if (particlesCheckbox) particlesCheckbox.checked = particlesEnabled;
+    window.canvasParticlesEnabled = particlesEnabled;
+
+    // Interface Sound effects toggles
+    const soundCheckbox = document.getElementById('toggle-sound-effects');
+    const soundEnabled = settings.sound_effects !== false;
+    if (soundCheckbox) soundCheckbox.checked = soundEnabled;
+    window.soundEffectsEnabled = soundEnabled;
+
+    // Terminal customized settings
+    const termUsernameInput = document.getElementById('terminal-username-input');
+    const termHostnameInput = document.getElementById('terminal-hostname-input');
+    const termPromptSymbol = document.getElementById('terminal-prompt-symbol');
+    const termSoundCheckbox = document.getElementById('terminal-sound-toggle');
+
+    if (termUsernameInput) termUsernameInput.value = settings.terminal_username || 'guest';
+    if (termHostnameInput) termHostnameInput.value = settings.terminal_hostname || 'devhunt';
+    if (termPromptSymbol) termPromptSymbol.value = settings.terminal_prompt_symbol || '$';
+    if (termSoundCheckbox) termSoundCheckbox.checked = settings.terminal_sound !== false;
+
+    window.terminalUsername = settings.terminal_username || 'guest';
+    window.terminalHostname = settings.terminal_hostname || 'devhunt';
+    window.terminalPromptSymbol = settings.terminal_prompt_symbol || '$';
+    window.terminalSoundEnabled = settings.terminal_sound !== false;
+    
+    // Refresh terminal prompt elements
+    const termPromptEl = document.getElementById('terminal-prompt-el');
+    if (termPromptEl) {
+      updatePrompt(termPromptEl);
+    }
+
+    // AI Configuration loading
+    const aiModelSelect = document.getElementById('ai-model-select');
+    const aiTempSlider = document.getElementById('ai-temp-slider');
+    const aiTempVal = document.getElementById('ai-temp-val');
+    const aiMaxTokensSlider = document.getElementById('ai-max-tokens-slider');
+    const aiMaxTokensVal = document.getElementById('ai-max-tokens-val');
+    const aiSystemPrompt = document.getElementById('ai-system-prompt');
+
+    if (aiModelSelect) aiModelSelect.value = settings.selected_model || 'auto';
+    
+    const tempVal = settings.temperature !== undefined ? settings.temperature : 0.7;
+    if (aiTempSlider) aiTempSlider.value = tempVal;
+    if (aiTempVal) aiTempVal.textContent = tempVal;
+
+    const maxToks = settings.max_tokens !== undefined ? settings.max_tokens : 2048;
+    if (aiMaxTokensSlider) aiMaxTokensSlider.value = maxToks;
+    if (aiMaxTokensVal) aiMaxTokensVal.textContent = maxToks;
+
+    if (aiSystemPrompt) aiSystemPrompt.value = settings.system_prompt || '';
+
+    // Shortcuts registry rendering
+    const shortcutsList = document.getElementById('shortcuts-mapping-list');
+    if (shortcutsList) {
+      shortcutsList.innerHTML = '';
+      const action_names = {
+        "toggleSidebar": "Toggle Explorer Sidebar",
+        "saveFile": "Save Active File",
+        "focusChat": "Focus AI Assistant Chat",
+        "newFile": "Show New File Inline",
+        "openTerminal": "Switch to Terminal Panel",
+        "clearEditor": "Clear Editor Content",
+        "refreshExplorer": "Refresh File Explorer"
+      };
+      
+      const currentShortcuts = settings.shortcuts || {};
+      window.hotkeys = currentShortcuts;
+      
+      // Update topbar dropdown labels
+      const sidebarMenuText = document.getElementById('menu-toggle-sidebar');
+      if (sidebarMenuText) sidebarMenuText.textContent = `Toggle Sidebar (${currentShortcuts.toggleSidebar || 'None'})`;
+      
+      const saveMenuText = document.getElementById('menu-save-file');
+      if (saveMenuText) saveMenuText.textContent = `Save File (${currentShortcuts.saveFile || 'None'})`;
+
+      for (const [actionId, actionLabel] of Object.entries(action_names)) {
+        const binding = currentShortcuts[actionId] || 'None';
+        const row = document.createElement('div');
+        row.className = 'shortcut-row';
+        row.innerHTML = `
+          <span class="shortcut-label">${actionLabel}</span>
+          <div class="shortcut-binding-container">
+            <kbd id="kbd-${actionId}">${binding}</kbd>
+            <button class="btn-ghost btn-sm record-shortcut-btn" data-action="${actionId}">Edit</button>
+            <button class="btn-ghost btn-sm delete-shortcut-btn" data-action="${actionId}" style="color:var(--red); border-color:rgba(255,77,109,.2); padding: 4px 8px; font-size:10px;">✕</button>
+          </div>
+        `;
+        shortcutsList.appendChild(row);
+      }
+      
+      if (typeof window.bindShortcutsUIRecorders === 'function') {
+        window.bindShortcutsUIRecorders();
+      }
+    }
 
   } catch (error) {
     console.error('Failed to load profile', error);
@@ -2428,9 +2630,17 @@ if (grammarToggle) {
 
 // Toggle feature access visibility in layout and switch panels if necessary
 function updateFeatureVisibility(key, enabled) {
-  const navItem = document.querySelector(`.nav-item[data-panel="${key}"]`);
-  if (navItem) {
-    navItem.style.display = enabled ? 'flex' : 'none';
+  // 1. Hide/show left activity bar icon
+  const activityItem = document.querySelector(`.activity-item[data-tab-panel="${key}"]`);
+  if (activityItem) {
+    activityItem.style.display = enabled ? 'flex' : 'none';
+  }
+
+  // 2. Hide/show main editor tab bar item
+  const tabItem = document.querySelector(`.tab-item[data-panel="${key}"]`);
+  if (tabItem) {
+    // tab-items are display: block or inline-block in CSS, we use '' to let CSS control display
+    tabItem.style.display = enabled ? '' : 'none';
   }
   
   // Special handling for Music Player: also hide the topbar/sidebar widgets
@@ -2463,14 +2673,14 @@ function updateFeatureVisibility(key, enabled) {
   }
   
   // If active panel is the disabled one, fallback to AI Assistant (mentor)
-  const activeNavItem = document.querySelector('.nav-item.active');
-  if (activeNavItem && activeNavItem.dataset.panel === key && !enabled) {
+  const activeActivityItem = document.querySelector('.activity-item.active');
+  if (activeActivityItem && activeActivityItem.dataset.tabPanel === key && !enabled) {
     switchPanel('mentor');
   }
 }
 
 // Bind feature toggle event listeners
-const featureKeys = ['music', 'path', 'quests', 'vault', 'doc-analysis', 'arcade'];
+const featureKeys = ['music', 'path', 'quests', 'vault', 'doc-analysis', 'arcade', 'linkedin'];
 featureKeys.forEach(key => {
   const chk = document.getElementById(`toggle-feat-${key}`);
   if (chk) {
@@ -2578,7 +2788,7 @@ function renderSVGChart(weeklyData) {
   // grid lines
   for (let i = 0; i < 5; i++) {
     const yy = pad + i * (H - pad * 2) / 4;
-    g += `<line x1="${pad}" y1="${yy}" x2="${W - pad / 2}" y2="${yy}" stroke="rgba(0,255,163,.08)" />`;
+    g += `<line x1="${pad}" y1="${yy}" x2="${W - pad / 2}" y2="${yy}" stroke="rgba(52,211,153,.08)" />`;
   }
 
   // axes labels
@@ -2588,15 +2798,15 @@ function renderSVGChart(weeklyData) {
 
   // lines paths
   const path = arr => arr.map((v, i) => `${i ? 'L' : 'M'}${x(i)},${y(v)}`).join(' ');
-  g += `<path d="${path(q)}" stroke="#00ffa3" stroke-width="2" fill="none" filter="drop-shadow(0 0 6px #00ffa3)"/>`;
-  g += `<path d="${path(t)}" stroke="#00d4ff" stroke-width="2" fill="none" filter="drop-shadow(0 0 6px #00d4ff)"/>`;
+  g += `<path d="${path(q)}" stroke="#34d399" stroke-width="2" fill="none" filter="drop-shadow(0 0 6px #34d399)"/>`;
+  g += `<path d="${path(t)}" stroke="#38bdf8" stroke-width="2" fill="none" filter="drop-shadow(0 0 6px #38bdf8)"/>`;
 
   // node dots
   q.forEach((v, i) => {
-    g += `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="#00ffa3"/>`;
+    g += `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="#34d399"/>`;
   });
   t.forEach((v, i) => {
-    g += `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="#00d4ff"/>`;
+    g += `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="#38bdf8"/>`;
   });
 
   svg.innerHTML = g;
@@ -2874,8 +3084,8 @@ async function loadHistoryPanel() {
           <div style="
             max-width:85%; padding:10px 14px; border-radius:8px; font-size:13px; line-height:1.55;
             ${isUser
-          ? 'background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);'
-          : 'background:rgba(0,255,163,.05);border:1px solid var(--border);'}
+          ? 'background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3);'
+          : 'background:rgba(52,211,153,.05);border:1px solid var(--border);'}
           ">${md(msg.content || '')}</div>
         </div>
       `;
@@ -3070,9 +3280,15 @@ function initTerminal() {
             terminalCwd = data.cwd;
             updatePrompt(promptEl);
           }
+          
+          const cmdLower = cmd.trim().toLowerCase();
+          if (cmdLower.startsWith("hunt config") || cmdLower.startsWith("hunt shortcut")) {
+            loadProfileAndSettings();
+          }
         } else {
           lineResult.innerHTML = `<span class="ansi-red">Error: ${mdEscape(data.error)}</span>`;
           outputEl.appendChild(lineResult);
+          playTerminalBeep();
         }
       } catch (err) {
         if (outputEl.contains(lineLoader)) {
@@ -3082,6 +3298,7 @@ function initTerminal() {
         lineResult.className = 'terminal-line ansi-red';
         lineResult.innerHTML = `Error: Connection lost to DevHunt core backend node.`;
         outputEl.appendChild(lineResult);
+        playTerminalBeep();
       }
       scrollToBottom(bodyEl);
     }
@@ -3144,7 +3361,11 @@ function updatePrompt(promptEl) {
     displayCwd = parts[parts.length - 1] || terminalCwd;
   }
 
-  promptEl.textContent = `guest@devhunt:${displayCwd || '/'}$`;
+  const username = window.terminalUsername || 'guest';
+  const hostname = window.terminalHostname || 'devhunt';
+  const symbol = window.terminalPromptSymbol || '$';
+
+  promptEl.textContent = `${username}@${hostname}:${displayCwd || '/'}${symbol}`;
 }
 
 function printHelpAutocomplete(outputEl, list) {
@@ -3501,6 +3722,41 @@ async function loadAIMemory() {
       });
     }
 
+    // Clear read notifications button
+    const clearReadNotifBtn = document.getElementById('btn-notifications-clear-read');
+    if (clearReadNotifBtn) {
+      clearReadNotifBtn.addEventListener('click', async () => {
+        try {
+          const profileRes = await fetch(`${API_BASE}/profile`);
+          const profileData = await profileRes.json();
+          if (profileData.success) {
+            const readIds = profileData.settings.read_notifications || [];
+            const dismissedIds = profileData.settings.dismissed_notifications || [];
+            const readNotifIds = currentNotificationsList
+              .map(n => n.id)
+              .filter(id => readIds.includes(id));
+              
+            if (readNotifIds.length > 0) {
+              const newDismissed = Array.from(new Set([...dismissedIds, ...readNotifIds]));
+              const res = await fetch(`${API_BASE}/profile`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  settings: { dismissed_notifications: newDismissed }
+                })
+              });
+              const data = await res.json();
+              if (data.success) {
+                loadNotifications(false);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Failed to clear read notifications", e);
+        }
+      });
+    }
+
     // Closing notification detail modal
     const closeNotifDetailBtn = document.getElementById('close-notif-detail-modal');
     if (closeNotifDetailBtn) {
@@ -3527,6 +3783,7 @@ let currentNotificationsList = [];
 async function loadNotifications(autoMarkRead = false) {
   const container = document.getElementById('notifications-feed-container');
   const badge = document.getElementById('notification-unread-count');
+  const activityBadge = document.getElementById('activity-notifications-badge');
   if (!container) return;
 
   try {
@@ -3544,18 +3801,26 @@ async function loadNotifications(autoMarkRead = false) {
     const unreadNotifications = currentNotificationsList.filter(n => !readIds.includes(n.id));
     const unreadCount = unreadNotifications.length;
 
+    const displayVal = unreadCount > 0 ? 'inline-block' : 'none';
     if (badge) {
-      if (unreadCount > 0) {
-        badge.textContent = unreadCount;
-        badge.style.display = 'inline-block';
-      } else {
-        badge.style.display = 'none';
-      }
+      badge.textContent = unreadCount;
+      badge.style.display = displayVal;
+    }
+    if (activityBadge) {
+      activityBadge.textContent = unreadCount;
+      activityBadge.style.display = displayVal;
     }
 
     // Auto-mark as read if viewing panel
     if (autoMarkRead && unreadCount > 0) {
       await markNotificationsAsRead(unreadNotifications.map(n => n.id), readIds);
+    }
+
+    // Toggle Clear Read button visibility
+    const clearReadNotifBtn = document.getElementById('btn-notifications-clear-read');
+    if (clearReadNotifBtn) {
+      const hasRead = currentNotificationsList.some(n => readIds.includes(n.id));
+      clearReadNotifBtn.style.display = hasRead ? 'inline-block' : 'none';
     }
 
     if (currentNotificationsList.length === 0) {
@@ -3580,12 +3845,13 @@ async function loadNotifications(autoMarkRead = false) {
 
       return `
         <div class="notification-item ${isUnread ? 'unread' : ''} type-${n.type}" onclick="openNotificationDetail('${n.id}', event)">
+          <button class="notification-dismiss-btn" title="Dismiss" onclick="dismissNotification('${n.id}', event)">✕</button>
           <div class="notification-header">
-            <div>
+            <div style="padding-right: 20px;">
               <span class="notification-tag">${typeTag}</span>
               <span class="notification-title">${mdEscape(n.title)}</span>
             </div>
-            <span class="notification-time">${n.timestamp}</span>
+            <span class="notification-time" style="margin-right: 18px;">${n.timestamp}</span>
           </div>
           <div class="notification-msg">${mdEscape(n.message)}</div>
           ${actionBtnHtml}
@@ -3626,7 +3892,9 @@ async function markNotificationsAsRead(newReadIds, existingReadIds) {
     const data = await res.json();
     if (data.success) {
       const badge = document.getElementById('notification-unread-count');
+      const activityBadge = document.getElementById('activity-notifications-badge');
       if (badge) badge.style.display = 'none';
+      if (activityBadge) activityBadge.style.display = 'none';
     }
   } catch (e) {
     console.error("Failed to mark notifications as read", e);
@@ -3689,6 +3957,7 @@ function openNotificationDetail(id, event) {
 
   // Mark read in background
   const badge = document.getElementById('notification-unread-count');
+  const activityBadge = document.getElementById('activity-notifications-badge');
   fetch(`${API_BASE}/profile`)
     .then(r => r.json())
     .then(data => {
@@ -3705,13 +3974,14 @@ function openNotificationDetail(id, event) {
             });
             // Recalculate badge
             const unreadItems = currentNotificationsList.filter(item => item.id !== id && !readIds.includes(item.id));
+            const displayVal = unreadItems.length > 0 ? 'inline-block' : 'none';
             if (badge) {
-              if (unreadItems.length > 0) {
-                badge.textContent = unreadItems.length;
-                badge.style.display = 'inline-block';
-              } else {
-                badge.style.display = 'none';
-              }
+              badge.textContent = unreadItems.length;
+              badge.style.display = displayVal;
+            }
+            if (activityBadge) {
+              activityBadge.textContent = unreadItems.length;
+              activityBadge.style.display = displayVal;
             }
           });
         }
@@ -3724,11 +3994,41 @@ function closeNotificationDetailModal() {
   if (modal) modal.classList.remove('show');
 }
 
+async function dismissNotification(id, event) {
+  if (event) {
+    event.stopPropagation();
+  }
+  try {
+    const profileRes = await fetch(`${API_BASE}/profile`);
+    const profileData = await profileRes.json();
+    if (profileData.success) {
+      const dismissedIds = profileData.settings.dismissed_notifications || [];
+      if (!dismissedIds.includes(id)) {
+        dismissedIds.push(id);
+        const res = await fetch(`${API_BASE}/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            settings: { dismissed_notifications: dismissedIds }
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          loadNotifications(false);
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Failed to dismiss notification", e);
+  }
+}
+
 // Bind globally for inline HTML click handlers
 window.triggerUpdateFromNotification = triggerUpdateFromNotification;
 window.loadNotifications = loadNotifications;
 window.openNotificationDetail = openNotificationDetail;
 window.closeNotificationDetailModal = closeNotificationDetailModal;
+window.dismissNotification = dismissNotification;
 window.loadTerminalStats = loadTerminalStats;
 
 
@@ -3772,11 +4072,11 @@ const MusicPlayer = (() => {
         </div>
         <div style="display:flex; gap:6px; flex-shrink:0;">
           <button onclick="event.stopPropagation(); MusicPlayer.play(${i})"
-            style="background:none;border:1px solid rgba(0,255,163,0.25);color:var(--green);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;"
+            style="background:none;border:1px solid rgba(52,211,153,0.25);color:var(--green);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;"
             title="Play">▶</button>
           <a href="/api/music/download/${encodeURIComponent(t.filename)}"
             onclick="event.stopPropagation()"
-            style="background:none;border:1px solid rgba(0,212,255,0.25);color:var(--cyan);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;text-decoration:none;"
+            style="background:none;border:1px solid rgba(56,189,248,0.25);color:var(--cyan);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;text-decoration:none;"
             title="Download" download>⬇</a>
           <button onclick="event.stopPropagation(); MusicPlayer.deleteTrack(${i})"
             style="background:none;border:1px solid rgba(255,77,109,0.25);color:var(--red);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;"
@@ -4194,7 +4494,7 @@ window.initMusicPlayer = initMusicPlayer;
 
 /* ========== TERMINAL STATS VISUALIZATION ========== */
 const STATS_PALETTE = [
-  '#00ffa3', '#00d4ff', '#ffb547', '#ff4d6d', '#a78bfa', '#34d399', '#f472b6', '#60a5fa'
+  '#34d399', '#38bdf8', '#fbbf24', '#f87171', '#a78bfa', '#34d399', '#f472b6', '#60a5fa'
 ];
 
 function fmtNum(n) {
@@ -4313,9 +4613,11 @@ function drawDailyChart(canvasId, days, messages) {
   const dayLabelColor = isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(255,255,255,0.35)';
   const emptyColor = isLight ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255,255,255,0.15)';
   
-  const chartColor = isLight ? '#4f46e5' : '#00ffa3';
-  const chartColorLight = isLight ? 'rgba(79, 70, 229, 0.15)' : '#00ffa333';
-  const chartLineColor = isLight ? '#4f46e5cc' : '#00ffa3bb';
+  const isNeon = document.body.classList.contains('theme-neon');
+  const isDevil = document.body.classList.contains('theme-devil');
+  const chartColor = isLight ? '#4f46e5' : (isNeon ? '#34d399' : (isDevil ? '#ef4444' : '#6366f1'));
+  const chartColorLight = isLight ? 'rgba(79, 70, 229, 0.15)' : (isNeon ? '#34d39933' : (isDevil ? 'rgba(239, 68, 68, 0.15)' : 'rgba(99, 102, 241, 0.15)'));
+  const chartLineColor = isLight ? '#4f46e5cc' : (isNeon ? '#34d399bb' : (isDevil ? '#ef4444cc' : '#6366f1cc'));
 
   if (!messages.length || Math.max(...messages) === 0) {
     ctx.fillStyle = emptyColor;
@@ -4481,15 +4783,30 @@ async function loadTerminalStats() {
     if (kpiModels) kpiModels.textContent = d.model_distribution.length;
     if (kpiKeys) kpiKeys.textContent = d.key_workload.length;
 
+    // ── Theme-Aware Palettes ───────────────────────────────────────────
+    const isLight = document.body.classList.contains('theme-light');
+    const isNeon = document.body.classList.contains('theme-neon');
+    const isDevil = document.body.classList.contains('theme-devil');
+
+    const STATS_PALETTE_LIGHT = [
+      '#4f46e5', '#10b981', '#f59e0b', '#d946ef', '#0ea5e9', '#ef4444', '#8b5cf6', '#ec4899'
+    ];
+    const STATS_PALETTE_NEON = [
+      '#34d399', '#38bdf8', '#fbbf24', '#f87171', '#a78bfa', '#34d399', '#f472b6', '#60a5fa'
+    ];
+    const STATS_PALETTE_SLATE = [
+      '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#14b8a6', '#f43f5e'
+    ];
+    const STATS_PALETTE_DEVIL = [
+      '#ef4444', '#f43f5e', '#d946ef', '#a855f7', '#fb7185', '#f472b6', '#fda4af', '#fca5a5'
+    ];
+
+    const palette = isLight ? STATS_PALETTE_LIGHT : (isNeon ? STATS_PALETTE_NEON : (isDevil ? STATS_PALETTE_DEVIL : STATS_PALETTE_SLATE));
+
     // ── Model Distribution Bar Chart ────────────────────────────────────────
     const modelLabels = d.model_distribution.map(m => m.model || 'Unknown');
     const modelReqs = d.model_distribution.map(m => m.requests);
     
-    const isLight = document.body.classList.contains('theme-light');
-    const STATS_PALETTE_LIGHT = [
-      '#4f46e5', '#0ea5e9', '#d946ef', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'
-    ];
-    const palette = isLight ? STATS_PALETTE_LIGHT : STATS_PALETTE;
     drawBarChart('chart-models', modelLabels, modelReqs, palette);
 
     // Model Legend
@@ -4503,7 +4820,9 @@ async function loadTerminalStats() {
     // ── API Key Workload Bar Chart ───────────────────────────────────────────
     const keyLabels = d.key_workload.map(k => k.label || k.masked || 'Key');
     const keyReqs = d.key_workload.map(k => k.requests);
-    const KEY_COLORS = isLight ? ['#4f46e5', '#0ea5e9', '#d946ef', '#f59e0b'] : ['#00d4ff', '#60a5fa', '#a78bfa', '#f472b6'];
+    const KEY_COLORS = isLight 
+      ? ['#4f46e5', '#10b981', '#f59e0b', '#8b5cf6'] 
+      : (isNeon ? ['#38bdf8', '#60a5fa', '#a78bfa', '#f472b6'] : (isDevil ? ['#ef4444', '#f43f5e', '#d946ef', '#fbbf24'] : ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6']));
     drawBarChart('chart-keys', keyLabels, keyReqs, KEY_COLORS);
 
     const keyLegend = document.getElementById('key-legend');
@@ -4514,7 +4833,6 @@ async function loadTerminalStats() {
     }
 
     // ── Daily Activity Chart ─────────────────────────────────────────────────
-    // Fill in missing days in last 14 days
     const dayMap = {};
     d.daily_activity.forEach(r => { dayMap[r.day] = r.messages; });
     const today = new Date();
@@ -4531,7 +4849,9 @@ async function loadTerminalStats() {
     // ── Role Split Donut ─────────────────────────────────────────────────────
     const userCount = d.role_split['user'] || 0;
     const aiCount = d.role_split['assistant'] || 0;
-    const donutColors = isLight ? ['#10b981', '#4f46e5'] : ['#00ffa3', '#00d4ff'];
+    const donutColors = isLight 
+      ? ['#10b981', '#4f46e5'] 
+      : (isNeon ? ['#34d399', '#38bdf8'] : (isDevil ? ['#f43f5e', '#d946ef'] : ['#10b981', '#6366f1']));
     drawDonutChart('chart-role', [userCount, aiCount], ['User', 'AI'], donutColors);
     const roleLegend = document.getElementById('role-legend');
     if (roleLegend) {
@@ -4571,13 +4891,51 @@ async function loadTerminalStats() {
       sessBody.innerHTML = d.top_sessions.length > 0
         ? d.top_sessions.map((s, i) => `
             <tr style="border-bottom:1px solid ${rowBorderColor};">
-              <td style="padding:6px 6px; color:var(--cyan); font-family:var(--mono); font-size:10px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+              <td style="padding:6px 6px; color:var(--cyan); font-family:var(--mono); font-size:10px; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                 ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '} ${s.session}
               </td>
               <td style="padding:6px 6px; text-align:right; color:var(--green); font-weight:bold;">${s.messages}</td>
               <td style="padding:6px 6px; text-align:right; color:var(--amber);">${fmtNum(s.tokens)}</td>
             </tr>`).join('')
         : '<tr><td colspan="3" style="text-align:center; color:var(--muted); padding:20px; font-family:var(--mono); font-size:11px;">No sessions found</td></tr>';
+    }
+
+    // ── Advanced Insights Rendering ──────────────────────────────────────────
+    let peakDay = 'None';
+    let peakMsgs = 0;
+    if (d.daily_activity && d.daily_activity.length > 0) {
+      d.daily_activity.forEach(r => {
+        if (r.messages > peakMsgs) {
+          peakMsgs = r.messages;
+          peakDay = r.day;
+        }
+      });
+    }
+
+    const insightsContent = document.getElementById('advanced-insights-content');
+    if (insightsContent) {
+      const savingsStr = typeof d.est_savings === 'number' ? d.est_savings.toFixed(3) : '0.000';
+      const avgTokensStr = typeof d.avg_tokens === 'number' ? d.avg_tokens.toFixed(1) : '0.0';
+      const activeSessStr = typeof d.active_sessions_count === 'number' ? d.active_sessions_count : '0';
+      
+      insightsContent.innerHTML = `
+        <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed var(--border);">
+          <span class="muted">TOKEN EFFICIENCY</span>
+          <span style="color:var(--cyan); font-weight:bold;">${avgTokensStr} tok/msg</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed var(--border);">
+          <span class="muted">CLOUD COST SAVED</span>
+          <span style="color:var(--green); font-weight:bold;">$${savingsStr}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed var(--border);">
+          <span class="muted">ACTIVE SESSIONS</span>
+          <span style="color:var(--amber); font-weight:bold;">${activeSessStr} active</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:6px 0;">
+          <span class="muted">PEAK ACTIVITY DAY</span>
+          <span style="color:var(--magenta); font-weight:bold;">${peakDay} (${peakMsgs} msg)</span>
+        </div>
+      `;
     }
 
     if (lastUpdated) {
@@ -4701,35 +5059,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Global keydown Ctrl+S listener
-window.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-    e.preventDefault();
-    if (window.activeEditingFilePath) {
-      window.saveActiveFile();
-    }
-  }
-});
-
-// Keyboard shortcut (Ctrl+K / Cmd+K) to focus AI Assistant chat input
-window.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-    e.preventDefault();
-    switchPanel('mentor');
-    const chatInput = document.getElementById('chat-input');
-    if (chatInput) {
-      chatInput.focus();
-    }
-  }
-});
-
-// Keyboard shortcut (Ctrl+N / Cmd+N) to show inline new file input
-window.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
-    e.preventDefault();
-    window.showInlineNewFileInput();
-  }
-});
+// Hardcoded Ctrl+S/K/N listeners removed in favor of centralized global keyboard shortcuts system
 
 // IDE Explorer & Editor Implementation
 window.expandedExplorerDirs = window.expandedExplorerDirs || new Set();
@@ -5021,3 +5351,748 @@ window.loadNotifications = loadNotifications;
 window.openNotificationDetail = openNotificationDetail;
 window.closeNotificationDetailModal = closeNotificationDetailModal;
 window.loadTerminalStats = loadTerminalStats;
+
+
+/* ========== Redesigned Settings & Keybindings Execution API ========== */
+
+// Settings Tab Selector
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.settings-nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const tabName = item.dataset.settingsTab;
+      
+      document.querySelectorAll('.settings-nav-item').forEach(el => el.classList.remove('active'));
+      item.classList.add('active');
+      
+      document.querySelectorAll('.settings-pane').forEach(el => el.classList.remove('active'));
+      const activePane = document.getElementById(`settings-pane-${tabName}`);
+      if (activePane) activePane.classList.add('active');
+    });
+  });
+
+  // Typography Customization Listeners
+  const editorFamily = document.getElementById('font-family-editor');
+  const editorSize = document.getElementById('font-size-editor');
+  const editorSizeVal = document.getElementById('font-size-editor-val');
+
+  if (editorFamily) {
+    editorFamily.addEventListener('change', async (e) => {
+      document.documentElement.style.setProperty('--editor-font-family', e.target.value);
+      await saveSettingsAPI({ font_family_editor: e.target.value });
+    });
+  }
+  if (editorSize) {
+    editorSize.addEventListener('input', (e) => {
+      if (editorSizeVal) editorSizeVal.textContent = `${e.target.value}px`;
+      document.documentElement.style.setProperty('--editor-font-size', e.target.value + 'px');
+    });
+    editorSize.addEventListener('change', async (e) => {
+      await saveSettingsAPI({ font_size_editor: parseInt(e.target.value, 10) });
+    });
+  }
+
+  const terminalFamily = document.getElementById('font-family-terminal');
+  const terminalSize = document.getElementById('font-size-terminal');
+  const terminalSizeVal = document.getElementById('font-size-terminal-val');
+
+  if (terminalFamily) {
+    terminalFamily.addEventListener('change', async (e) => {
+      document.documentElement.style.setProperty('--terminal-font-family', e.target.value);
+      await saveSettingsAPI({ font_family_terminal: e.target.value });
+    });
+  }
+  if (terminalSize) {
+    terminalSize.addEventListener('input', (e) => {
+      if (terminalSizeVal) terminalSizeVal.textContent = `${e.target.value}px`;
+      document.documentElement.style.setProperty('--terminal-font-size', e.target.value + 'px');
+    });
+    terminalSize.addEventListener('change', async (e) => {
+      await saveSettingsAPI({ font_size_terminal: parseInt(e.target.value, 10) });
+    });
+  }
+
+  // Live Canvas Particles toggle
+  const canvasParticles = document.getElementById('toggle-canvas-particles');
+  if (canvasParticles) {
+    canvasParticles.addEventListener('change', async (e) => {
+      window.canvasParticlesEnabled = e.target.checked;
+      await saveSettingsAPI({ canvas_particles: e.target.checked });
+    });
+  }
+
+  // Sound effects toggle
+  const soundEffects = document.getElementById('toggle-sound-effects');
+  if (soundEffects) {
+    soundEffects.addEventListener('change', async (e) => {
+      window.soundEffectsEnabled = e.target.checked;
+      await saveSettingsAPI({ sound_effects: e.target.checked });
+    });
+  }
+
+  // Terminal customization save
+  const termSaveBtn = document.getElementById('terminal-save-btn');
+  if (termSaveBtn) {
+    termSaveBtn.addEventListener('click', async () => {
+      const username = document.getElementById('terminal-username-input').value.trim() || 'guest';
+      const hostname = document.getElementById('terminal-hostname-input').value.trim() || 'devhunt';
+      const symbol = document.getElementById('terminal-prompt-symbol').value.trim() || '$';
+      const sound = document.getElementById('terminal-sound-toggle').checked;
+      
+      termSaveBtn.textContent = 'Saving...';
+      try {
+        await saveSettingsAPI({
+          terminal_username: username,
+          terminal_hostname: hostname,
+          terminal_prompt_symbol: symbol,
+          terminal_sound: sound
+        });
+        
+        window.terminalUsername = username;
+        window.terminalHostname = hostname;
+        window.terminalPromptSymbol = symbol;
+        window.terminalSoundEnabled = sound;
+        
+        const termPromptEl = document.getElementById('terminal-prompt-el');
+        if (termPromptEl) {
+          updatePrompt(termPromptEl);
+        }
+        alert('Terminal prompt preferences applied successfully.');
+      } catch (err) {
+        console.error('Failed to save terminal settings', err);
+      } finally {
+        termSaveBtn.textContent = 'Apply Prompt Settings';
+      }
+    });
+  }
+
+  // Terminal customization reset
+  const termResetBtn = document.getElementById('terminal-reset-btn');
+  if (termResetBtn) {
+    termResetBtn.addEventListener('click', async () => {
+      if (confirm('Reset prompt parameters to default values?')) {
+        termResetBtn.textContent = 'Resetting...';
+        try {
+          await saveSettingsAPI({
+            terminal_username: 'guest',
+            terminal_hostname: 'devhunt',
+            terminal_prompt_symbol: '$',
+            terminal_sound: true
+          });
+          loadProfileAndSettings();
+          alert('Prompt parameters restored to defaults.');
+        } catch (err) {
+          console.error(err);
+        } finally {
+          termResetBtn.textContent = 'Reset Prompt Defaults';
+        }
+      }
+    });
+  }
+
+  // Reset all keybindings
+  const shortcutResetBtn = document.getElementById('shortcut-reset-btn');
+  if (shortcutResetBtn) {
+    shortcutResetBtn.addEventListener('click', async () => {
+      if (confirm('Reset all keyboard shortcuts to default factory bindings?')) {
+        shortcutResetBtn.textContent = 'Resetting...';
+        try {
+          const default_shortcuts = {
+            "toggleSidebar": "Ctrl+B",
+            "saveFile": "Ctrl+S",
+            "focusChat": "Ctrl+K",
+            "newFile": "Ctrl+N",
+            "openTerminal": "Ctrl+Shift+P",
+            "clearEditor": "Ctrl+Alt+C",
+            "refreshExplorer": "Ctrl+Alt+R"
+          };
+          await saveSettingsAPI({ shortcuts: default_shortcuts });
+          loadProfileAndSettings();
+          alert('All hotkeys reset to defaults successfully.');
+        } catch (e) {
+          console.error(e);
+        } finally {
+          shortcutResetBtn.textContent = 'Reset All Keybindings';
+        }
+      }
+    });
+  }
+
+  // AI Configuration change handlers
+  const aiModelSelect = document.getElementById('ai-model-select');
+  if (aiModelSelect) {
+    aiModelSelect.addEventListener('change', async (e) => {
+      await saveSettingsAPI({ selected_model: e.target.value });
+      loadActiveStateHeader();
+    });
+  }
+
+  const aiTempSlider = document.getElementById('ai-temp-slider');
+  const aiTempVal = document.getElementById('ai-temp-val');
+  if (aiTempSlider) {
+    aiTempSlider.addEventListener('input', (e) => {
+      if (aiTempVal) aiTempVal.textContent = e.target.value;
+    });
+    aiTempSlider.addEventListener('change', async (e) => {
+      await saveSettingsAPI({ temperature: parseFloat(e.target.value) });
+    });
+  }
+
+  const aiMaxTokensSlider = document.getElementById('ai-max-tokens-slider');
+  const aiMaxTokensVal = document.getElementById('ai-max-tokens-val');
+  if (aiMaxTokensSlider) {
+    aiMaxTokensSlider.addEventListener('input', (e) => {
+      if (aiMaxTokensVal) aiMaxTokensVal.textContent = e.target.value;
+    });
+    aiMaxTokensSlider.addEventListener('change', async (e) => {
+      await saveSettingsAPI({ max_tokens: parseInt(e.target.value, 10) });
+    });
+  }
+
+  const aiSystemPromptSave = document.getElementById('ai-system-prompt-save-btn');
+  if (aiSystemPromptSave) {
+    aiSystemPromptSave.addEventListener('click', async () => {
+      const promptVal = document.getElementById('ai-system-prompt').value;
+      aiSystemPromptSave.textContent = 'Saving...';
+      try {
+        await saveSettingsAPI({ system_prompt: promptVal });
+        alert('System prompt instructions saved successfully.');
+      } catch (e) {
+        console.error(e);
+      } finally {
+        aiSystemPromptSave.textContent = 'Save Instructions';
+      }
+    });
+  }
+});
+
+async function saveSettingsAPI(settingsObj) {
+  try {
+    await fetch(`${API_BASE}/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        settings: settingsObj
+      })
+    });
+  } catch (err) {
+    console.error('saveSettingsAPI failed:', err);
+    throw err;
+  }
+}
+
+// Global recording state
+let recordingAction = null;
+let recordingBtn = null;
+
+function bindShortcutsUIRecorders() {
+  document.querySelectorAll('.record-shortcut-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      if (recordingAction) {
+        stopRecording();
+      }
+      startRecording(action, btn);
+    });
+  });
+
+  document.querySelectorAll('.delete-shortcut-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      if (confirm(`Clear shortcut for ${action}?`)) {
+        await saveRecordedShortcut(action, 'None');
+      }
+    });
+  });
+}
+
+function startRecording(action, btn) {
+  recordingAction = action;
+  recordingBtn = btn;
+  btn.textContent = 'Press keys...';
+  btn.classList.add('recording');
+  window.addEventListener('keydown', handleRecordingKeydown, true);
+}
+
+function handleRecordingKeydown(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  const key = e.key;
+  if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) {
+    return; // wait for actual key
+  }
+  
+  if (key === 'Escape' || key === 'Delete') {
+    saveRecordedShortcut(recordingAction, 'None');
+    stopRecording();
+    return;
+  }
+  
+  const parts = [];
+  if (e.ctrlKey) parts.push('Ctrl');
+  if (e.altKey) parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+  if (e.metaKey) parts.push('Meta');
+  
+  let keyName = key;
+  if (key === ' ') keyName = 'Space';
+  else if (key.length === 1) keyName = key.toUpperCase();
+  
+  parts.push(keyName);
+  const combo = parts.join('+');
+  
+  saveRecordedShortcut(recordingAction, combo);
+  stopRecording();
+}
+
+function stopRecording() {
+  if (recordingBtn) {
+    recordingBtn.textContent = 'Edit';
+    recordingBtn.classList.remove('recording');
+  }
+  window.removeEventListener('keydown', handleRecordingKeydown, true);
+  recordingAction = null;
+  recordingBtn = null;
+}
+
+async function saveRecordedShortcut(action, combo) {
+  try {
+    const profileRes = await fetch(`${API_BASE}/profile`);
+    const profileData = await profileRes.json();
+    if (profileData.success) {
+      const currentSettings = profileData.settings || {};
+      const currentShortcuts = currentSettings.shortcuts || {};
+      currentShortcuts[action] = combo;
+      
+      const res = await fetch(`${API_BASE}/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings: { shortcuts: currentShortcuts }
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadProfileAndSettings();
+      }
+    }
+  } catch (error) {
+    console.error('Failed to save shortcut', error);
+  }
+}
+
+// Synthesize short retro bip/beep on terminal alert
+function playTerminalBeep() {
+  if (window.terminalSoundEnabled === false) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, ctx.currentTime);
+    
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch (e) {
+    console.warn('AudioContext beep failed:', e);
+  }
+}
+
+// Centralized keyboard shortcuts matcher
+window.addEventListener('keydown', (e) => {
+  if (recordingAction) return;
+
+  // Bypass global shortcuts when playing in the Game Arcade
+  const activePanel = document.querySelector('.panel.active');
+  if (activePanel && activePanel.id === 'panel-arcade') {
+    return;
+  }
+
+  const key = e.key;
+  if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) {
+    return;
+  }
+
+  const parts = [];
+  if (e.ctrlKey) parts.push('Ctrl');
+  if (e.altKey) parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+  if (e.metaKey) parts.push('Meta');
+
+  let keyName = key;
+  if (key === ' ') keyName = 'Space';
+  else if (key.length === 1) keyName = key.toUpperCase();
+
+  parts.push(keyName);
+  const pressedCombo = parts.join('+');
+
+  if (window.hotkeys) {
+    let matchedActionId = null;
+    for (const [actionId, combo] of Object.entries(window.hotkeys)) {
+      if (combo && combo.trim().toLowerCase() === pressedCombo.toLowerCase()) {
+        matchedActionId = actionId;
+        break;
+      }
+    }
+
+    if (matchedActionId) {
+      const shortcutActions = {
+        toggleSidebar: () => toggleExplorerSidebar(),
+        saveFile: () => { if (window.activeEditingFilePath) window.saveActiveFile(); },
+        focusChat: () => { switchPanel('mentor'); const ci = document.getElementById('chat-input'); if (ci) ci.focus(); },
+        newFile: () => window.showInlineNewFileInput(),
+        openTerminal: () => switchPanel('terminal'),
+        clearEditor: () => { const clearBtn = document.getElementById('menu-clear-editor'); if (clearBtn) clearBtn.click(); },
+        refreshExplorer: () => { if (typeof window.refreshExplorer === 'function') window.refreshExplorer(); }
+      };
+
+      if (shortcutActions[matchedActionId]) {
+        const isEditing = document.activeElement && (
+          document.activeElement.tagName === 'INPUT' || 
+          document.activeElement.tagName === 'TEXTAREA' || 
+          document.activeElement.isContentEditable
+        );
+
+        const hasModifier = e.ctrlKey || e.altKey || e.metaKey;
+        const isFuncKey = /^F[1-9][0-2]?$/.test(keyName) || keyName === 'Escape';
+
+        if (isEditing && !hasModifier && !isFuncKey) {
+          return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+        shortcutActions[matchedActionId]();
+      }
+    }
+  }
+});
+
+// Expose internal components globally
+window.bindShortcutsUIRecorders = bindShortcutsUIRecorders;
+window.playTerminalBeep = playTerminalBeep;
+
+/* ========== LinkedIn Drafts Feature ========== */
+window.activeLinkedInDraft = null;
+
+window.loadLinkedInDrafts = async () => {
+  const draftsList = document.getElementById('linkedin-drafts-list');
+  if (!draftsList) return;
+  
+  try {
+    const res = await fetch(`${API_BASE}/linkedin/drafts`);
+    const data = await res.json();
+    if (!data.success) {
+      draftsList.innerHTML = `<div class="muted" style="text-align:center; padding:20px; font-family:var(--mono);">Failed to load drafts</div>`;
+      return;
+    }
+    
+    const drafts = data.drafts || [];
+    if (drafts.length === 0) {
+      draftsList.innerHTML = `<div class="muted" style="text-align:center; padding:20px; font-family:var(--mono);">// No drafts found</div>`;
+      return;
+    }
+    
+    // Group drafts by date
+    const groups = {};
+    drafts.forEach(draft => {
+      const date = parseUtcTimestamp(draft.created_at || draft.updated_at);
+      const groupName = getLocalDateString(date);
+      if (!groups[groupName]) {
+        groups[groupName] = [];
+      }
+      groups[groupName].push(draft);
+    });
+    
+    draftsList.innerHTML = '';
+    
+    const escapeHtml = (str) => str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;") : '';
+    
+    for (const [groupName, groupDrafts] of Object.entries(groups)) {
+      const header = document.createElement('div');
+      header.className = 'linkedin-date-group-header';
+      header.textContent = groupName;
+      draftsList.appendChild(header);
+      
+      groupDrafts.forEach(draft => {
+        const item = document.createElement('div');
+        const isActive = window.activeLinkedInDraft && window.activeLinkedInDraft.id === draft.id;
+        item.className = `linkedin-draft-item${isActive ? ' active' : ''}`;
+        
+        const snippet = draft.content ? draft.content.substring(0, 100) + (draft.content.length > 100 ? '...' : '') : 'Empty content';
+        
+        item.innerHTML = `
+          <div class="linkedin-draft-title">${escapeHtml(draft.title || 'Untitled Draft')}</div>
+          <div class="linkedin-draft-snippet">${escapeHtml(snippet)}</div>
+        `;
+        
+        item.addEventListener('click', () => {
+          window.selectLinkedInDraft(draft);
+        });
+        
+        draftsList.appendChild(item);
+      });
+    }
+  } catch (err) {
+    console.error('Error loading LinkedIn drafts:', err);
+    draftsList.innerHTML = `<div class="muted" style="text-align:center; padding:20px; font-family:var(--mono);">Error loading drafts</div>`;
+  }
+};
+
+window.selectLinkedInDraft = (draft) => {
+  window.activeLinkedInDraft = draft;
+  
+  const emptyState = document.getElementById('linkedin-editor-empty');
+  const activeState = document.getElementById('linkedin-editor-active');
+  
+  if (emptyState) emptyState.style.display = 'none';
+  if (activeState) activeState.style.display = 'flex';
+  
+  const titleInput = document.getElementById('linkedin-draft-title');
+  const contentTextarea = document.getElementById('linkedin-draft-content');
+  const dateSpan = document.getElementById('linkedin-draft-date');
+  const refinePrompt = document.getElementById('linkedin-refine-prompt');
+  
+  if (titleInput) titleInput.value = draft.title || '';
+  if (contentTextarea) contentTextarea.value = draft.content || '';
+  if (refinePrompt) refinePrompt.value = '';
+  
+  if (dateSpan) {
+    if (draft.created_at) {
+      const date = parseUtcTimestamp(draft.created_at);
+      dateSpan.textContent = date.toLocaleString();
+    } else {
+      dateSpan.textContent = 'New Draft';
+    }
+  }
+  
+  document.querySelectorAll('.linkedin-draft-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  
+  document.querySelectorAll('.linkedin-draft-item').forEach(item => {
+    const titleEl = item.querySelector('.linkedin-draft-title');
+    if (titleEl && titleEl.textContent === draft.title) {
+      item.classList.add('active');
+    }
+  });
+};
+
+window.saveLinkedInDraft = async () => {
+  const titleInput = document.getElementById('linkedin-draft-title');
+  const contentTextarea = document.getElementById('linkedin-draft-content');
+  if (!titleInput || !contentTextarea) return;
+  
+  const title = titleInput.value.trim() || 'Untitled Draft';
+  const content = contentTextarea.value;
+  
+  if (!content) {
+    alert('Please enter some content for the post.');
+    return;
+  }
+  
+  const saveBtn = document.getElementById('btn-linkedin-save');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+  }
+  
+  try {
+    const isNew = !window.activeLinkedInDraft || !window.activeLinkedInDraft.id;
+    const url = isNew ? `${API_BASE}/linkedin/drafts` : `${API_BASE}/linkedin/drafts/${window.activeLinkedInDraft.id}`;
+    const method = isNew ? 'POST' : 'PUT';
+    
+    const res = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content, status: 'draft' })
+    });
+    
+    const data = await res.json();
+    if (data.success) {
+      if (isNew) {
+        window.activeLinkedInDraft = data.draft;
+      } else {
+        window.activeLinkedInDraft.title = title;
+        window.activeLinkedInDraft.content = content;
+      }
+      
+      if (saveBtn) {
+        saveBtn.textContent = 'Saved!';
+        saveBtn.style.color = 'var(--green)';
+        setTimeout(() => {
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save Draft';
+          saveBtn.style.color = '';
+        }, 1500);
+      }
+      
+      await window.loadLinkedInDrafts();
+      window.selectLinkedInDraft(window.activeLinkedInDraft);
+    } else {
+      alert('Failed to save draft: ' + (data.error || 'unknown error'));
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Draft';
+      }
+    }
+  } catch (err) {
+    console.error('Error saving draft:', err);
+    alert('Failed to save draft due to connection error.');
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save Draft';
+    }
+  }
+};
+
+window.deleteLinkedInDraft = async () => {
+  if (!window.activeLinkedInDraft || !window.activeLinkedInDraft.id) return;
+  if (!confirm('Are you sure you want to delete this draft?')) return;
+  
+  const deleteBtn = document.getElementById('btn-linkedin-delete');
+  if (deleteBtn) {
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = 'Deleting...';
+  }
+  
+  try {
+    const res = await fetch(`${API_BASE}/linkedin/drafts/${window.activeLinkedInDraft.id}`, {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.activeLinkedInDraft = null;
+      const emptyState = document.getElementById('linkedin-editor-empty');
+      const activeState = document.getElementById('linkedin-editor-active');
+      if (emptyState) emptyState.style.display = 'block';
+      if (activeState) activeState.style.display = 'none';
+      
+      await window.loadLinkedInDrafts();
+    } else {
+      alert('Failed to delete draft: ' + (data.error || 'unknown error'));
+    }
+  } catch (err) {
+    console.error('Error deleting draft:', err);
+    alert('Failed to delete draft due to connection error.');
+  } finally {
+    if (deleteBtn) {
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = 'Delete';
+    }
+  }
+};
+
+window.refineLinkedInDraft = async () => {
+  const contentTextarea = document.getElementById('linkedin-draft-content');
+  const promptInput = document.getElementById('linkedin-refine-prompt');
+  if (!contentTextarea || !promptInput) return;
+  
+  const content = contentTextarea.value;
+  const prompt = promptInput.value.trim();
+  
+  if (!content) {
+    alert('Please enter some content to refine.');
+    return;
+  }
+  if (!prompt) {
+    alert('Please provide instructions for the AI refinement.');
+    return;
+  }
+  
+  const refineBtn = document.getElementById('btn-linkedin-refine');
+  const titleInput = document.getElementById('linkedin-draft-title');
+  
+  if (refineBtn) {
+    refineBtn.disabled = true;
+    refineBtn.textContent = 'Refining...';
+  }
+  if (contentTextarea) contentTextarea.disabled = true;
+  if (promptInput) promptInput.disabled = true;
+  if (titleInput) titleInput.disabled = true;
+  
+  try {
+    const res = await fetch(`${API_BASE}/linkedin/drafts/refine`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, prompt })
+    });
+    const data = await res.json();
+    if (data.success) {
+      contentTextarea.value = data.refined_content;
+      promptInput.value = '';
+      if (refineBtn) {
+        refineBtn.textContent = 'Refined!';
+        refineBtn.style.color = 'var(--green)';
+        setTimeout(() => {
+          refineBtn.textContent = 'Refine Post';
+          refineBtn.style.color = '';
+        }, 1500);
+      }
+    } else {
+      alert('AI Refinement failed: ' + (data.error || 'unknown error'));
+    }
+  } catch (err) {
+    console.error('Error refining draft:', err);
+    alert('AI Refinement failed due to connection error.');
+  } finally {
+    if (refineBtn) refineBtn.disabled = false;
+    if (contentTextarea) contentTextarea.disabled = false;
+    if (promptInput) promptInput.disabled = false;
+    if (titleInput) titleInput.disabled = false;
+  }
+};
+
+// Bind LinkedIn action triggers
+document.addEventListener('DOMContentLoaded', () => {
+  const newBtn = document.getElementById('btn-linkedin-new');
+  if (newBtn) {
+    newBtn.addEventListener('click', () => {
+      window.selectLinkedInDraft({
+        title: 'New Post Draft',
+        content: '',
+        status: 'draft'
+      });
+      window.activeLinkedInDraft = null; // Mark as unsaved
+      const dateSpan = document.getElementById('linkedin-draft-date');
+      if (dateSpan) dateSpan.textContent = 'Unsaved Draft';
+    });
+  }
+  
+  const saveBtn = document.getElementById('btn-linkedin-save');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', window.saveLinkedInDraft);
+  }
+  
+  const deleteBtn = document.getElementById('btn-linkedin-delete');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', window.deleteLinkedInDraft);
+  }
+  
+  const refineBtn = document.getElementById('btn-linkedin-refine');
+  if (refineBtn) {
+    refineBtn.addEventListener('click', window.refineLinkedInDraft);
+  }
+
+  const refinePromptInput = document.getElementById('linkedin-refine-prompt');
+  if (refinePromptInput) {
+    refinePromptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        window.refineLinkedInDraft();
+      }
+    });
+  }
+});
+
+
+

@@ -76,6 +76,30 @@ class ProfileManager:
                 "dismissed_update": None,
                 "read_notifications": [],
                 "theme": "slate",
+                "terminal_username": "guest",
+                "terminal_hostname": "devhunt",
+                "terminal_prompt_symbol": "$",
+                "terminal_sound": True,
+                "font_size_editor": 14,
+                "font_size_terminal": 13,
+                "font_family_editor": "JetBrains Mono",
+                "font_family_terminal": "JetBrains Mono",
+                "canvas_particles": True,
+                "sound_effects": True,
+                "temperature": 0.7,
+                "max_tokens": 2048,
+                "system_prompt": "",
+                "read_notifications": [],
+                "dismissed_notifications": [],
+                "shortcuts": {
+                    "toggleSidebar": "Ctrl+B",
+                    "saveFile": "Ctrl+S",
+                    "focusChat": "Ctrl+K",
+                    "newFile": "Ctrl+N",
+                    "openTerminal": "Ctrl+Shift+P",
+                    "clearEditor": "Ctrl+Alt+C",
+                    "refreshExplorer": "Ctrl+Alt+R"
+                },
                 "feature_toggles": {
                     "music": True,
                     "path": True,
@@ -90,12 +114,49 @@ class ProfileManager:
             
         try:
             with open(SETTINGS_PATH, 'r') as f:
-                # Add default key if missing in existing file
                 data = json.load(f)
                 if "read_notifications" not in data:
                     data["read_notifications"] = []
+                if "dismissed_notifications" not in data:
+                    data["dismissed_notifications"] = []
                 if "theme" not in data:
                     data["theme"] = "slate"
+                if "terminal_username" not in data:
+                    data["terminal_username"] = "guest"
+                if "terminal_hostname" not in data:
+                    data["terminal_hostname"] = "devhunt"
+                if "terminal_prompt_symbol" not in data:
+                    data["terminal_prompt_symbol"] = "$"
+                if "terminal_sound" not in data:
+                    data["terminal_sound"] = True
+                if "font_size_editor" not in data:
+                    data["font_size_editor"] = 14
+                if "font_size_terminal" not in data:
+                    data["font_size_terminal"] = 13
+                if "font_family_editor" not in data:
+                    data["font_family_editor"] = "JetBrains Mono"
+                if "font_family_terminal" not in data:
+                    data["font_family_terminal"] = "JetBrains Mono"
+                if "canvas_particles" not in data:
+                    data["canvas_particles"] = True
+                if "sound_effects" not in data:
+                    data["sound_effects"] = True
+                if "temperature" not in data:
+                    data["temperature"] = 0.7
+                if "max_tokens" not in data:
+                    data["max_tokens"] = 2048
+                if "system_prompt" not in data:
+                    data["system_prompt"] = ""
+                if "shortcuts" not in data:
+                    data["shortcuts"] = {
+                        "toggleSidebar": "Ctrl+B",
+                        "saveFile": "Ctrl+S",
+                        "focusChat": "Ctrl+K",
+                        "newFile": "Ctrl+N",
+                        "openTerminal": "Ctrl+Shift+P",
+                        "clearEditor": "Ctrl+Alt+C",
+                        "refreshExplorer": "Ctrl+Alt+R"
+                    }
                 if "feature_toggles" not in data:
                     data["feature_toggles"] = {
                         "music": True,
@@ -120,8 +181,17 @@ class ProfileManager:
     @staticmethod
     def update_settings(updates: dict) -> dict:
         settings = ProfileManager.get_settings()
+        allowed = [
+            'english_correction', 'selected_model', 'dismissed_update',
+            'read_notifications', 'dismissed_notifications', 'feature_toggles', 'theme',
+            'terminal_username', 'terminal_hostname', 'terminal_prompt_symbol',
+            'terminal_sound', 'font_size_editor', 'font_size_terminal',
+            'font_family_editor', 'font_family_terminal', 'canvas_particles',
+            'sound_effects', 'temperature', 'max_tokens', 'system_prompt',
+            'shortcuts'
+        ]
         for k, v in updates.items():
-            if k in ['english_correction', 'selected_model', 'dismissed_update', 'read_notifications', 'feature_toggles', 'theme']:
+            if k in allowed:
                 settings[k] = v
         ProfileManager.save_settings(settings)
         return settings

@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   // Global Arcade State
   let activeGame = 'snake';
   
@@ -9,7 +9,9 @@
   // High Scores Cache
   const highScores = {
     snake: parseInt(localStorage.getItem('arcade_snake_high') || '0', 10),
-    runner: parseInt(localStorage.getItem('arcade_runner_high') || '0', 10)
+    runner: parseInt(localStorage.getItem('arcade_runner_high') || '0', 10),
+    decrypt: parseInt(localStorage.getItem('arcade_decrypt_high') || '0', 10),
+    sweeper: parseInt(localStorage.getItem('arcade_sweeper_high') || '0', 10)
   };
 
   // DOM Elements
@@ -19,18 +21,18 @@
   const resetBtn = document.getElementById('arcade-reset-btn');
 
   // Menu Elements
-  const selectionMenu = document.getElementById('arcade-selection-menu');
-  const gameWorkspace = document.getElementById('arcade-game-workspace');
+  const selectionMenu = document.getElementById('arcade-menu-view');
+  const gameWorkspace = document.getElementById('arcade-arena-view');
   const backBtn = document.getElementById('arcade-back-btn');
   const tabsContainer = document.getElementById('arcade-tabs-container');
   const titleLabel = document.getElementById('arcade-title-label');
 
   // Overlay Elements
   const messageOverlay = document.getElementById('arcade-message-overlay');
-  const overlayStatus = document.getElementById('arcade-overlay-status');
-  const overlayDesc = document.getElementById('arcade-overlay-desc');
-  const overlayRestartBtn = document.getElementById('arcade-overlay-restart-btn');
-  const overlayMenuBtn = document.getElementById('arcade-overlay-menu-btn');
+  const overlayStatus = document.getElementById('arcade-overlay-title');
+  const overlayDesc = document.getElementById('arcade-overlay-message');
+  const overlayRestartBtn = document.getElementById('arcade-overlay-btn-restart');
+  const overlayMenuBtn = document.getElementById('arcade-overlay-btn-menu');
 
   function showArcadeOverlay(statusText, descText, isSuccess) {
     if (!messageOverlay || !overlayStatus || !overlayDesc) return;
@@ -45,8 +47,10 @@
   }
 
   // Active High Score DOM bindings
-  document.getElementById('snake-high').textContent = highScores.snake;
-  document.getElementById('runner-high').textContent = highScores.runner;
+  if (document.getElementById('hs-snake')) document.getElementById('hs-snake').textContent = highScores.snake;
+  if (document.getElementById('hs-runner')) document.getElementById('hs-runner').textContent = highScores.runner;
+  if (document.getElementById('hs-decrypt')) document.getElementById('hs-decrypt').textContent = highScores.decrypt;
+  if (document.getElementById('hs-sweeper')) document.getElementById('hs-sweeper').textContent = highScores.sweeper;
 
   // Game Instruction Templates
   const instructions = {
@@ -101,26 +105,67 @@
     const activePanel = document.querySelector('.panel.active');
     if (!activePanel || activePanel.id !== 'panel-arcade') return;
 
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.key)) {
+    // Always prevent default for game-critical keys when arcade is active
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Escape'].includes(e.key)) {
       e.preventDefault();
+      e.stopPropagation();
     }
 
     const key = e.key.toUpperCase();
 
-    // Snake game controls
-    if (activeGame === 'snake') {
+    // Check if the overlay is visible
+    const isOverlayVisible = messageOverlay && messageOverlay.style.display === 'flex';
+
+    if (isOverlayVisible) {
+      if (e.key === ' ' || key === 'SPACE' || e.code === 'Space') {
+        hideArcadeOverlay();
+        initGame(activeGame);
+        return;
+      }
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        hideArcadeOverlay();
+        showMenu();
+        return;
+      }
+    } else {
+      // Escape should quit the active arena and go back to selection menu
+      if (gameWorkspace && gameWorkspace.style.display === 'flex') {
+        if (e.key === 'Escape' || e.code === 'Escape') {
+          showMenu();
+          return;
+        }
+        // Space restarts if game is not running (snake)
+        if ((e.key === ' ' || e.code === 'Space') && activeGame === 'snake' && !snakeInterval) {
+          initGame('snake');
+          return;
+        }
+        // Space starts runner if not running
+        if ((e.key === ' ' || e.code === 'Space') && activeGame === 'runner' && !runnerAnimationId) {
+          initGame('runner');
+          return;
+        }
+      }
+    }
+
+    // Snake game controls (only when game is active)
+    if (activeGame === 'snake' && snakeInterval) {
       if ((key === 'ARROWUP' || key === 'W') && snakeDir !== 'DOWN') snakeDir = 'UP';
       if ((key === 'ARROWDOWN' || key === 'S') && snakeDir !== 'UP') snakeDir = 'DOWN';
       if ((key === 'ARROWLEFT' || key === 'A') && snakeDir !== 'RIGHT') snakeDir = 'LEFT';
       if ((key === 'ARROWRIGHT' || key === 'D') && snakeDir !== 'LEFT') snakeDir = 'RIGHT';
     }
 
-    // Runner game controls
-    if (activeGame === 'runner') {
+    // Runner game controls (only when game is active)
+    if (activeGame === 'runner' && runnerAnimationId) {
       if ((key === 'ARROWLEFT' || key === 'A') && runnerPlayer && runnerPlayer.lane > 0) runnerPlayer.lane -= 1;
       if ((key === 'ARROWRIGHT' || key === 'D') && runnerPlayer && runnerPlayer.lane < 2) runnerPlayer.lane += 1;
     }
-  });
+  }, true); // Use capture phase to intercept before other handlers
+
+  // Helper to get CSS variables for dynamic themes
+  function getThemeColor(varName, fallback) {
+    return getComputedStyle(document.body).getPropertyValue(varName).trim() || fallback;
+  }
 
   // Switch Stations (Tab selection & Launch)
   function launchGame(gameId) {
@@ -133,20 +178,39 @@
     // Toggle nav classes
     tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.game === gameId));
     
-    // Toggle containers
+    // Toggle containers: Canvas vs DOM containers
+    const canvas = document.getElementById('arcade-canvas');
+    if (canvas) {
+      canvas.style.display = (gameId === 'snake' || gameId === 'runner') ? 'block' : 'none';
+    }
     gameContainers.forEach(container => {
       container.style.display = container.id === `arcade-game-${gameId}` ? 'flex' : 'none';
     });
+
+    // Update Header panel inside arena
+    const titleEl = document.getElementById('arena-game-title');
+    if (titleEl) {
+      const titles = {
+        snake: 'GIT COMMIT SNAKE',
+        runner: 'DATA LANE RUNNER',
+        decrypt: 'TERMINAL DECRYPT',
+        sweeper: 'HEX MALWARE SWEEPER'
+      };
+      titleEl.textContent = titles[gameId] || 'GAME STATION';
+    }
+    
+    const currentScoreEl = document.getElementById('arena-current-score');
+    if (currentScoreEl) currentScoreEl.textContent = '0';
+    
+    const hsEl = document.getElementById('arena-high-score');
+    if (hsEl) hsEl.textContent = highScores[gameId] || '0';
 
     // Load instructions
     instructionContent.innerHTML = instructions[gameId];
 
     // Show Workspace and hide Menu
     if (selectionMenu) selectionMenu.style.display = 'none';
-    if (gameWorkspace) gameWorkspace.style.display = 'grid';
-    if (backBtn) backBtn.style.display = 'inline-block';
-    if (tabsContainer) tabsContainer.style.display = 'flex';
-    if (titleLabel) titleLabel.style.display = 'none';
+    if (gameWorkspace) gameWorkspace.style.display = 'flex';
 
     // Boot specific game
     initGame(gameId);
@@ -156,30 +220,22 @@
     stopAllGames();
     hideArcadeOverlay();
     
-    if (selectionMenu) selectionMenu.style.display = 'grid';
+    if (selectionMenu) selectionMenu.style.display = 'flex';
     if (gameWorkspace) gameWorkspace.style.display = 'none';
-    if (backBtn) backBtn.style.display = 'none';
-    if (tabsContainer) tabsContainer.style.display = 'none';
-    if (titleLabel) titleLabel.style.display = 'inline';
   }
+
+  // Bind globals for inline HTML click handlers (bootArcadeGame, quitArcadeArena)
+  window.bootArcadeGame = (gameId) => {
+    launchGame(gameId);
+  };
+
+  window.quitArcadeArena = () => {
+    showMenu();
+  };
 
   tabButtons.forEach(btn => {
     btn.addEventListener('click', () => launchGame(btn.dataset.game));
   });
-
-  // Bind Menu Launch buttons
-  const launchButtons = document.querySelectorAll('.launch-game-btn');
-  launchButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      launchGame(btn.dataset.game);
-    });
-  });
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      showMenu();
-    });
-  }
 
   resetBtn.addEventListener('click', () => {
     hideArcadeOverlay();
@@ -228,7 +284,7 @@
   const branchNames = ['main', 'dev', 'feature/auth', 'hotfix/api', 'release/v1.0'];
 
   function initSnake() {
-    const canvas = document.getElementById('snake-canvas');
+    const canvas = document.getElementById('arcade-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
@@ -238,8 +294,11 @@
     snakeBranchIndex = 0;
     snakeConflicts = [];
     
-    document.getElementById('snake-score').textContent = snakeScore;
-    document.getElementById('snake-branch').textContent = branchNames[snakeBranchIndex];
+    const scoreEl = document.getElementById('arena-current-score');
+    if (scoreEl) scoreEl.textContent = snakeScore;
+    
+    const titleEl = document.getElementById('arena-game-title');
+    if (titleEl) titleEl.textContent = `GIT COMMIT SNAKE [branch: ${branchNames[snakeBranchIndex]}]`;
     
     spawnSnakeFood();
     spawnSnakeConflict();
@@ -320,18 +379,23 @@
     // Check food collision
     if (head.x === snakeFood.x && head.y === snakeFood.y) {
       snakeScore += 10;
-      document.getElementById('snake-score').textContent = snakeScore;
+      const scoreEl = document.getElementById('arena-current-score');
+      if (scoreEl) scoreEl.textContent = snakeScore;
       
       if (snakeScore > highScores.snake) {
         highScores.snake = snakeScore;
         localStorage.setItem('arcade_snake_high', snakeScore);
-        document.getElementById('snake-high').textContent = snakeScore;
+        const hsEl = document.getElementById('hs-snake');
+        if (hsEl) hsEl.textContent = snakeScore;
+        const arenaHs = document.getElementById('arena-high-score');
+        if (arenaHs) arenaHs.textContent = snakeScore;
       }
 
       // Commit logs mechanics
       if (snakeScore % 50 === 0) {
         snakeBranchIndex = (snakeBranchIndex + 1) % branchNames.length;
-        document.getElementById('snake-branch').textContent = branchNames[snakeBranchIndex];
+        const titleEl = document.getElementById('arena-game-title');
+        if (titleEl) titleEl.textContent = `GIT COMMIT SNAKE [branch: ${branchNames[snakeBranchIndex]}]`;
         // Merge! Clear some conflicts
         snakeConflicts = [];
       } else {
@@ -346,11 +410,18 @@
   }
 
   function drawSnake(ctx, canvas) {
-    ctx.fillStyle = '#1a202c'; // Charcoal flat
+    const bg = getThemeColor('--bg-2', '#1a202c');
+    const border = getThemeColor('--border', '#2d3748');
+    const green = getThemeColor('--green', '#22c55e');
+    const accent = getThemeColor('--accent', '#3b82f6');
+    const red = getThemeColor('--red', '#ef4444');
+    const amber = getThemeColor('--amber', '#f59e0b');
+
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Grid lines
-    ctx.strokeStyle = '#2d3748';
+    ctx.strokeStyle = border;
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= canvas.width; i += 20) {
       ctx.beginPath();
@@ -361,24 +432,24 @@
       ctx.stroke();
     }
 
-    // Draw snake body (flat green)
+    // Draw snake body (accent head, green tail)
     snake.forEach((part, index) => {
-      ctx.fillStyle = index === 0 ? '#22c55e' : '#16a34a';
+      ctx.fillStyle = index === 0 ? accent : green;
       ctx.fillRect(part.x * 20 + 1, part.y * 20 + 1, 18, 18);
     });
 
     // Draw conflicts (flat red)
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = red;
     snakeConflicts.forEach(c => {
       ctx.fillRect(c.x * 20 + 1, c.y * 20 + 1, 18, 18);
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 10px Courier';
       ctx.fillText('!', c.x * 20 + 7, c.y * 20 + 13);
-      ctx.fillStyle = '#ef4444';
+      ctx.fillStyle = red;
     });
 
-    // Draw commit food (flat blue/amber)
-    ctx.fillStyle = '#f59e0b';
+    // Draw commit food (flat amber)
+    ctx.fillStyle = amber;
     ctx.fillRect(snakeFood.x * 20 + 1, snakeFood.y * 20 + 1, 18, 18);
 
     // Draw food tiny label
@@ -400,7 +471,7 @@
   let runnerPlayer, runnerObstacles, runnerBuffers, runnerScore, runnerIntegrity, runnerSpeed;
 
   function initRunner() {
-    const canvas = document.getElementById('runner-canvas');
+    const canvas = document.getElementById('arcade-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
@@ -411,8 +482,11 @@
     runnerIntegrity = 100;
     runnerSpeed = 4; // falling pixels per frame
     
-    document.getElementById('runner-score').textContent = runnerScore;
-    document.getElementById('runner-integrity').textContent = '100%';
+    const scoreEl = document.getElementById('arena-current-score');
+    if (scoreEl) scoreEl.textContent = runnerScore;
+    
+    const titleEl = document.getElementById('arena-game-title');
+    if (titleEl) titleEl.textContent = `DATA LANE RUNNER [integrity: ${runnerIntegrity}%]`;
 
     if (runnerAnimationId) cancelAnimationFrame(runnerAnimationId);
     
@@ -432,12 +506,16 @@
 
   function updateRunner() {
     runnerScore += 1;
-    document.getElementById('runner-score').textContent = runnerScore;
+    const scoreEl = document.getElementById('arena-current-score');
+    if (scoreEl) scoreEl.textContent = runnerScore;
     
     if (runnerScore > highScores.runner) {
       highScores.runner = runnerScore;
       localStorage.setItem('arcade_runner_high', runnerScore);
-      document.getElementById('runner-high').textContent = runnerScore;
+      const hsEl = document.getElementById('hs-runner');
+      if (hsEl) hsEl.textContent = runnerScore;
+      const arenaHs = document.getElementById('arena-high-score');
+      if (arenaHs) arenaHs.textContent = runnerScore;
     }
 
     // Scale difficulty
@@ -471,8 +549,8 @@
       // Collide check
       if (obs.y > 310 && obs.y < 350 && obs.lane === runnerPlayer.lane) {
         runnerIntegrity -= 25;
-        document.getElementById('runner-integrity').textContent = `${runnerIntegrity}%`;
-        document.getElementById('runner-integrity').style.color = 'var(--red)';
+        const titleEl = document.getElementById('arena-game-title');
+        if (titleEl) titleEl.textContent = `DATA LANE RUNNER [integrity: ${runnerIntegrity}%]`;
         runnerObstacles.splice(i, 1);
       } else if (obs.y > 400) {
         runnerObstacles.splice(i, 1);
@@ -486,8 +564,8 @@
       if (buf.y > 310 && buf.y < 350 && buf.lane === runnerPlayer.lane) {
         runnerScore += 150;
         runnerIntegrity = Math.min(100, runnerIntegrity + 10);
-        document.getElementById('runner-integrity').textContent = `${runnerIntegrity}%`;
-        document.getElementById('runner-integrity').style.color = 'var(--green)';
+        const titleEl = document.getElementById('arena-game-title');
+        if (titleEl) titleEl.textContent = `DATA LANE RUNNER [integrity: ${runnerIntegrity}%]`;
         runnerBuffers.splice(i, 1);
       } else if (buf.y > 400) {
         runnerBuffers.splice(i, 1);
@@ -496,13 +574,19 @@
   }
 
   function drawRunner(ctx, canvas) {
-    ctx.fillStyle = '#1e293b'; // Flat dark blue-slate
+    const bg = getThemeColor('--bg-2', '#1e293b');
+    const border = getThemeColor('--border', '#475569');
+    const accent = getThemeColor('--accent', '#3b82f6');
+    const red = getThemeColor('--red', '#ef4444');
+    const green = getThemeColor('--green', '#10b981');
+
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const laneWidth = canvas.width / 3;
 
     // Draw dividers
-    ctx.strokeStyle = '#475569';
+    ctx.strokeStyle = border;
     ctx.lineWidth = 1;
     ctx.setLineDash([15, 15]);
     for (let i = 1; i < 3; i++) {
@@ -513,10 +597,10 @@
     }
     ctx.setLineDash([]);
 
-    // Draw Player Data Packet (blue triangle)
+    // Draw Player Data Packet (accent triangle)
     const px = runnerPlayer.lane * laneWidth + laneWidth / 2;
     const py = 340;
-    ctx.fillStyle = '#3b82f6';
+    ctx.fillStyle = accent;
     ctx.beginPath();
     ctx.moveTo(px, py - 16);
     ctx.lineTo(px - 14, py + 14);
@@ -525,14 +609,14 @@
     ctx.fill();
 
     // Draw obstacles (flat red blocks)
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = red;
     runnerObstacles.forEach(obs => {
       const ox = obs.lane * laneWidth + laneWidth / 2 - obs.w / 2;
       ctx.fillRect(ox, obs.y, obs.w, obs.h);
     });
 
     // Draw buffers (flat green circles)
-    ctx.fillStyle = '#10b981';
+    ctx.fillStyle = green;
     runnerBuffers.forEach(buf => {
       const bx = buf.lane * laneWidth + laneWidth / 2;
       ctx.beginPath();
@@ -551,6 +635,14 @@
   ];
   let decryptPasscode, decryptAttempts, decryptLogList, decryptWords;
 
+  window.selectDecryptWord = (word) => {
+    const input = document.getElementById('decrypt-input');
+    if (input) {
+      input.value = word;
+      input.focus();
+    }
+  };
+
   function initDecrypt() {
     decryptAttempts = 4;
     decryptLogList = [];
@@ -560,54 +652,95 @@
     decryptWords = shuffled.slice(0, 8);
     decryptPasscode = decryptWords[Math.floor(Math.random() * decryptWords.length)];
 
-    document.getElementById('decrypt-attempts').textContent = decryptAttempts;
-    document.getElementById('decrypt-attempts').style.color = '#ef4444';
+    const titleEl = document.getElementById('arena-game-title');
+    if (titleEl) titleEl.textContent = `TERMINAL DECRYPT [attempts: ${decryptAttempts}]`;
 
-    // Renders log
-    const logEl = document.getElementById('decrypt-log');
-    logEl.innerHTML = '<div>> Initialized memory sweep... ready.</div>';
+    // Render candidate passcodes in the console
+    const consoleEl = document.getElementById('decrypt-console');
+    if (consoleEl) {
+      let consoleContent = `<div>> Initialized memory sweep... ready.</div>`;
+      consoleContent += `<div>> SECURITY LOCKOUT DETECTED. CHOOSE PASSCODE:</div>`;
+      
+      const passcodesHtml = decryptWords.map(word => {
+        return `<span class="decrypt-word-btn" style="cursor:pointer; text-decoration:underline; display:inline-block; margin:4px 8px 4px 0; font-weight:bold;" onclick="selectDecryptWord('${word}')">${word}</span>`;
+      }).join(' ');
+      
+      consoleContent += `<div style="margin: 10px 0; line-height:1.8;">${passcodesHtml}</div>`;
+      consoleEl.innerHTML = consoleContent;
+      consoleEl.scrollTop = 0;
+    }
 
-    // Renders words grid
-    const gridEl = document.getElementById('decrypt-words-grid');
-    gridEl.innerHTML = '';
-    
-    decryptWords.forEach(word => {
-      const btn = document.createElement('div');
-      btn.className = 'decrypt-word-btn';
-      btn.textContent = word;
-      btn.addEventListener('click', () => submitDecryptWord(word));
-      gridEl.appendChild(btn);
-    });
+    const enterBtn = document.getElementById('decrypt-enter-btn');
+    const decryptInput = document.getElementById('decrypt-input');
+    if (decryptInput) {
+      decryptInput.value = '';
+      decryptInput.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          const val = decryptInput.value.trim().toUpperCase();
+          if (val) {
+            submitDecryptWord(val);
+            decryptInput.value = '';
+          }
+        }
+      };
+    }
+    if (enterBtn) {
+      enterBtn.onclick = () => {
+        if (decryptInput) {
+          const val = decryptInput.value.trim().toUpperCase();
+          if (val) {
+            submitDecryptWord(val);
+            decryptInput.value = '';
+          }
+        }
+      };
+    }
   }
 
   function submitDecryptWord(word) {
     if (decryptAttempts <= 0) return;
 
-    const logEl = document.getElementById('decrypt-log');
+    const consoleEl = document.getElementById('decrypt-console');
+    if (!consoleEl) return;
     
     if (word === decryptPasscode) {
-      logEl.innerHTML += `<div style="color:var(--green)">> ${word} -> ACCESS GRANTED! PASSWORD MATCH.</div>`;
-      logEl.innerHTML += `<div style="color:var(--green)">> // LOCK CLEARED. Dynamic setting keys synchronized.</div>`;
-      showArcadeOverlay('ACCESS GRANTED', 'Security Decryption Successful! Access Node open.', true);
+      const score = decryptAttempts * 250;
+      consoleEl.innerHTML += `<div style="color:var(--green)">> ${word} -> ACCESS GRANTED! PASSWORD MATCH.</div>`;
+      consoleEl.innerHTML += `<div style="color:var(--green)">> // LOCK CLEARED. Session decrypted. Score: ${score}</div>`;
+      
+      const scoreEl = document.getElementById('arena-current-score');
+      if (scoreEl) scoreEl.textContent = score;
+
+      if (score > highScores.decrypt) {
+        highScores.decrypt = score;
+        localStorage.setItem('arcade_decrypt_high', score);
+        const hsEl = document.getElementById('hs-decrypt');
+        if (hsEl) hsEl.textContent = score;
+        const arenaHs = document.getElementById('arena-high-score');
+        if (arenaHs) arenaHs.textContent = score;
+      }
+      
+      showArcadeOverlay('ACCESS GRANTED', `Decryption Successful! Score: ${score}`, true);
     } else {
       decryptAttempts -= 1;
-      document.getElementById('decrypt-attempts').textContent = decryptAttempts;
+      const titleEl = document.getElementById('arena-game-title');
+      if (titleEl) titleEl.textContent = `TERMINAL DECRYPT [attempts: ${decryptAttempts}]`;
       
       // Calculate likeness
       let likeness = 0;
-      for (let i = 0; i < word.length; i++) {
+      for (let i = 0; i < Math.min(word.length, decryptPasscode.length); i++) {
         if (word[i] === decryptPasscode[i]) likeness++;
       }
       
-      logEl.innerHTML += `<div style="color:var(--amber)">> ${word} -> ACCESS DENIED. Likeness = ${likeness}/${word.length}</div>`;
+      consoleEl.innerHTML += `<div style="color:var(--red)">> ${word} -> ACCESS DENIED. Likeness = ${likeness}/${decryptPasscode.length}</div>`;
       
       if (decryptAttempts <= 0) {
-        logEl.innerHTML += `<div style="color:var(--red)">> LOCKOUT EVENT TRIGGERED. System locked.</div>`;
-        showArcadeOverlay('CONSOLE LOCKOUT', 'Passcode decryption failed. Terminal access locked.', false);
+        consoleEl.innerHTML += `<div style="color:var(--red)">> LOCKOUT EVENT TRIGGERED. System locked.</div>`;
+        showArcadeOverlay('CONSOLE LOCKOUT', 'Passcode decryption failed. Access locked.', false);
       }
     }
     
-    logEl.scrollTop = logEl.scrollHeight;
+    consoleEl.scrollTop = consoleEl.scrollHeight;
   }
 
 
@@ -765,14 +898,27 @@
 
   function triggerSweeperGameOver(won) {
     if (won) {
-      showArcadeOverlay('SECTORS CLEANED', 'Malware swept successfully! Clean memory state restored.', true);
+      const score = 1000;
+      const scoreEl = document.getElementById('arena-current-score');
+      if (scoreEl) scoreEl.textContent = score;
+
+      if (score > highScores.sweeper) {
+        highScores.sweeper = score;
+        localStorage.setItem('arcade_sweeper_high', score);
+        const hsEl = document.getElementById('hs-sweeper');
+        if (hsEl) hsEl.textContent = score;
+        const arenaHs = document.getElementById('arena-high-score');
+        if (arenaHs) arenaHs.textContent = score;
+      }
+      showArcadeOverlay('SECTORS CLEANED', `Malware swept successfully! Score: ${score}`, true);
     } else {
       // Reveal all mines
       sweeperMinesLocations.forEach(loc => {
         const el = document.getElementById(`sweeper-cell-${loc.row}-${loc.col}`);
         if (el) {
           el.classList.add('revealed');
-          el.style.backgroundColor = '#ef4444';
+          el.style.backgroundColor = 'var(--red)';
+          el.style.color = '#ffffff';
           el.textContent = '✖';
         }
       });
@@ -780,10 +926,14 @@
     }
   }
 
-  // Load menu on DOM load
-  document.addEventListener('DOMContentLoaded', () => {
+  // Load menu on load or if DOM already ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      showMenu();
+    });
+  } else {
     showMenu();
-  });
+  }
 
   // Make switch hooks available globally for app.js panel triggers
   window.initArcadePanel = () => {
@@ -795,3 +945,4 @@
   };
 
 })();
+

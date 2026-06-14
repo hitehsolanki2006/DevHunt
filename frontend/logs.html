@@ -4,195 +4,560 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>DevHunt — System Logs</title>
+<meta name="description" content="DevHunt real-time system log viewer with advanced filtering, live tailing and analytics."/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0b0f14; --surface: #111820; --border: #1e2d3d;
-    --green: #00ffa3; --cyan: #00d4ff; --red: #ff4d6a;
-    --amber: #ffb547; --muted: #4a6070; --text: #c8d8e4;
-    --display: 'Orbitron', sans-serif; --mono: 'JetBrains Mono', monospace;
+    --bg: #1e1e24;
+    --bg-2: #18181c;
+    --surface: #232328;
+    --border: #2d2d36;
+    --border-hot: #007acc;
+    --text: #d4d4d8;
+    --muted: #71717a;
+    --green: #34d399;
+    --cyan: #38bdf8;
+    --magenta: #f472b6;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --accent: #3b82f6;
+    --display: 'Orbitron', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
   }
+  body.theme-neon {
+    --bg: #05080d;
+    --bg-2: #0a1018;
+    --surface: rgba(12,18,28,.82);
+    --border: rgba(52,211,153,.14);
+    --border-hot: rgba(52,211,153,.55);
+    --text: #d8f5ee;
+    --muted: #4a6678;
+    --green: #34d399;
+    --cyan: #38bdf8;
+    --magenta: #d946ef;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --accent: #34d399;
+  }
+  body.theme-light {
+    --bg: #f8fafc;
+    --bg-2: #f1f5f9;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --border-hot: #4f46e5;
+    --text: #0f172a;
+    --muted: #64748b;
+    --green: #10b981;
+    --cyan: #4f46e5;
+    --magenta: #d946ef;
+    --amber: #d97706;
+    --red: #ef4444;
+    --accent: #4f46e5;
+  }
+  body.theme-slate {
+    --bg: #1e1e24;
+    --bg-2: #18181c;
+    --surface: #232328;
+    --border: #2d2d36;
+    --border-hot: #007acc;
+    --text: #d4d4d8;
+    --muted: #71717a;
+    --green: #34d399;
+    --cyan: #38bdf8;
+    --magenta: #f472b6;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --accent: #3b82f6;
+  }
+  body.theme-devil {
+    background: url('assets/devil_theme.png') no-repeat center center fixed !important;
+    background-size: cover !important;
+    --bg: rgba(20, 10, 12, 0.78);
+    --bg-2: rgba(12, 6, 8, 0.9);
+    --surface: rgba(26, 12, 14, 0.82);
+    --border: rgba(220, 38, 38, 0.28);
+    --border-hot: #ef4444;
+    --text: #fecdd3;
+    --muted: #fda4af;
+    --green: #f43f5e;
+    --cyan: #f472b6;
+    --magenta: #fb7185;
+    --amber: #fbbf24;
+    --red: #ef4444;
+    --accent: #ef4444;
+  }
+
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; min-height: 100vh; }
+  body { 
+    background: var(--bg); 
+    color: var(--text); 
+    font-family: var(--sans); 
+    font-size: 13px; 
+    min-height: 100vh; 
+    transition: background 0.3s, color 0.3s;
+  }
 
+  /* ── TOPBAR ── */
   .topbar {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 20px; border-bottom: 1px solid var(--border);
-    background: rgba(0,0,0,.4); position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 24px; height: 52px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-2);
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(8px);
   }
-  .topbar h1 { font-family: var(--display); font-size: 14px; color: var(--green); letter-spacing: 3px; }
-  .topbar a { color: var(--cyan); text-decoration: none; font-size: 11px; margin-left: auto; }
-  .topbar a:hover { color: var(--green); }
+  .topbar-brand {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .topbar-brand h1 { 
+    font-family: var(--display); 
+    font-size: 12px; 
+    color: var(--accent); 
+    letter-spacing: 3px;
+    white-space: nowrap;
+  }
+  .live-pill {
+    display: flex; align-items: center; gap: 5px;
+    background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25);
+    color: var(--green); font-family: var(--mono); font-size: 10px;
+    padding: 3px 10px; border-radius: 20px; font-weight: 600;
+  }
+  .live-dot { 
+    width: 6px; height: 6px; border-radius: 50%; 
+    background: var(--green); 
+    animation: pulse 1.5s infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.4; transform:scale(.7)} }
 
-  .controls {
-    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-    padding: 14px 20px; border-bottom: 1px solid var(--border);
-    background: rgba(0,0,0,.2);
+  .topbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .topbar-link { 
+    color: var(--cyan); text-decoration: none; 
+    font-size: 11.5px; font-family: var(--mono); font-weight: 500;
+    padding: 5px 12px; border: 1px solid rgba(56,189,248,0.2); border-radius: 5px;
+    transition: all 0.2s;
   }
-  select, input {
+  .topbar-link:hover { background: rgba(56,189,248,0.07); color: var(--green); border-color: rgba(52,211,153,.25); }
+
+  /* ── CONTROL BAR ── */
+  .control-bar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    padding: 12px 24px; border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,.1);
+  }
+  .filter-group { display: flex; align-items: center; gap: 6px; }
+  .filter-label { font-size: 10px; color: var(--muted); font-family: var(--mono); letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; }
+
+  select, input[type="text"] {
     background: var(--surface); border: 1px solid var(--border);
-    color: var(--text); font-family: var(--mono); font-size: 12px;
-    padding: 6px 10px; border-radius: 5px; outline: none;
+    color: var(--text); font-family: var(--mono); font-size: 11.5px;
+    padding: 6px 10px; border-radius: 6px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    height: 32px;
   }
-  select:focus, input:focus { border-color: var(--cyan); }
-
-  .btn { padding: 6px 14px; border-radius: 5px; font-family: var(--mono); font-size: 11px; cursor: pointer; border: none; letter-spacing: 1px; }
-  .btn-green { background: rgba(0,255,163,.15); color: var(--green); border: 1px solid rgba(0,255,163,.4); }
-  .btn-green:hover { background: rgba(0,255,163,.25); }
-  .btn-red { background: rgba(255,77,106,.15); color: var(--red); border: 1px solid rgba(255,77,106,.4); }
-  .btn-red:hover { background: rgba(255,77,106,.25); }
-  .btn-cyan { background: rgba(0,212,255,.15); color: var(--cyan); border: 1px solid rgba(0,212,255,.4); }
-  .btn-cyan:hover { background: rgba(0,212,255,.25); }
-
-  .stats-bar {
-    display: flex; gap: 20px; padding: 10px 20px;
-    border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted);
+  select:focus, input[type="text"]:focus { 
+    border-color: var(--accent); 
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15); 
   }
-  .stats-bar span b { color: var(--text); }
+  body.theme-light select, body.theme-light input[type="text"] {
+    background: #fff; border-color: #e2e8f0;
+  }
+  select option { background: var(--bg-2); color: var(--text); }
+  body.theme-light select option { background: #fff; color: #0f172a; }
 
-  .log-container { padding: 16px 20px; }
+  .search-input-wrap { position: relative; }
+  .search-input-wrap .icon { 
+    position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 12px; pointer-events: none;
+  }
+  .search-input-wrap input { padding-left: 28px; width: 200px; }
 
+  .spacer { flex: 1; }
+  .action-btns { display: flex; gap: 6px; }
+
+  .btn { 
+    height: 32px; padding: 0 14px; border-radius: 6px; 
+    font-family: var(--mono); font-size: 11px; cursor: pointer; border: 1px solid transparent; 
+    letter-spacing: 0.5px; font-weight: 600; transition: all 0.18s;
+    display: flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  .btn-green { background: rgba(52,211,153,.1); color: var(--green); border-color: rgba(52,211,153,.3); }
+  .btn-green:hover { background: rgba(52,211,153,.2); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(52,211,153,.15); }
+  .btn-red { background: rgba(248,113,113,.1); color: var(--red); border-color: rgba(248,113,113,.3); }
+  .btn-red:hover { background: rgba(248,113,113,.2); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(248,113,113,.15); }
+  .btn-cyan { background: rgba(56,189,248,.1); color: var(--cyan); border-color: rgba(56,189,248,.3); }
+  .btn-cyan:hover { background: rgba(56,189,248,.2); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(56,189,248,.15); }
+  .btn-amber { background: rgba(251,191,36,.1); color: var(--amber); border-color: rgba(251,191,36,.3); }
+  .btn-amber:hover { background: rgba(251,191,36,.2); transform: translateY(-1px); }
+
+  /* ── STATS RIBBON ── */
+  .stats-ribbon {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 0; border-bottom: 1px solid var(--border);
+    background: var(--bg-2);
+  }
+  .stat-cell {
+    padding: 14px 20px; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 3px;
+    transition: background 0.15s;
+  }
+  .stat-cell:last-child { border-right: none; }
+  .stat-cell:hover { background: rgba(255,255,255,.01); }
+  .stat-label { font-size: 9.5px; color: var(--muted); font-family: var(--mono); letter-spacing: 1.5px; text-transform: uppercase; }
+  .stat-value { font-size: 22px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+  .stat-value.clr-all { color: var(--text); }
+  .stat-value.clr-ok { color: var(--green); }
+  .stat-value.clr-info { color: var(--cyan); }
+  .stat-value.clr-warn { color: var(--amber); }
+  .stat-value.clr-err { color: var(--red); }
+  .stat-bar { height: 2px; border-radius: 2px; margin-top: 6px; width: 0; transition: width 0.5s; }
+  .stat-bar.bar-ok { background: var(--green); }
+  .stat-bar.bar-info { background: var(--cyan); }
+  .stat-bar.bar-warn { background: var(--amber); }
+  .stat-bar.bar-err { background: var(--red); }
+
+  /* ── LOG CONTAINER ── */
+  .log-container { 
+    padding: 16px 24px 40px; 
+    background: var(--bg);
+    min-height: calc(100vh - 220px);
+  }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 80px 20px; gap: 14px; color: var(--muted);
+  }
+  .empty-state .icon { font-size: 36px; opacity: 0.4; }
+  .empty-state p { font-family: var(--mono); font-size: 12px; }
+
+  /* ── LOG ENTRY ── */
   .log-entry {
-    display: grid; grid-template-columns: 160px 70px 90px 1fr auto;
+    display: grid; 
+    grid-template-columns: 140px 60px 100px 1fr 60px;
     gap: 10px; align-items: start;
-    padding: 8px 12px; border-radius: 6px; margin-bottom: 4px;
-    border: 1px solid transparent; font-size: 12px;
-    transition: background .15s;
+    padding: 10px 14px; border-radius: 8px; margin-bottom: 6px;
+    border: 1px solid var(--border); 
+    background: var(--surface);
+    transition: all 0.18s ease;
+    position: relative;
+    overflow: hidden;
   }
-  .log-entry:hover { background: rgba(255,255,255,.03); border-color: var(--border); }
+  .log-entry::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  }
+  .log-entry.INFO::before { background: var(--cyan); }
+  .log-entry.SUCCESS::before { background: var(--green); }
+  .log-entry.WARN::before { background: var(--amber); }
+  .log-entry.ERROR::before { background: var(--red); }
 
-  .log-entry.INFO    { border-left: 3px solid var(--cyan); }
-  .log-entry.SUCCESS { border-left: 3px solid var(--green); }
-  .log-entry.WARN    { border-left: 3px solid var(--amber); }
-  .log-entry.ERROR   { border-left: 3px solid var(--red); background: rgba(255,77,106,.04); }
+  .log-entry:hover {
+    border-color: var(--border-hot);
+    transform: translateX(2px);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  }
+  .log-entry.ERROR { background: rgba(248,113,113,.04); }
+  .log-entry.WARN { background: rgba(251,191,36,.02); }
 
-  .log-ts    { color: var(--muted); font-size: 11px; }
-  .log-level { font-weight: 700; letter-spacing: 1px; }
-  .log-level.INFO    { color: var(--cyan); }
-  .log-level.SUCCESS { color: var(--green); }
-  .log-level.WARN    { color: var(--amber); }
-  .log-level.ERROR   { color: var(--red); }
-  .log-cat   { color: var(--muted); font-size: 11px; }
-  .log-msg   { color: var(--text); word-break: break-word; }
-  .log-meta-toggle { color: var(--muted); font-size: 10px; cursor: pointer; white-space: nowrap; }
-  .log-meta-toggle:hover { color: var(--cyan); }
+  body.theme-light .log-entry { background: #fff; border-color: #e2e8f0; }
+  body.theme-light .log-entry:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  body.theme-light .log-entry.ERROR { background: rgba(239,68,68,.03); }
+
+  .log-ts { 
+    color: var(--muted); font-size: 10.5px; font-family: var(--mono);
+    display: flex; flex-direction: column; gap: 1px;
+  }
+  .log-ts .date { font-size: 9px; opacity: 0.7; }
+
+  .log-level { 
+    font-weight: 700; letter-spacing: 1px; font-size: 10px; 
+    font-family: var(--mono); align-self: center;
+    padding: 2px 6px; border-radius: 4px; text-align: center;
+  }
+  .log-level.INFO    { color: var(--cyan); background: rgba(56,189,248,.1); }
+  .log-level.SUCCESS { color: var(--green); background: rgba(52,211,153,.1); }
+  .log-level.WARN    { color: var(--amber); background: rgba(251,191,36,.1); }
+  .log-level.ERROR   { color: var(--red); background: rgba(248,113,113,.1); }
+
+  .log-cat { color: var(--muted); font-size: 10.5px; align-self: center; }
+
+  .log-msg { 
+    color: var(--text); word-break: break-word; 
+    font-size: 12.5px; line-height: 1.5;
+    font-family: var(--mono);
+  }
+
+  .log-meta-btn { 
+    color: var(--muted); font-size: 10px; cursor: pointer; 
+    white-space: nowrap; text-align: right; align-self: start;
+    padding: 2px 6px; border-radius: 4px; border: 1px solid transparent;
+    transition: all 0.15s; font-family: var(--mono);
+  }
+  .log-meta-btn:hover { color: var(--cyan); border-color: rgba(56,189,248,.25); background: rgba(56,189,248,.05); }
 
   .log-meta-panel {
     grid-column: 1 / -1; display: none;
-    background: #060a0e; border: 1px solid var(--border);
-    border-radius: 4px; padding: 10px 12px; margin-top: 4px;
-    font-size: 11px; color: #7fa0b0;
+    background: rgba(0,0,0,.25); 
+    border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 6px; padding: 12px 14px; margin-top: 4px;
+    font-size: 11px; color: var(--cyan);
     white-space: pre-wrap; word-break: break-all;
+    font-family: var(--mono); line-height: 1.6;
   }
-  .log-meta-panel.open { display: block; }
+  .log-meta-panel.open { display: block; animation: slidein 0.15s ease; }
+  @keyframes slidein { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+  body.theme-light .log-meta-panel { background: #f8fafc; color: var(--cyan); }
 
-  .empty { text-align: center; padding: 60px; color: var(--muted); }
-  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-
+  /* ── CATEGORY PILLS ── */
   .cat-pill {
-    display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px;
-    letter-spacing: .5px; text-transform: uppercase;
+    display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 9.5px;
+    letter-spacing: .5px; text-transform: uppercase; font-family: var(--mono); font-weight: 600;
+    border: 1px solid transparent;
   }
-  .cat-api_call  { background: rgba(0,212,255,.12); color: var(--cyan); }
-  .cat-key_event { background: rgba(255,181,71,.12); color: var(--amber); }
-  .cat-chat      { background: rgba(0,255,163,.12);  color: var(--green); }
-  .cat-rag       { background: rgba(160,120,255,.12); color: #a870ff; }
-  .cat-backup    { background: rgba(255,77,106,.12);  color: var(--red); }
-  .cat-updates   { background: rgba(255,181,71,.12); color: var(--amber); }
-  .cat-todo      { background: rgba(0,255,163,.12);  color: var(--green); }
-  .cat-terminal  { background: rgba(0,212,255,.12);  color: var(--cyan); }
-  .cat-system    { background: rgba(100,130,150,.12); color: var(--muted); }
+  .cat-api_call  { background: rgba(56,189,248,.1); color: var(--cyan); border-color: rgba(56,189,248,.2); }
+  .cat-key_event { background: rgba(251,191,36,.1); color: var(--amber); border-color: rgba(251,191,36,.2); }
+  .cat-chat      { background: rgba(52,211,153,.1); color: var(--green); border-color: rgba(52,211,153,.2); }
+  .cat-rag       { background: rgba(168,85,247,.1); color: var(--magenta); border-color: rgba(168,85,247,.2); }
+  .cat-backup    { background: rgba(248,113,113,.1); color: var(--red); border-color: rgba(248,113,113,.2); }
+  .cat-updates   { background: rgba(251,191,36,.1); color: var(--amber); border-color: rgba(251,191,36,.2); }
+  .cat-todo      { background: rgba(52,211,153,.1); color: var(--green); border-color: rgba(52,211,153,.2); }
+  .cat-terminal  { background: rgba(56,189,248,.1); color: var(--cyan); border-color: rgba(56,189,248,.2); }
+  .cat-linkedin  { background: rgba(10,102,194,.15); color: #5faeed; border-color: rgba(10,102,194,.3); }
+  .cat-system    { background: rgba(113,113,122,.1); color: var(--muted); border-color: rgba(113,113,122,.2); }
+
+  /* ── LOADING ANIMATION ── */
+  .loading-rows {
+    display: flex; flex-direction: column; gap: 6px; padding: 8px 0;
+  }
+  .loading-row {
+    height: 48px; border-radius: 8px;
+    background: linear-gradient(90deg, var(--surface) 25%, rgba(255,255,255,.03) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border: 1px solid var(--border);
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ── GROUP DATE HEADER ── */
+  .log-date-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0 6px; margin-bottom: 4px;
+  }
+  .log-date-header span {
+    font-family: var(--display); font-size: 9.5px; color: var(--muted);
+    letter-spacing: 2px; text-transform: uppercase; white-space: nowrap;
+  }
+  .log-date-header::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── PAGE FOOTER ── */
+  .page-footer {
+    text-align: center; padding: 16px; color: var(--muted);
+    font-family: var(--mono); font-size: 10.5px;
+    border-top: 1px solid var(--border);
+  }
 </style>
 </head>
 <body>
 
+<!-- TOP BAR -->
 <div class="topbar">
-  <h1>⬡ SYSTEM LOGS</h1>
-  <span id="live-indicator" style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--green)">
-    <span class="live-dot"></span> LIVE
-  </span>
-  <a href="/">← Back to Dashboard</a>
+  <div class="topbar-brand">
+    <h1>⬡ SYSTEM LOGS</h1>
+    <div class="live-pill" id="live-indicator">
+      <span class="live-dot"></span> LIVE
+    </div>
+  </div>
+  <div class="topbar-right">
+    <a href="/" class="topbar-link">← Dashboard</a>
+    <a href="/docs" class="topbar-link">Docs ↗</a>
+  </div>
 </div>
 
-<div class="controls">
-  <select id="filter-level">
-    <option value="">All Levels</option>
-    <option value="INFO">INFO</option>
-    <option value="SUCCESS">SUCCESS</option>
-    <option value="WARN">WARN</option>
-    <option value="ERROR">ERROR</option>
-  </select>
-  <select id="filter-category">
-    <option value="">All Categories</option>
-    <option value="api_call">API Call</option>
-    <option value="key_event">Key Event</option>
-    <option value="chat">Chat</option>
-    <option value="rag">RAG</option>
-    <option value="backup">Backup</option>
-    <option value="updates">Updates</option>
-    <option value="todo">Quest Board</option>
-    <option value="terminal">Terminal</option>
-    <option value="system">System</option>
-  </select>
-  <input type="text" id="filter-search" placeholder="Search messages..." style="width:220px"/>
-  <select id="filter-limit">
-    <option value="50">Last 50</option>
-    <option value="100">Last 100</option>
-    <option value="200" selected>Last 200</option>
-    <option value="500">Last 500</option>
-  </select>
-  <button class="btn btn-green" onclick="loadLogs()">⟳ Refresh</button>
-  <button class="btn btn-cyan" onclick="toggleAutoRefresh()" id="auto-btn">▶ Auto (5s)</button>
-  <button class="btn btn-red" onclick="clearLogs()">✕ Clear Logs</button>
-  <a href="/api/backup/export" class="btn btn-cyan" style="text-decoration:none">⬇ Full Backup</a>
-  <a href="/api/history/export" class="btn btn-green" style="text-decoration:none">⬇ Chat History</a>
-  <label class="btn btn-cyan" style="cursor:pointer">
-    ⬆ Import Backup
-    <input type="file" id="import-file" accept=".json" hidden onchange="importBackup(this)"/>
-  </label>
+<!-- CONTROL BAR -->
+<div class="control-bar">
+  <div class="filter-group">
+    <span class="filter-label">Level</span>
+    <select id="filter-level">
+      <option value="">All Levels</option>
+      <option value="INFO">INFO</option>
+      <option value="SUCCESS">SUCCESS</option>
+      <option value="WARN">WARN</option>
+      <option value="ERROR">ERROR</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <span class="filter-label">Category</span>
+    <select id="filter-category">
+      <option value="">All Categories</option>
+      <option value="api_call">API Call</option>
+      <option value="key_event">Key Event</option>
+      <option value="chat">Chat</option>
+      <option value="rag">RAG</option>
+      <option value="backup">Backup</option>
+      <option value="updates">Updates</option>
+      <option value="todo">Quest Board</option>
+      <option value="terminal">Terminal</option>
+      <option value="linkedin">LinkedIn</option>
+      <option value="system">System</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <span class="filter-label">Limit</span>
+    <select id="filter-limit">
+      <option value="50">Last 50</option>
+      <option value="100">Last 100</option>
+      <option value="200" selected>Last 200</option>
+      <option value="500">Last 500</option>
+    </select>
+  </div>
+
+  <div class="search-input-wrap">
+    <span class="icon">⌕</span>
+    <input type="text" id="filter-search" placeholder="Search messages..." />
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="action-btns">
+    <button class="btn btn-green" onclick="loadLogs()">⟳ Refresh</button>
+    <button class="btn btn-amber" onclick="toggleAutoRefresh()" id="auto-btn">▶ Auto (5s)</button>
+    <button class="btn btn-red" onclick="clearLogs()">✕ Clear All</button>
+    <a href="/api/backup/export" class="btn btn-cyan" style="text-decoration:none">⬇ Backup</a>
+    <a href="/api/history/export" class="btn btn-green" style="text-decoration:none">⬇ Chat History</a>
+    <label class="btn btn-cyan" style="cursor:pointer">
+      ⬆ Import
+      <input type="file" id="import-file" accept=".json" hidden onchange="importBackup(this)"/>
+    </label>
+  </div>
 </div>
 
-<div class="stats-bar" id="stats-bar">
-  <span>Total: <b id="s-total">0</b></span>
-  <span style="color:var(--green)">SUCCESS: <b id="s-success">0</b></span>
-  <span style="color:var(--cyan)">INFO: <b id="s-info">0</b></span>
-  <span style="color:var(--amber)">WARN: <b id="s-warn">0</b></span>
-  <span style="color:var(--red)">ERROR: <b id="s-error">0</b></span>
+<!-- STATS RIBBON -->
+<div class="stats-ribbon">
+  <div class="stat-cell">
+    <span class="stat-label">Total Logs</span>
+    <span class="stat-value clr-all" id="s-total">0</span>
+    <div class="stat-bar" id="bar-total" style="background:var(--border); width:100%;"></div>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Success</span>
+    <span class="stat-value clr-ok" id="s-success">0</span>
+    <div class="stat-bar bar-ok" id="bar-success"></div>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Info</span>
+    <span class="stat-value clr-info" id="s-info">0</span>
+    <div class="stat-bar bar-info" id="bar-info"></div>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Warnings</span>
+    <span class="stat-value clr-warn" id="s-warn">0</span>
+    <div class="stat-bar bar-warn" id="bar-warn"></div>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Errors</span>
+    <span class="stat-value clr-err" id="s-error">0</span>
+    <div class="stat-bar bar-err" id="bar-error"></div>
+  </div>
 </div>
 
+<!-- LOG STREAM CONTAINER -->
 <div class="log-container" id="log-container">
-  <div class="empty">// loading logs...</div>
+  <div class="loading-rows">
+    <div class="loading-row"></div>
+    <div class="loading-row" style="width:88%"></div>
+    <div class="loading-row" style="width:96%"></div>
+    <div class="loading-row" style="width:75%"></div>
+    <div class="loading-row" style="width:92%"></div>
+  </div>
 </div>
+
+<div class="page-footer" id="page-footer">DevHunt System Logs — Real-time SQLite stream viewer</div>
 
 <script>
+// Load active theme from localStorage
+const activeTheme = localStorage.getItem('devhunt-theme') || 'slate';
+document.body.classList.remove('theme-slate', 'theme-neon', 'theme-light', 'theme-devil');
+document.body.classList.add(`theme-${activeTheme}`);
+
 const API = 'http://localhost:5000/api';
 let autoTimer = null;
 let autoActive = false;
+let lastLogCount = 0;
 
+// Category pill renderer
 function catPill(cat) {
   return `<span class="cat-pill cat-${cat}">${cat.replace('_',' ')}</span>`;
 }
 
+// Timestamp formatter
 function formatTs(ts) {
   try {
     const d = new Date(ts.replace(' ', 'T'));
-    return d.toLocaleTimeString('en-GB', { hour12: false }) + ' ' +
-           d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-  } catch { return ts; }
+    const time = d.toLocaleTimeString('en-GB', { hour12: false });
+    const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    return { time, date };
+  } catch { 
+    return { time: ts, date: '' };
+  }
 }
 
+// Date grouping key
+function dateBucketKey(ts) {
+  try {
+    const d = new Date(ts.replace(' ', 'T'));
+    return d.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  } catch { return 'Unknown Date'; }
+}
+
+// Meta formatter
 function formatMeta(meta) {
   if (!meta || Object.keys(meta).length === 0) return null;
   return JSON.stringify(meta, null, 2);
 }
 
+// HTML escape
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+
+// Toggle meta detail panel
+function toggleMeta(id) {
+  const el = document.getElementById(`meta-${id}`);
+  const btn = document.getElementById(`meta-btn-${id}`);
+  if (!el) return;
+  const isOpen = el.classList.toggle('open');
+  if (btn) btn.textContent = isOpen ? '[ − meta ]' : '[ + meta ]';
+}
+
+// Update stat bar widths
+function updateStatBars(counts, total) {
+  const bars = ['success','info','warn','error'];
+  const keys = ['SUCCESS','INFO','WARN','ERROR'];
+  bars.forEach((b, i) => {
+    const bar = document.getElementById(`bar-${b}`);
+    if (bar && total > 0) {
+      bar.style.width = ((counts[keys[i]] || 0) / total * 100) + '%';
+    }
+  });
+}
+
 async function loadLogs() {
-  const level = document.getElementById('filter-level').value;
-  const cat   = document.getElementById('filter-category').value;
-  const limit = document.getElementById('filter-limit').value;
-  const search = document.getElementById('filter-search').value.toLowerCase();
+  const level  = document.getElementById('filter-level').value;
+  const cat    = document.getElementById('filter-category').value;
+  const limit  = document.getElementById('filter-limit').value;
+  const search = document.getElementById('filter-search').value.toLowerCase().trim();
+  const container = document.getElementById('log-container');
 
   let url = `${API}/logs?limit=${limit}`;
   if (level) url += `&level=${level}`;
@@ -201,57 +566,85 @@ async function loadLogs() {
   try {
     const r = await fetch(url);
     const d = await r.json();
-    if (!d.success) return;
+    if (!d.success) throw new Error('API error');
 
     let logs = d.logs;
-    if (search) logs = logs.filter(l => l.message.toLowerCase().includes(search));
+    if (search) logs = logs.filter(l => l.message.toLowerCase().includes(search) || (l.category && l.category.toLowerCase().includes(search)));
 
-    // Stats
-    document.getElementById('s-total').textContent   = logs.length;
-    document.getElementById('s-success').textContent = logs.filter(l => l.level === 'SUCCESS').length;
-    document.getElementById('s-info').textContent    = logs.filter(l => l.level === 'INFO').length;
-    document.getElementById('s-warn').textContent    = logs.filter(l => l.level === 'WARN').length;
-    document.getElementById('s-error').textContent   = logs.filter(l => l.level === 'ERROR').length;
+    // Compute counts
+    const cnt = { SUCCESS:0, INFO:0, WARN:0, ERROR:0 };
+    logs.forEach(l => { if (cnt[l.level] !== undefined) cnt[l.level]++; });
+    const total = logs.length;
 
-    const container = document.getElementById('log-container');
-    if (logs.length === 0) {
-      container.innerHTML = '<div class="empty">// no logs found</div>';
+    document.getElementById('s-total').textContent   = total;
+    document.getElementById('s-success').textContent = cnt.SUCCESS;
+    document.getElementById('s-info').textContent    = cnt.INFO;
+    document.getElementById('s-warn').textContent    = cnt.WARN;
+    document.getElementById('s-error').textContent   = cnt.ERROR;
+    updateStatBars(cnt, total);
+
+    if (total === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>// No logs match the current filters</p></div>`;
+      document.getElementById('page-footer').textContent = 'DevHunt System Logs — 0 entries displayed';
       return;
     }
 
-    container.innerHTML = logs.map((log, i) => {
-      const meta = formatMeta(log.metadata);
-      const hasMeta = !!meta;
-      return `
-        <div class="log-entry ${log.level}">
-          <span class="log-ts">${formatTs(log.timestamp)}</span>
-          <span class="log-level ${log.level}">${log.level}</span>
-          <span class="log-cat">${catPill(log.category)}</span>
-          <span class="log-msg">${escHtml(log.message)}</span>
-          ${hasMeta ? `<span class="log-meta-toggle" onclick="toggleMeta(${log.id})">[ + meta ]</span>` : '<span></span>'}
-          ${hasMeta ? `<div class="log-meta-panel" id="meta-${log.id}">${escHtml(meta)}</div>` : ''}
-        </div>
-      `;
-    }).join('');
+    // Group by date
+    const grouped = {};
+    logs.forEach(log => {
+      const key = dateBucketKey(log.timestamp);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(log);
+    });
+
+    let html = '';
+    for (const [dateLabel, entries] of Object.entries(grouped)) {
+      html += `<div class="log-date-header"><span>${dateLabel}</span></div>`;
+      entries.forEach(log => {
+        const ts = formatTs(log.timestamp);
+        const meta = formatMeta(log.metadata);
+        const hasMeta = !!meta;
+        html += `
+          <div class="log-entry ${log.level}">
+            <span class="log-ts">
+              <span>${ts.time}</span>
+              <span class="date">${ts.date}</span>
+            </span>
+            <span class="log-level ${log.level}">${log.level}</span>
+            <span class="log-cat">${catPill(log.category || 'system')}</span>
+            <span class="log-msg">${escHtml(log.message)}</span>
+            ${hasMeta 
+              ? `<span class="log-meta-btn" id="meta-btn-${log.id}" onclick="toggleMeta(${log.id})">[ + meta ]</span>` 
+              : `<span></span>`
+            }
+            ${hasMeta ? `<div class="log-meta-panel" id="meta-${log.id}">${escHtml(meta)}</div>` : ''}
+          </div>
+        `;
+      });
+    }
+
+    container.innerHTML = html;
+    lastLogCount = total;
+    document.getElementById('page-footer').textContent = `DevHunt System Logs — ${total} entries displayed • Last updated ${new Date().toLocaleTimeString()}`;
+
   } catch (e) {
-    document.getElementById('log-container').innerHTML =
-      `<div class="empty">// error loading logs: ${e.message}</div>`;
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">⚠️</div>
+        <p>// Error loading logs: ${escHtml(e.message)}</p>
+        <p style="font-size:11px; margin-top:4px">Is the Flask server running on localhost:5000?</p>
+      </div>`;
   }
 }
 
-function toggleMeta(id) {
-  const el = document.getElementById(`meta-${id}`);
-  if (el) el.classList.toggle('open');
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
 async function clearLogs() {
-  if (!confirm('Clear all system logs?')) return;
-  await fetch(`${API}/logs`, { method: 'DELETE' });
-  loadLogs();
+  if (!confirm('⚠️ Clear ALL system logs? This action is permanent.')) return;
+  try {
+    await fetch(`${API}/logs`, { method: 'DELETE' });
+    loadLogs();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
 }
 
 function toggleAutoRefresh() {
@@ -259,13 +652,11 @@ function toggleAutoRefresh() {
   const btn = document.getElementById('auto-btn');
   if (autoActive) {
     btn.textContent = '⏹ Stop Auto';
-    btn.style.background = 'rgba(255,77,106,.15)';
-    btn.style.color = 'var(--red)';
+    btn.className = 'btn btn-red';
     autoTimer = setInterval(loadLogs, 5000);
   } else {
     btn.textContent = '▶ Auto (5s)';
-    btn.style.background = '';
-    btn.style.color = '';
+    btn.className = 'btn btn-amber';
     clearInterval(autoTimer);
   }
 }
@@ -279,10 +670,10 @@ async function importBackup(input) {
     const r = await fetch(`${API}/backup/import`, { method: 'POST', body: form });
     const d = await r.json();
     if (d.success) {
-      alert('Backup restored!\n' + JSON.stringify(d.restored, null, 2));
+      alert('✅ Backup restored!\n' + JSON.stringify(d.restored, null, 2));
       loadLogs();
     } else {
-      alert('Import failed: ' + d.error);
+      alert('❌ Import failed: ' + d.error);
     }
   } catch (e) {
     alert('Import error: ' + e.message);
@@ -290,13 +681,15 @@ async function importBackup(input) {
   input.value = '';
 }
 
-// Add search filter listener
+// Live listeners
 document.getElementById('filter-search').addEventListener('input', loadLogs);
 ['filter-level','filter-category','filter-limit'].forEach(id => {
   document.getElementById(id).addEventListener('change', loadLogs);
 });
 
+// Boot
 loadLogs();
 </script>
 </body>
 </html>
+

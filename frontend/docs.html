@@ -8,20 +8,96 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0b0f14; --surface: #111820; --border: #1e2d3d;
-    --green: #00ffa3; --cyan: #00d4ff; --red: #ff4d6a;
-    --amber: #ffb547; --muted: #4a6070; --text: #c8d8e4;
-    --display: 'Orbitron', sans-serif; --mono: 'JetBrains Mono', monospace;
+    /* Default variables (Industrial Slate) */
+    --bg: #1e1e24;
+    --bg-2: #18181c;
+    --surface: #1e1e24;
+    --border: #2d2d36;
+    --border-hot: #007acc;
+    --text: #d4d4d8;
+    --muted: #71717a;
+    --green: #34d399;
+    --cyan: #38bdf8;
+    --magenta: #f472b6;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --accent: #3b82f6;
+    --display: 'Orbitron', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
     --sans: 'Inter', sans-serif;
   }
+  body.theme-neon {
+    --bg: #05080d;
+    --bg-2: #0a1018;
+    --surface: rgba(12,18,28,.72);
+    --border: rgba(52,211,153,.18);
+    --border-hot: rgba(52,211,153,.55);
+    --text: #d8f5ee;
+    --muted: #6c8290;
+    --green: #34d399;
+    --cyan: #38bdf8;
+    --magenta: #d946ef;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --accent: #34d399;
+  }
+  body.theme-light {
+    --bg: #f8fafc;
+    --bg-2: #f1f5f9;
+    --surface: #ffffff;
+    --border: #cbd5e1;
+    --border-hot: #4f46e5;
+    --text: #0f172a;
+    --muted: #64748b;
+    --green: #10b981;
+    --cyan: #4f46e5;
+    --magenta: #d946ef;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --accent: #4f46e5;
+  }
+  body.theme-slate {
+    --bg: #1e1e24;
+    --bg-2: #18181c;
+    --surface: #1e1e24;
+    --border: #2d2d36;
+    --border-hot: #007acc;
+    --text: #d4d4d8;
+    --muted: #71717a;
+    --green: #34d399;
+    --cyan: #38bdf8;
+    --magenta: #f472b6;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --accent: #3b82f6;
+  }
+  body.theme-devil {
+    background: url('assets/devil_theme.png') no-repeat center center fixed !important;
+    background-size: cover !important;
+    --bg: rgba(20, 10, 12, 0.78);
+    --bg-2: rgba(12, 6, 8, 0.9);
+    --surface: rgba(26, 12, 14, 0.82);
+    --border: rgba(220, 38, 38, 0.28);
+    --border-hot: #ef4444;
+    --text: #fecdd3;
+    --muted: #fda4af;
+    --green: #f43f5e;
+    --cyan: #f472b6;
+    --magenta: #fb7185;
+    --amber: #fbbf24;
+    --red: #ef4444;
+    --accent: #ef4444;
+  }
+
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13.5px; min-height: 100vh; overflow: hidden; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13.5px; min-height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
 
   /* Top Bar */
   .topbar {
     display: flex; align-items: center; gap: 20px;
     padding: 10px 24px; border-bottom: 1px solid var(--border);
-    background: rgba(11, 15, 20, 0.95); backdrop-filter: blur(10px);
+    background: var(--bg-2);
     position: sticky; top: 0; z-index: 100; height: 50px;
   }
   .topbar h1 { font-family: var(--display); font-size: 14px; color: var(--green); letter-spacing: 3px; display: flex; align-items: center; gap: 8px; }
@@ -121,7 +197,7 @@
 
   /* Article Details Styling */
   .card-container { display: flex; flex-direction: column; gap: 28px; }
-  h1.section-title { font-family: var(--display); font-size: 20px; color: var(--green); margin-bottom: 14px; text-shadow: 0 0 12px rgba(0,255,163,0.1); }
+  h1.section-title { font-family: var(--display); font-size: 20px; color: var(--green); margin-bottom: 14px; text-shadow: 0 0 12px rgba(52,211,153,0.1); }
   h2.section-subtitle {
     font-family: var(--display); font-size: 14px; color: var(--cyan);
     margin-top: 32px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -154,8 +230,8 @@
     display: inline-block; padding: 2px 6px; border-radius: 4px;
     font-size: 10px; font-family: var(--mono); font-weight: bold; border: 1px solid transparent;
   }
-  .badge-post { background: rgba(0,212,255,0.12); color: var(--cyan); border-color: rgba(0,212,255,0.3); }
-  .badge-get { background: rgba(0,255,163,0.12); color: var(--green); border-color: rgba(0,255,163,0.3); }
+  .badge-post { background: rgba(56,189,248,0.12); color: var(--cyan); border-color: rgba(56,189,248,0.3); }
+  .badge-get { background: rgba(52,211,153,0.12); color: var(--green); border-color: rgba(52,211,153,0.3); }
   .badge-delete { background: rgba(255,77,106,0.12); color: var(--red); border-color: rgba(255,77,106,0.3); }
 
   /* Grid details */
@@ -176,8 +252,8 @@
   }
   .btn-primary { background: var(--green); color: #0b0f14; }
   .btn-primary:hover { background: #00d492; transform: translateY(-1px); }
-  .btn-ghost { background: transparent; border-color: rgba(0,212,255,0.4); color: var(--cyan); }
-  .btn-ghost:hover { background: rgba(0,212,255,0.05); transform: translateY(-1px); }
+  .btn-ghost { background: transparent; border-color: rgba(56,189,248,0.4); color: var(--cyan); }
+  .btn-ghost:hover { background: rgba(56,189,248,0.05); transform: translateY(-1px); }
 
   /* Algolia-like search modal */
   .modal-overlay {
@@ -223,7 +299,7 @@
 <body>
 
 <div class="topbar">
-  <h1>⬡ DEVHUNT DOCUMENTATION <span>v1.2.0</span></h1>
+  <h1>⬡ DEVHUNT DOCUMENTATION <span>v1.3.0</span></h1>
   
   <!-- Interactive Top Search -->
   <div class="search-box-container" onclick="openSearchModal()">
@@ -260,9 +336,10 @@
       <a class="sidebar-nav-link" data-sec-id="sec-rule-based">07. Rule-Based Engine</a>
       <a class="sidebar-nav-link" data-sec-id="sec-terminal">08. Hunt Terminal (CLI)</a>
       <a class="sidebar-nav-link" data-sec-id="sec-ide">09. Workspace IDE &amp; Themes</a>
+      <a class="sidebar-nav-link" data-sec-id="sec-linkedin">10. LinkedIn Drafts</a>
 
       <div class="sidebar-section-title">COMMUNITY</div>
-      <a class="sidebar-nav-link" data-sec-id="sec-git">10. Contributions &amp; Issue</a>
+      <a class="sidebar-nav-link" data-sec-id="sec-git">11. Contributions &amp; Issue</a>
     </div>
   </div>
 
@@ -293,8 +370,10 @@
           <li><strong>Hunt Terminal</strong>: Executable CLI interface running both system processes and sandbox utility commands.</li>
           <li><strong>Music Player</strong>: Integrated local audio manager with global playback controllers and YouTube converter.</li>
           <li><strong>Terminal Stats</strong>: High-fidelity telemetry metrics dashboard monitoring actual token volume and key distributions.</li>
+          <li><strong>System Notifications</strong>: Actionable notification panel for events, updates, and key alerts with read/dismiss controls.</li>
           <li><strong>Feature Toggles</strong>: Granular settings switches to dynamically enable or disable workspace panels.</li>
           <li><strong>Game Arcade</strong>: Set of offline, flat-colored mini games to unwind during compile breaks.</li>
+          <li><strong>LinkedIn Drafts</strong>: Native draft notebook for LinkedIn posts, with AI-powered refinement and chat auto-detection.</li>
         </ul>
 
         <h2 class="section-subtitle" id="sec-overview-features-deep">In-Depth Features Walkthrough</h2>
@@ -327,7 +406,10 @@
         <p>Located under Settings, the Feature Toggle framework allows developers to modularize the workspace by toggling core feature panes (Music Player, Hunt Path, Quest Board, Intel Vault, Doc Forensics, Game Arcade) on or off. Hiding a module immediately strips its navigation elements from the layout, pauses any active services (like background audio or running game rendering loops), and automatically redirects active pane focuses to the AI Cognitive Assistant home screen. Additionally, the settings tab offers a <strong>Minimize Sidebar</strong> option to collapse the left navigation bar into a compact icon-only column. Minimization can also be toggled dynamically using the header hamburger <code>≡</code> button or via the global <code>Ctrl+B</code> (or <code>Cmd+B</code>) keyboard shortcut. These configurations persist locally and serialize in the database or browser's local cache.</p>
  
         <h3 class="section-inner-title">◎ Game Arcade Stations</h3>
-        <p>The Game Arcade panel delivers classic developer-themed mini-games designed to run entirely offline with clean, flat-color styling. The selection menu displays all four games in a top-aligned, 4-column horizontal grid. It runs four discrete games: <strong>Git Commit Snake</strong> (control a git branch to consume commits and dodge conflicts), <strong>Data Lane Runner</strong> (lane dodge falling malware blocks and compile RAM buffers with index splicing safety), <strong>Terminal Decrypt</strong> (deductive word likeness passcode decrypt console), and <strong>Hex Malware Sweeper</strong> (a 100-cell hex address block Minesweeper clone). High scores persist in the browser's local cache. Win, loss, and lockout screens display using premium, non-blocking glassmorphic overlays with RESTART and MENU shortcut actions, preventing blocking alert interruptions.</p>
+        <p>The Game Arcade panel delivers classic developer-themed mini-games designed to run entirely offline with clean, flat-color styling. The selection menu displays all four games in a top-aligned, 4-column horizontal grid. It runs four discrete games: <strong>Git Commit Snake</strong> (control a git branch to consume commits and dodge conflicts), <strong>Data Lane Runner</strong> (lane dodge falling malware blocks and compile RAM buffers with index splicing safety), <strong>Terminal Decrypt</strong> (deductive word likeness passcode decrypt console), and <strong>Hex Malware Sweeper</strong> (a 100-cell hex address block Minesweeper clone). High scores persist in the browser's local cache. Win, loss, and lockout screens display using premium, non-blocking glassmorphic overlays with RESTART and MENU shortcut actions, preventing blocking alert interruptions. Keyboard controls: Arrow keys or WASD to navigate Snake/Runner, Space to restart, Esc to exit arena.</p>
+
+        <h3 class="section-inner-title">◎ LinkedIn Post Drafts</h3>
+        <p>The LinkedIn Drafts module is a native workspace panel for creating, editing, and managing LinkedIn post drafts. It features AI-powered auto-detection during AI chat: when the AI returns LinkedIn post content, a <strong>Save to LinkedIn Drafts</strong> button appears inline. Drafts are organized date-wise with a split list/detail view, a character count indicator, and status tracking (Draft → Ready). The Refine with AI button lets you send any draft back to the AI with a LinkedIn optimization prompt for content polishing.</p>
 
         <h2 class="section-subtitle" id="sec-overview-offline-online">Offline vs. Online Capabilities</h2>
         <p>To support air-gapped setups or low-bandwidth environments, DevHunt divides its key features into offline-local capabilities and online-connected modules that require external resources:</p>
@@ -420,6 +502,18 @@
               <td>HTML5 Canvas &amp; DOM Grid</td>
               <td>Play offline retro developer games (Snake, Runner, Decrypt, Sweeper) styled with clean, standard flat colors.</td>
             </tr>
+            <tr>
+              <td><strong>LinkedIn Drafts</strong></td>
+              <td><span class="badge badge-get">Offline Ready</span></td>
+              <td>SQLite Database (Local)</td>
+              <td>Create, edit, and organize LinkedIn post drafts locally. AI refinement requires Gemini API key.</td>
+            </tr>
+            <tr>
+              <td><strong>LinkedIn AI Refine</strong></td>
+              <td><span class="badge badge-delete">Online Only</span></td>
+              <td>Gemini API Key</td>
+              <td>Sends existing draft to AI for content polishing and LinkedIn post optimization.</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -449,6 +543,7 @@
 │   ├── index.html            # Main UI Dashboard
 │   ├── styles.css            # Custom CSS core design system and tokens
 │   ├── app.js                # Frontend controllers, SSE connectors, and slider handlers
+│   ├── arcade.js             # Offline mini-game arcade engine (Snake, Runner, Decrypt, Sweeper)
 │   ├── logs.html             # Standalone system logs console
 │   └── docs.html             # Standalone documentation manual
 └── run.bat                   # Automated platform startup script</code></pre>
@@ -550,6 +645,17 @@
     session_id TEXT UNIQUE,
     consolidated_facts TEXT, -- JSON-serialized string array
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+);</code></pre>
+
+        <h3 class="section-inner-title">9. LinkedIn Drafts Table</h3>
+        <p>Stores LinkedIn post drafts created via the Drafts panel or auto-saved from the AI chat interface:</p>
+        <pre><code>CREATE TABLE IF NOT EXISTS linkedin_drafts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    status TEXT DEFAULT 'draft',  -- 'draft' or 'ready'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );</code></pre>
 
         <h2 class="section-subtitle" id="sec-arch-files">Config Files &amp; Filesystem Paths</h2>
@@ -786,6 +892,31 @@ data: {"text": " is..."}</code></pre>
         <h3 class="section-inner-title">Retrieve Source Content</h3>
         <p><code><span class="badge badge-get">GET</span> /api/knowledge/&lt;source_id&gt;/content</code></p>
         <p>Returns full text contents compiled from raw knowledge chunks.</p>
+
+        <h2 class="section-subtitle" id="sec-api-linkedin">7. LinkedIn Drafts Endpoints</h2>
+        <p>Full CRUD interface for managing LinkedIn post drafts. Drafts can be created, updated, refined with AI, or deleted. All data is stored locally in SQLite.</p>
+
+        <h3 class="section-inner-title">List All Drafts</h3>
+        <p><code><span class="badge badge-get">GET</span> /api/linkedin/drafts</code></p>
+        <p>Returns all drafts sorted by created date (newest first).</p>
+
+        <h3 class="section-inner-title">Create Draft</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/linkedin/drafts</code></p>
+        <pre><code>// Request: { "title": "...", "content": "..." }
+// Response: { "success": true, "id": 42 }</code></pre>
+
+        <h3 class="section-inner-title">Update Draft</h3>
+        <p><code><span class="badge badge-post">PUT</span> /api/linkedin/drafts/&lt;id&gt;</code></p>
+        <pre><code>// Request: { "title": "...", "content": "...", "status": "ready" }
+// Response: { "success": true }</code></pre>
+
+        <h3 class="section-inner-title">Delete Draft</h3>
+        <p><code><span class="badge badge-delete">DELETE</span> /api/linkedin/drafts/&lt;id&gt;</code></p>
+
+        <h3 class="section-inner-title">Refine Draft with AI</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/linkedin/drafts/&lt;id&gt;/refine</code></p>
+        <p>Passes existing draft content through the AI model with a LinkedIn optimization prompt.</p>
+        <pre><code>// Response: { "success": true, "refined": "Polished post content..." }</code></pre>
       </div>
 
       <!-- ==================== 06. FORENSICS AGENTS ==================== -->
@@ -1400,9 +1531,118 @@ API KEY WORKLOAD ANALYSIS:
         <p>To optimize performance, when the Slate or Light theme is active, the backend canvas animation thread is automatically bypassed, saving local CPU cycles. Theme selections automatically persist in SQLite database profiles and local cache arrays.</p>
       </div>
 
-      <!-- ==================== 10. CONTRIBUTING ==================== -->
+
+      <!-- ==================== 10. LINKEDIN DRAFTS ==================== -->
+      <div class="doc-section" id="sec-linkedin">
+        <h1 class="section-title">10. LinkedIn Post Drafts</h1>
+        <p>The <strong>LinkedIn Post Drafts</strong> module is a native workspace panel that captures LinkedIn-oriented content generated during AI chat sessions and organizes it as a private draft notebook. It integrates AI detection with a full CRUD management interface for drafts.</p>
+
+        <h2 class="section-subtitle" id="sec-linkedin-overview">How It Works</h2>
+        <p>When you chat with the AI Assistant and ask it to create a LinkedIn post, the system automatically detects relevant content in the assistant's response. A <strong>Save to LinkedIn Drafts</strong> button appears directly on the AI message bubble, allowing you to one-click save the content without leaving the chat.</p>
+
+        <p>All saved drafts are stored persistently in the local SQLite database and are accessible via the <strong>LinkedIn Drafts</strong> tab in the left activity bar.</p>
+
+        <h2 class="section-subtitle" id="sec-linkedin-panel">LinkedIn Drafts Panel</h2>
+        <p>The LinkedIn Drafts panel features two views side-by-side:</p>
+
+        <ul>
+          <li><strong>Draft List</strong> (Left): A chronological list of saved drafts with dates, titles, and status labels (Draft / Ready). Organized by date headers.</li>
+          <li><strong>Draft Detail</strong> (Right): A full read-and-edit view showing the post content, a character count indicator, refine options, and action buttons.</li>
+        </ul>
+
+        <h3 class="section-inner-title">Draft Actions</h3>
+        <ul>
+          <li><strong>✦ Refine with AI</strong>: Sends the draft content back to the AI Assistant with a LinkedIn-optimization prompt, generating improved text that can replace the original.</li>
+          <li><strong>Copy to Clipboard</strong>: One-click copy for pasting directly into LinkedIn's post editor.</li>
+          <li><strong>Mark as Ready</strong>: Toggles draft status from Draft → Ready to track which posts are approved for publishing.</li>
+          <li><strong>Delete Draft</strong>: Permanently removes a single draft entry.</li>
+          <li><strong>Add Draft Manually</strong>: Opens a new draft form in the panel for creating drafts from scratch without AI input.</li>
+        </ul>
+
+        <h2 class="section-subtitle" id="sec-linkedin-detection">AI Chat Auto-Detection</h2>
+        <p>The detection logic works by scanning the AI assistant's response text for LinkedIn-related keywords, including:</p>
+        <ul>
+          <li>Trigger phrases: <code>LinkedIn post</code>, <code>post on LinkedIn</code>, <code>LinkedIn draft</code>, <code>Here are some LinkedIn post options</code></li>
+          <li>Structured sections: Content blocks starting with <code>Option 1:</code>, <code>Post:</code>, or similar LinkedIn post format headers</li>
+        </ul>
+        <p>When a match is detected, a <strong>LinkedIn button</strong> is injected into the message bubble footer. Clicking it extracts the draft text and opens a save confirmation dialog showing a title field and the content preview.</p>
+
+        <h2 class="section-subtitle" id="sec-linkedin-api">API Endpoints</h2>
+
+        <h3 class="section-inner-title">List All Drafts</h3>
+        <p><code><span class="badge badge-get">GET</span> /api/linkedin/drafts</code></p>
+        <p>Returns all LinkedIn drafts ordered by created date descending.</p>
+        <pre><code>// Response (200 OK)
+{
+  "success": true,
+  "drafts": [
+    {
+      "id": 1,
+      "title": "Celebrating 1 Year at DevHunt",
+      "content": "Excited to share...",
+      "status": "draft",
+      "created_at": "2026-06-14 10:30:00"
+    }
+  ]
+}</code></pre>
+
+        <h3 class="section-inner-title">Create a Draft</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/linkedin/drafts</code></p>
+        <pre><code>// Request body (JSON)
+{ "title": "My Post Title", "content": "Full post text..." }
+
+// Response (201 Created)
+{ "success": true, "id": 42 }</code></pre>
+
+        <h3 class="section-inner-title">Update a Draft</h3>
+        <p><code><span class="badge badge-post">PUT</span> /api/linkedin/drafts/&lt;id&gt;</code></p>
+        <pre><code>// Request body (JSON)
+{ "title": "Updated Title", "content": "Updated content...", "status": "ready" }</code></pre>
+
+        <h3 class="section-inner-title">Delete a Draft</h3>
+        <p><code><span class="badge badge-delete">DELETE</span> /api/linkedin/drafts/&lt;id&gt;</code></p>
+        <pre><code>// Response
+{ "success": true }</code></pre>
+
+        <h3 class="section-inner-title">Refine a Draft</h3>
+        <p><code><span class="badge badge-post">POST</span> /api/linkedin/drafts/&lt;id&gt;/refine</code></p>
+        <p>Sends the draft content to the AI model with a LinkedIn optimization prompt. Returns refined post copy.</p>
+        <pre><code>// Response (200 OK)
+{
+  "success": true,
+  "refined": "✨ Polished LinkedIn post text here..."
+}</code></pre>
+
+        <h2 class="section-subtitle" id="sec-linkedin-settings">Settings Toggle</h2>
+        <p>The LinkedIn Drafts feature can be toggled from the <strong>Settings</strong> tab under <em>Feature Access Toggles</em>. Disabling it hides the LinkedIn Drafts tab from the activity bar and panel navigation. Enabling it restores the tab and reloads the drafts list automatically.</p>
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Setting</th>
+              <th>Location</th>
+              <th>Effect</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>toggle-feat-linkedin</code></td>
+              <td>Settings → Feature Access</td>
+              <td>Hides/shows the LinkedIn Drafts tab in the workspace navigation</td>
+            </tr>
+            <tr>
+              <td>Chat save button</td>
+              <td>AI Assistant chat bubbles</td>
+              <td>Appears automatically on LinkedIn-detected responses; click to save draft</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ==================== 11. CONTRIBUTING ==================== -->
       <div class="doc-section" id="sec-git">
-        <h1 class="section-title">10. Contributing &amp; Support</h1>
+        <h1 class="section-title">11. Contributing &amp; Support</h1>
+
         <p>DevHunt is open-source. We welcome contributions to optimize the forensic engines and add more CLI tools.</p>
         
         <h2 class="section-subtitle" id="sec-git-issues">GitHub Issue Tracker</h2>
@@ -1691,9 +1931,15 @@ API KEY WORKLOAD ANALYSIS:
     initSection(secId);
   }
 
+  // Load active theme
+  const activeTheme = localStorage.getItem('devhunt-theme') || 'slate';
+  document.body.classList.remove('theme-slate', 'theme-neon', 'theme-light', 'theme-devil');
+  document.body.classList.add(`theme-${activeTheme}`);
+
   // Initialize first view
   initSection('sec-overview');
 </script>
 
 </body>
 </html>
+

@@ -693,6 +693,14 @@ def get_terminal_stats():
         total_msgs = row['total_msgs'] or 0
         total_toks = row['total_toks'] or 0
 
+        # Unique active sessions
+        cursor.execute("SELECT COUNT(DISTINCT session_id) as total_sess FROM messages")
+        total_sess = cursor.fetchone()['total_sess'] or 0
+
+        # Efficiency calculations
+        avg_tokens = round(total_toks / total_msgs, 1) if total_msgs > 0 else 0.0
+        est_savings = round((total_toks / 1000.0) * 0.002, 3)
+
         # Model distribution
         cursor.execute("""
             SELECT model_used, COUNT(*) as msg_count, SUM(COALESCE(tokens_used,0)) as tokens
@@ -757,6 +765,9 @@ def get_terminal_stats():
             "success": True,
             "total_messages": total_msgs,
             "total_tokens": total_toks,
+            "avg_tokens": avg_tokens,
+            "est_savings": est_savings,
+            "active_sessions_count": total_sess,
             "model_distribution": model_rows,
             "key_workload": key_rows,
             "daily_activity": daily_rows,
@@ -764,6 +775,158 @@ def get_terminal_stats():
             "top_sessions": session_rows
         })
     except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── LINKEDIN POST DRAFTS ──────────────────────────────────────────────────────
+@app.route('/api/linkedin/drafts', methods=['GET'])
+def get_linkedin_drafts():
+    try:
+        from core.db import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM linkedin_drafts ORDER BY created_at DESC")
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return jsonify({"success": True, "drafts": rows})
+    except Exception as e:
+        logger.error("linkedin", f"Failed to get drafts: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/linkedin/drafts', methods=['POST'])
+def create_linkedin_draft():
+    try:
+        from core.db import get_db_connection
+        data = request.get_json() or {}
+        title = data.get('title', '').strip() or 'Untitled LinkedIn Post'
+        content = data.get('content', '').strip()
+        status = data.get('status', 'draft')
+        if not content:
+            return jsonify({"success": False, "error": "Content is required"}), 400
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO linkedin_drafts (title, content, status, created_at, updated_at) VALUES (?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))",
+            (title, content, status)
+        )
+        draft_id = cursor.lastrowid
+        conn.commit()
+        cursor.execute("SELECT * FROM linkedin_drafts WHERE id = ?", (draft_id,))
+        row = dict(cursor.fetchone())
+        conn.close()
+        logger.info("linkedin", f"Created draft '{title}' (ID: {draft_id})")
+        return jsonify({"success": True, "draft": row})
+    except Exception as e:
+        logger.error("linkedin", f"Failed to create draft: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/linkedin/drafts/<int:draft_id>', methods=['PUT'])
+def update_linkedin_draft(draft_id):
+    try:
+        from core.db import get_db_connection
+        data = request.get_json() or {}
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        status = data.get('status', 'draft')
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM linkedin_drafts WHERE id = ?", (draft_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({"success": False, "error": "Draft not found"}), 404
+        
+        cursor.execute(
+            "UPDATE linkedin_drafts SET title = COALESCE(?, title), content = COALESCE(?, content), status = COALESCE(?, status), updated_at = datetime('now', 'localtime') WHERE id = ?",
+            (title if title else None, content if content else None, status, draft_id)
+        )
+        conn.commit()
+        cursor.execute("SELECT * FROM linkedin_drafts WHERE id = ?", (draft_id,))
+        row = dict(cursor.fetchone())
+        conn.close()
+        logger.info("linkedin", f"Updated draft (ID: {draft_id})", {"title": title or row.get('title')})
+        return jsonify({"success": True, "draft": row})
+    except Exception as e:
+        logger.error("linkedin", f"Failed to update draft {draft_id}: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/linkedin/drafts/<int:draft_id>', methods=['DELETE'])
+def delete_linkedin_draft(draft_id):
+    try:
+        from core.db import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM linkedin_drafts WHERE id = ?", (draft_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({"success": False, "error": "Draft not found"}), 404
+        cursor.execute("DELETE FROM linkedin_drafts WHERE id = ?", (draft_id,))
+        conn.commit()
+        conn.close()
+        logger.warn("linkedin", f"Deleted draft (ID: {draft_id})")
+        return jsonify({"success": True, "message": "Draft deleted successfully"})
+    except Exception as e:
+        logger.error("linkedin", f"Failed to delete draft {draft_id}: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/linkedin/drafts/refine', methods=['POST'])
+def refine_linkedin_draft():
+    try:
+        from google import genai
+        from google.genai import types
+        
+        data = request.get_json() or {}
+        content = data.get('content', '').strip()
+        refinement_prompt = (data.get('refinement_prompt') or data.get('prompt') or '').strip()
+        
+        if not content:
+            return jsonify({"success": False, "error": "Draft content is required"}), 400
+            
+        system_instruction = (
+            "You are an expert LinkedIn copywriter. "
+            "Refine the user's post content according to their instruction. "
+            "Output ONLY the final, modified post content. "
+            "Do NOT include any explanations, introduction, markdown headers for title, or wrapping commentary."
+        )
+        
+        user_message = f"Refinement Instruction: {refinement_prompt}\n\nOriginal Draft:\n{content}"
+        
+        all_keys = key_manager.get_keys_list()
+        max_attempts = max(3, len(all_keys))
+        
+        refined_text = None
+        for attempt in range(max_attempts):
+            api_key, key_id = key_manager.get_active_key_string()
+            if not api_key:
+                return jsonify({"success": False, "error": "No active API key. Please add one in Settings."}), 400
+                
+            try:
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=user_message,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=0.7,
+                    )
+                )
+                refined_text = response.text
+                key_manager.on_success(key_id)
+                break
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "ResourceExhausted" in err_str:
+                    key_manager.on_rate_limit_error(key_id)
+                else:
+                    key_manager.on_other_error(key_id)
+                    
+        if not refined_text:
+            logger.error("linkedin", "AI Refinement failed: all keys exhausted or rate limited")
+            return jsonify({"success": False, "error": "AI Refinement failed. All API keys exhausted or rate limited."}), 500
+            
+        logger.info("linkedin", "Refined post content using model gemini-2.5-flash", {"prompt": refinement_prompt})
+        return jsonify({"success": True, "refined_content": refined_text.strip()})
+    except Exception as e:
+        logger.error("linkedin", f"AI Refinement failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -973,6 +1136,7 @@ def get_system_notifications():
         
         settings = ProfileManager.get_settings()
         read_notifications = settings.get("read_notifications", [])
+        dismissed_notifications = settings.get("dismissed_notifications", [])
         
         notifications = []
         
@@ -1068,11 +1232,13 @@ def get_system_notifications():
             return t if t else "1970-01-01 00:00:00"
             
         notifications.sort(key=get_notification_time, reverse=True)
+        filtered_notifications = [n for n in notifications if n.get("id") not in dismissed_notifications]
         
         return jsonify({
             "success": True,
-            "notifications": notifications,
-            "read_notifications": read_notifications
+            "notifications": filtered_notifications,
+            "read_notifications": read_notifications,
+            "dismissed_notifications": dismissed_notifications
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

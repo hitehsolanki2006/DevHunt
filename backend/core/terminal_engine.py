@@ -191,6 +191,22 @@ class TerminalEngine:
                 "Usage: hunt stats\n\n"
                 "Displays token usage statistics, model distribution analysis, and\n"
                 "active API key workload metrics compiled from chat sessions."
+            ),
+            "config": (
+                "Usage: hunt config [get <key> | set <key> <value> | reset]\n\n"
+                "Manages system configuration settings directly from the terminal console.\n\n"
+                "Options:\n"
+                "  get <key>        Print current value of a settings option.\n"
+                "  set <key> <val>  Change configuration value persistently.\n"
+                "  reset            Wipe settings overrides back to system default values."
+            ),
+            "shortcut": (
+                "Usage: hunt shortcut [list | set <action> <key_combo> | reset]\n\n"
+                "Manages custom keyboard hotkey bindings for IDE actions.\n\n"
+                "Options:\n"
+                "  list             Print all actions and active hotkeys.\n"
+                "  set <act> <key>  Assign key combination (e.g. Ctrl+Shift+P) to a system action.\n"
+                "  reset            Restore original factory bindings."
             )
         }
         return list(helps.get(cmd, f"No detailed help available for '{cmd}'.").split("\n")) if isinstance(helps.get(cmd), list) else helps.get(cmd, f"No detailed help available for '{cmd}'.")
@@ -275,6 +291,8 @@ class TerminalEngine:
             f"  {self.format_green('hunt history')}              - Print raw logs of chat session.\n"
             f"  {self.format_green('hunt stats')}                - Analyze token usage & API metrics.\n"
             f"  {self.format_green('hunt notifications')}        - Manage system alerts and announcements.\n"
+            f"  {self.format_green('hunt config')}               - Manage preferences (username, fonts, etc.).\n"
+            f"  {self.format_green('hunt shortcut')}             - Customize keybindings for IDE actions.\n"
         )
         return help_menu, current_dir
 
@@ -283,6 +301,11 @@ class TerminalEngine:
         uname = platform.uname()
         cpu_count = os.cpu_count()
         python_ver = sys.version.split()[0]
+        
+        from core.profile_manager import ProfileManager
+        settings = ProfileManager.get_settings()
+        username = settings.get("terminal_username", "guest")
+        hostname = settings.get("terminal_hostname", "devhunt")
         
         # Ascii Art
         ascii_art = (
@@ -317,7 +340,7 @@ class TerminalEngine:
             pass
 
         info_lines = [
-            f"{self.format_cyan('guest')}@{self.format_cyan('devhunt')}",
+            f"{self.format_cyan(username)}@{self.format_cyan(hostname)}",
             "-------------------",
             f"OS: {self.format_yellow(self.os_type)} {uname.release} ({uname.machine})",
             f"Kernel: {uname.version[:40]}...",
@@ -1522,6 +1545,7 @@ class TerminalEngine:
         
         settings = ProfileManager.get_settings()
         read_notifications = settings.get("read_notifications", [])
+        dismissed_notifications = settings.get("dismissed_notifications", [])
         notifications = []
         
         # 1. Remote announcements
@@ -1594,6 +1618,7 @@ class TerminalEngine:
             t = n.get("timestamp", "")
             return t if t else "1970-01-01 00:00:00"
         notifications.sort(key=get_notification_time, reverse=True)
+        notifications = [n for n in notifications if n.get("id") not in dismissed_notifications]
         
         # Sub-command routing
         if not args or args[0].lower() == "list":
@@ -1755,4 +1780,149 @@ class TerminalEngine:
             
         except Exception as e:
             return self.format_red(f"Error fetching stats: {str(e)}"), current_dir
+
+    def cmd_config(self, args, current_dir):
+        from core.profile_manager import ProfileManager
+        if not args:
+            settings = ProfileManager.get_settings()
+            lines = [
+                f"{self.format_bold(self.format_cyan('DevHunt Configuration Settings'))}",
+                "--------------------------------------------------",
+            ]
+            for k, v in sorted(settings.items()):
+                if k == 'shortcuts':
+                    lines.append(f"  {self.format_green(k)}: [Map of {len(v)} shortcuts]")
+                elif k == 'feature_toggles':
+                    lines.append(f"  {self.format_green(k)}: {list(v.keys())}")
+                else:
+                    lines.append(f"  {self.format_green(k)}: {v}")
+            return "\n".join(lines), current_dir
+
+        sub = args[0].lower()
+        if sub == "get" and len(args) > 1:
+            key = args[1]
+            settings = ProfileManager.get_settings()
+            if key in settings:
+                return f"{key} = {settings[key]}", current_dir
+            else:
+                return self.format_red(f"Error: Config key '{key}' not found."), current_dir
+
+        elif sub == "set" and len(args) > 2:
+            key = args[1]
+            val_str = " ".join(args[2:])
+            settings = ProfileManager.get_settings()
+            
+            # Type conversions
+            if val_str.lower() == "true":
+                val = True
+            elif val_str.lower() == "false":
+                val = False
+            elif val_str.isdigit():
+                val = int(val_str)
+            else:
+                try:
+                    val = float(val_str)
+                except ValueError:
+                    val = val_str
+            
+            settings[key] = val
+            ProfileManager.update_settings(settings)
+            return self.format_green(f"Config option '{key}' successfully set to '{val}'."), current_dir
+
+        elif sub == "reset":
+            defaults = {
+                "english_correction": False,
+                "selected_model": "auto",
+                "dismissed_update": None,
+                "read_notifications": [],
+                "theme": "slate",
+                "terminal_username": "guest",
+                "terminal_hostname": "devhunt",
+                "terminal_prompt_symbol": "$",
+                "terminal_sound": True,
+                "font_size_editor": 14,
+                "font_size_terminal": 13,
+                "font_family_editor": "JetBrains Mono",
+                "font_family_terminal": "JetBrains Mono",
+                "canvas_particles": True,
+                "sound_effects": True,
+                "temperature": 0.7,
+                "max_tokens": 2048,
+                "system_prompt": "",
+                "shortcuts": {
+                    "toggleSidebar": "Ctrl+B",
+                    "saveFile": "Ctrl+S",
+                    "focusChat": "Ctrl+K",
+                    "newFile": "Ctrl+N",
+                    "openTerminal": "Ctrl+Shift+P",
+                    "clearEditor": "Ctrl+Alt+C",
+                    "refreshExplorer": "Ctrl+Alt+R"
+                },
+                "feature_toggles": {
+                    "music": True,
+                    "path": True,
+                    "quests": True,
+                    "vault": True,
+                    "doc-analysis": True,
+                    "arcade": True
+                }
+            }
+            ProfileManager.save_settings(defaults)
+            return self.format_green("All configuration settings have been reset to defaults."), current_dir
+
+        return self.format_red("Usage: hunt config [get <key> | set <key> <val> | reset]"), current_dir
+
+    def cmd_shortcut(self, args, current_dir):
+        from core.profile_manager import ProfileManager
+        settings = ProfileManager.get_settings()
+        shortcuts = settings.get("shortcuts", {})
+        
+        action_names = {
+            "toggleSidebar": "Toggle Explorer Sidebar",
+            "saveFile": "Save Active File",
+            "focusChat": "Focus AI Assistant Chat",
+            "newFile": "Show New File Inline",
+            "openTerminal": "Switch to Terminal Panel",
+            "clearEditor": "Clear Editor Content",
+            "refreshExplorer": "Refresh File Explorer"
+        }
+
+        if not args or args[0].lower() in ["list", "show"]:
+            lines = [
+                f"{self.format_bold(self.format_cyan('DevHunt Keyboard Shortcuts'))}",
+                f"  {'ACTION ID':<20} | {'ACTION NAME':<30} | {'HOTKEY BINDING'}",
+                "  " + "-" * 70
+            ]
+            for key, desc in sorted(action_names.items()):
+                binding = shortcuts.get(key, "None")
+                lines.append(f"  {self.format_green(key):<31} | {desc:<30} | {self.format_yellow(binding)}")
+            return "\n".join(lines), current_dir
+        
+        sub = args[0].lower()
+        if sub == "set" and len(args) > 2:
+            action = args[1]
+            if action not in action_names:
+                return self.format_red(f"Error: Unknown action '{action}'. Valid actions are: {list(action_names.keys())}"), current_dir
+            
+            combo = args[2]
+            shortcuts[action] = combo
+            settings["shortcuts"] = shortcuts
+            ProfileManager.update_settings(settings)
+            return self.format_green(f"Shortcut for action '{action}' set to '{combo}'."), current_dir
+        
+        elif sub == "reset":
+            default_shortcuts = {
+                "toggleSidebar": "Ctrl+B",
+                "saveFile": "Ctrl+S",
+                "focusChat": "Ctrl+K",
+                "newFile": "Ctrl+N",
+                "openTerminal": "Ctrl+Shift+P",
+                "clearEditor": "Ctrl+Alt+C",
+                "refreshExplorer": "Ctrl+Alt+R"
+            }
+            settings["shortcuts"] = default_shortcuts
+            ProfileManager.update_settings(settings)
+            return self.format_green("Keyboard shortcuts have been reset to default values."), current_dir
+        
+        return self.format_red("Usage: hunt shortcut [list | set <action> <combo> | reset]"), current_dir
 

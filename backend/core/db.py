@@ -115,5 +115,17 @@ def init_db():
     )
     ''')
 
+    # Create linkedin_drafts table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS linkedin_drafts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        content TEXT NOT NULL,
+        status TEXT DEFAULT 'draft',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
     conn.commit()
     conn.close()
