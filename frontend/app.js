@@ -93,6 +93,10 @@ if (initialTheme === 'neon') {
   document.body.classList.add('theme-light');
 } else if (initialTheme === 'devil') {
   document.body.classList.add('theme-devil');
+  document.addEventListener('DOMContentLoaded', () => {
+    const brandName = document.querySelector('.topbar-main .brand-name');
+    if (brandName) brandName.textContent = 'Devil';
+  });
 } else {
   document.body.classList.add('theme-slate');
 }
@@ -114,6 +118,16 @@ window.setAppTheme = async (themeName, saveToBackend = true) => {
   }
 
   
+  // Update brand logo text dynamically
+  const brandName = document.querySelector('.topbar-main .brand-name');
+  if (brandName) {
+    if (themeName === 'devil') {
+      brandName.textContent = 'Devil';
+    } else {
+      brandName.textContent = 'DevHunt';
+    }
+  }
+
   // Update select dropdown if present
   const selector = document.getElementById('theme-selector');
   if (selector) {

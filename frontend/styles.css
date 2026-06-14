@@ -67,12 +67,11 @@ body.theme-light {
 }
 
 body.theme-devil {
-  background: url('assets/devil_theme.png') no-repeat center center fixed !important;
-  background-size: cover !important;
-  --bg: rgba(20, 10, 12, 0.78);
-  --bg-2: rgba(12, 6, 8, 0.9);
-  --panel: rgba(26, 12, 14, 0.82);
-  --panel-2: rgba(44, 20, 24, 0.88);
+  background: #140a0c !important;
+  --bg: #140a0c;
+  --bg-2: rgba(12, 6, 8, 0.85);
+  --panel: rgba(26, 12, 14, 0.55);
+  --panel-2: rgba(44, 20, 24, 0.65);
   --border: rgba(220, 38, 38, 0.28);
   --border-hot: #ef4444;
   --text: #fecdd3;
@@ -87,8 +86,29 @@ body.theme-devil {
   --glow-cyan: 0 0 8px rgba(244, 114, 182, 0.5);
   --mono: 'JetBrains Mono', ui-monospace, monospace;
   --display: 'Orbitron', sans-serif;
-  --bg-editor: rgba(15, 6, 8, 0.92);
+  --bg-editor: rgba(15, 6, 8, 0.85);
 }
+
+body.theme-devil::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: url('assets/devil_theme.png') no-repeat center center fixed;
+  background-size: cover;
+  opacity: 0.35;
+}
+
+body.theme-devil .brand-name {
+  font-family: 'Caveat', cursive, sans-serif !important;
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0px !important;
+  color: #ef4444 !important;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+}
+
 
 
 /* Base style modifications for dynamic variables */

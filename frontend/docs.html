@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>DevHunt — Documentation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&family=Caveat:wght@700&display=swap" rel="stylesheet">
 <style>
   :root {
     /* Default variables (Industrial Slate) */
@@ -72,11 +72,10 @@
     --accent: #3b82f6;
   }
   body.theme-devil {
-    background: url('assets/devil_theme.png') no-repeat center center fixed !important;
-    background-size: cover !important;
-    --bg: rgba(20, 10, 12, 0.78);
-    --bg-2: rgba(12, 6, 8, 0.9);
-    --surface: rgba(26, 12, 14, 0.82);
+    background: #140a0c !important;
+    --bg: #140a0c;
+    --bg-2: rgba(12, 6, 8, 0.85);
+    --surface: rgba(26, 12, 14, 0.55);
     --border: rgba(220, 38, 38, 0.28);
     --border-hot: #ef4444;
     --text: #fecdd3;
@@ -88,6 +87,25 @@
     --red: #ef4444;
     --accent: #ef4444;
   }
+  body.theme-devil::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: url('assets/devil_theme.png') no-repeat center center fixed;
+    background-size: cover;
+    opacity: 0.35;
+  }
+  body.theme-devil .topbar h1 {
+    font-family: 'Caveat', cursive, sans-serif !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0px !important;
+    color: #ef4444 !important;
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+  }
+
 
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
