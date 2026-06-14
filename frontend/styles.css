@@ -132,6 +132,10 @@ body.theme-devil .chat-input .btn-primary {
   color: #121214 !important;
 }
 
+body.theme-devil #mentor-new-chat-btn {
+  color: #121214 !important;
+}
+
 
 
 /* Base style modifications for dynamic variables */
