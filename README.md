@@ -108,7 +108,93 @@ python app.py
 
 ---
 
-## 📁 Repository Structure
+## � Docker Setup
+
+DevHunt is containerized and ready to deploy using Docker. The image is optimized for size using a multi-stage build strategy.
+
+### Quick Start with Docker
+
+1. **Build the Docker Image**:
+   ```bash
+   docker build -t hitessolanki/dev-hunt:latest .
+   ```
+
+2. **Run the Container**:
+   ```bash
+   docker run -d -p 8080:8080 \
+     --name dev-hunt \
+     hitessolanki/dev-hunt:latest
+   ```
+   Then open your browser to `http://localhost:8080`
+
+3. **View Logs**:
+   ```bash
+   docker logs -f dev-hunt
+   ```
+
+4. **Stop the Container**:
+   ```bash
+   docker stop dev-hunt
+   docker rm dev-hunt
+   ```
+
+### Docker Image Details
+
+- **Base Image**: `python:3.11-slim` (~70–90 MB)
+- **Runtime Packages**: `tesseract-ocr`, `poppler-utils`, image & PDF processing libraries (~50–150 MB)
+- **Python Packages**: ~350–600 MB (includes OpenCV, Pandas, PyMuPDF, Google AI client, etc.)
+- **Final Size**: ~534.9 MB compressed on Docker Hub
+- **Multi-Stage Build**: Wheels are compiled in the builder stage; final image contains only runtime dependencies
+
+### Push to Docker Hub
+
+The image is publicly available at: **[hitessolanki/dev-hunt](https://hub.docker.com/r/hitessolanki/dev-hunt)**
+
+To push your own builds:
+
+```bash
+# Tag the image with a version
+docker tag hitessolanki/dev-hunt:latest hitessolanki/dev-hunt:v1.0.0
+
+# Push to Docker Hub
+docker push hitessolanki/dev-hunt:latest
+docker push hitessolanki/dev-hunt:v1.0.0
+```
+
+### Check Image Size
+
+```bash
+docker images hitessolanki/dev-hunt --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
+```
+
+### Docker Compose (Optional)
+
+For persistent data volumes:
+
+```yaml
+version: '3.8'
+
+services:
+  dev-hunt:
+    image: hitessolanki/dev-hunt:latest
+    container_name: dev-hunt
+    ports:
+      - "8080:8080"
+    volumes:
+      - dev-hunt-data:/app/backend/data
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+volumes:
+  dev-hunt-data:
+```
+
+Run with: `docker-compose up -d`
+
+---
+
+## �📁 Repository Structure
 
 ```
 Local-AI/
