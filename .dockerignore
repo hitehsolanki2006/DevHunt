@@ -1,0 +1,32 @@
+# Ignore Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Git and editor files
+.git
+.gitignore
+.vscode
+.idea
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Local env files and secrets
+.env
+*.pem
+*.key
+notifications.json
+
+# Node modules (frontend not built here)
+frontend/node_modules
+
+# Dockerfile and docker ignore (keep optional)
+# Dockerfile
