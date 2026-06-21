@@ -36,6 +36,7 @@ dist_desktop/
 backend/build/
 backend/dist/
 devhunt_cargo_target/
+frontend-src/src-tauri/target/
 
 # Local Temp Files
 err.txt
