@@ -1,14 +1,36 @@
 import os
+import sys
 
 # Base directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Check if running inside a packaged PyInstaller executable (frozen)
+IS_PACKAGED = getattr(sys, 'frozen', False)
+
+if IS_PACKAGED:
+    # Use standard AppData folder for user data to avoid write permission issues in Program Files
+    app_data_root = os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA') or os.path.expanduser('~')
+    BASE_DATA_DIR = os.path.join(app_data_root, 'DevHunt')
+else:
+    BASE_DATA_DIR = BASE_DIR
+
 # Data directory
-DATA_DIR = os.path.join(BASE_DIR, 'data')
+DATA_DIR = os.path.join(BASE_DATA_DIR, 'data')
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# Redirect stdout and stderr to a file in packaged mode for debugging
+if IS_PACKAGED:
+    log_file_path = os.path.join(DATA_DIR, 'devhunt_backend_debug.log')
+    try:
+        sys.stdout = open(log_file_path, 'a', encoding='utf-8', buffering=1)
+        sys.stderr = sys.stdout
+        import datetime
+        print(f"\n--- Backend started at {datetime.datetime.now()} with args {sys.argv} ---")
+    except Exception as e:
+        pass
+
 # Uploads directory
-UPLOADS_DIR = os.path.join(BASE_DIR, 'uploads')
+UPLOADS_DIR = os.path.join(BASE_DATA_DIR, 'uploads')
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 # File paths

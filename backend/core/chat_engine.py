@@ -27,14 +27,28 @@ class ChatEngine:
                 pass
         return False
 
+    def _get_custom_system_prompt(self) -> str:
+        import os
+        if os.path.exists(SETTINGS_PATH):
+            try:
+                with open(SETTINGS_PATH, 'r') as f:
+                    settings = json.load(f)
+                    return settings.get("system_prompt", "")
+            except Exception:
+                pass
+        return ""
+
     def _build_system_instruction(self, user_message: str, active_rag_docs: list, session_id: str, source_id: int = None) -> str:
-        if source_id is not None:
-            system_instruction = (
-                "You are DevHunt AI, currently acting as a Document Analyst. The user has opened a specific document in their viewer.\n"
-                "Your primary task is to explain, summarize, and answer any questions about the document context provided below.\n"
-                "Ground your answers strictly in the document content. If you cannot find the answer in the document, mention that, but you can also provide a helpful general answer if relevant.\n"
-                "Keep answers very focused on this document.\n"
-            )
+        custom_prompt = self._get_custom_system_prompt().strip()
+        if custom_prompt:
+            if source_id is not None:
+                system_instruction = f"{custom_prompt}\n\n[Active Mode: Document Analyst]\n" + (
+                    "Your primary task is to explain, summarize, and answer any questions about the document context provided below.\n"
+                    "Ground your answers strictly in the document content. If you cannot find the answer in the document, mention that, but you can also provide a helpful general answer if relevant.\n"
+                    "Keep answers very focused on this document.\n"
+                )
+            else:
+                system_instruction = custom_prompt + "\n"
         else:
             system_instruction = (
                 "You are DevHunt AI, a smart personal assistant that helps with problem solving, debugging, learning, and answering questions on any topic.\n"

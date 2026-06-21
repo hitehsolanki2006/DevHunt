@@ -4,7 +4,7 @@ import requests
 import json
 import re
 
-API_URL = "http://localhost:5000/api/terminal/run"
+API_URL = "http://localhost:1225/api/terminal/run"
 
 def strip_html_tags(text):
     """Strip HTML tags from output to make it clean for a standard host terminal."""
@@ -34,11 +34,11 @@ def main():
     if len(args) > 1:
         start_dir = os.path.abspath(args[1])
         
-    print("==================================================================")
-    print(" DevHunt DevTerminal CLI Core - Connected to http://localhost:5000")
-    print(" Type 'exit' or 'quit' to terminate session. Commands are executed")
-    print(" in the DevHunt engine environment.")
-    print("==================================================================")
+    print("==========================================================")
+    print(" DevHunt DevTerminal — by Hunter Group")
+    print(" Connected to http://localhost:1225")
+    print(" Type 'exit' or 'quit' to terminate session.")
+    print("==========================================================")
     
     cwd = start_dir
     

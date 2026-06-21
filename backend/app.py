@@ -19,9 +19,44 @@ from core import logger
 from core.terminal_engine import TerminalEngine
 from core.update_manager import UpdateManager
 
-app = Flask(__name__, static_folder='../frontend', static_url_path='')
+import os as _os
+import sys as _sys
+
+# Check if running in a packaged PyInstaller executable
+_is_frozen = getattr(_sys, 'frozen', False)
+
+_frontend_mode = _os.environ.get('DEVHUNT_FRONTEND_MODE', 'react').lower()
+
+if _is_frozen:
+    # Inside PyInstaller bundle: assets are directly in the bundle folder
+    _react_dist = _os.path.join(_os.path.dirname(__file__), 'frontend-src', 'dist')
+    _legacy_dir = _os.path.join(_os.path.dirname(__file__), 'frontend')
+else:
+    # Dev mode: assets are in the parent directory paths
+    _react_dist = _os.path.join(_os.path.dirname(__file__), '..', 'frontend-src', 'dist')
+    _legacy_dir = _os.path.join(_os.path.dirname(__file__), '..', 'frontend')
+
+if _frontend_mode == 'legacy':
+    _static_dir = _legacy_dir
+else:
+    _static_dir = _react_dist if _os.path.isdir(_react_dist) else _legacy_dir
+
+app = Flask(__name__, static_folder=_static_dir, static_url_path='')
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 terminal_engine = TerminalEngine()
+
+API_TOKEN = os.environ.get('X_DEVHUNT_TOKEN')
+
+@app.before_request
+def check_api_token():
+    if request.method == 'OPTIONS':
+        return
+    if not request.path.startswith('/api/'):
+        return
+    if API_TOKEN:
+        token = request.headers.get('X-DevHunt-Token')
+        if token != API_TOKEN:
+            return jsonify({"success": False, "error": "Unauthorized: Invalid or missing execution token."}), 401
 
 # ── Static pages ──────────────────────────────────────────────────────────────
 @app.after_request
@@ -38,11 +73,48 @@ def serve_frontend():
 
 @app.route('/logs')
 def serve_logs():
-    return app.send_static_file('logs.html')
+    # Try new build first, then legacy
+    try:
+        return app.send_static_file('logs.html')
+    except Exception:
+        return '', 404
 
 @app.route('/docs')
 def serve_docs():
-    return app.send_static_file('docs.html')
+    try:
+        return app.send_static_file('docs.html')
+    except Exception:
+        return '', 404
+
+@app.route('/api/logs/raw', methods=['GET'])
+def get_raw_logs():
+    try:
+        limit = request.args.get('limit', 200, type=int)
+        level = request.args.get('level')
+        category = request.args.get('category')
+        logs = logger.get_logs(limit=limit, level=level, category=category)
+        
+        lines = []
+        for log_entry in reversed(logs):
+            timestamp = log_entry.get('timestamp', '')
+            lvl = log_entry.get('level', 'INFO')
+            cat = log_entry.get('category', 'system')
+            msg = log_entry.get('message', '')
+            lines.append(f"[{timestamp}] [{lvl}] [{cat}] {msg}")
+            
+        return Response("\n".join(lines), mimetype='text/plain')
+    except Exception as e:
+        return f"Failed to retrieve logs: {e}", 500
+
+# SPA catch-all — all non-API routes return index.html for React Router
+@app.route('/<path:path>')
+def serve_spa(path):
+    if path.startswith('api/'):
+        return '', 404
+    static_file = _os.path.join(app.static_folder, path)
+    if _os.path.isfile(static_file):
+        return app.send_static_file(path)
+    return app.send_static_file('index.html')
 
 # ── Boot ──────────────────────────────────────────────────────────────────────
 init_db()
@@ -242,17 +314,18 @@ def get_keys_status_live():
 @app.route('/api/keys/<key_id>/test', methods=['POST'])
 def test_api_key(key_id):
     import time as _t
+    import keyring as _keyring
     from google import genai as _genai
+    key_label = key_id
     try:
         raw_key = None
-        key_label = key_id
         for k in key_manager.keys:
             if k['id'] == key_id:
-                raw_key   = key_manager._decrypt(k['key_encrypted'])
+                raw_key   = _keyring.get_password("DevHunt", key_id)
                 key_label = k['label']
                 break
         if not raw_key:
-            return jsonify({"success": False, "error": "Key not found"}), 404
+            return jsonify({"success": False, "error": "Key not found or not accessible in OS vault"}), 404
         t0     = _t.time()
         client = _genai.Client(api_key=raw_key)
         resp   = client.models.generate_content(model="gemma-4-26b-a4b-it", contents="Reply: OK")
@@ -265,6 +338,33 @@ def test_api_key(key_id):
         status = "quota_exceeded" if ("429" in err or "RESOURCE_EXHAUSTED" in err) else "error"
         logger.error("key_event", f"Key test FAILED: {key_label}", {"error": err})
         return jsonify({"success": False, "status": status, "error": err})
+
+
+# ── SETTINGS (aggregate endpoint used by the React frontend on load) ──────────
+@app.route('/api/settings', methods=['GET'])
+def get_settings_overview():
+    """Returns a combined snapshot of API keys and active model for frontend header badges."""
+    try:
+        keys      = key_manager.get_keys_list()
+        settings  = ProfileManager.get_settings()
+        model     = settings.get('selected_model', 'auto')
+        active    = [k for k in keys if k.get('status') == 'Active']
+        return jsonify({
+            "success": True,
+            "api_keys": active,
+            "all_keys": keys,
+            "active_model": model,
+            "key_count": len(active)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── CHECK-UPDATE alias (frontend calls /api/check-update) ─────────────────────
+@app.route('/api/check-update', methods=['GET'])
+def check_update_alias():
+    """Alias for /api/updates/check, used by React frontend update checker."""
+    return check_updates_endpoint()
 
 
 # ── MODELS ────────────────────────────────────────────────────────────────────
@@ -1162,8 +1262,13 @@ def get_system_notifications():
             
         # Load Local Announcements to merge
         try:
-            backend_dir = os.path.dirname(os.path.abspath(__file__))
-            local_notif_path = os.path.join(os.path.dirname(backend_dir), "notifications.json")
+            if _is_frozen:
+                import sys as _sys
+                base_dir = getattr(_sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+                local_notif_path = os.path.join(base_dir, "notifications.json")
+            else:
+                backend_dir = os.path.dirname(os.path.abspath(__file__))
+                local_notif_path = os.path.join(os.path.dirname(backend_dir), "notifications.json")
             if os.path.exists(local_notif_path):
                 with open(local_notif_path, "r", encoding="utf-8") as f:
                     local_data = json.load(f)
@@ -1512,9 +1617,14 @@ def music_delete(filename):
 
 
 # ── IDE ENDPOINTS ─────────────────────────────────────────────────────────────
-WORKSPACE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "empty_workspace")
-if os.path.basename(os.path.dirname(WORKSPACE_DIR)) == 'backend':
-    WORKSPACE_DIR = os.path.abspath(os.path.join(os.path.dirname(WORKSPACE_DIR), "..", "empty_workspace"))
+if _is_frozen:
+    app_data_root = _os.environ.get('LOCALAPPDATA') or _os.environ.get('APPDATA') or _os.path.expanduser('~')
+    WORKSPACE_DIR = _os.path.join(app_data_root, 'DevHunt', 'empty_workspace')
+else:
+    WORKSPACE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "empty_workspace")
+    if os.path.basename(os.path.dirname(WORKSPACE_DIR)) == 'backend':
+        WORKSPACE_DIR = os.path.abspath(os.path.join(os.path.dirname(WORKSPACE_DIR), "..", "empty_workspace"))
+
 if not os.path.exists(WORKSPACE_DIR):
     os.makedirs(WORKSPACE_DIR, exist_ok=True)
 
@@ -1544,6 +1654,27 @@ def get_project_tree(root_dir):
             pass
         return tree
     return walk(root_dir)
+
+@app.route('/api/ide/workspace', methods=['GET', 'POST'])
+def ide_workspace():
+    global WORKSPACE_DIR
+    if request.method == 'GET':
+        return jsonify({"success": True, "workspace": WORKSPACE_DIR})
+    else:
+        data = request.get_json() or {}
+        new_path = data.get('path', '').strip()
+        if not new_path:
+            return jsonify({"success": False, "error": "Path required"}), 400
+        if not os.path.exists(new_path) or not os.path.isdir(new_path):
+            return jsonify({"success": False, "error": "Directory does not exist"}), 400
+        
+        WORKSPACE_DIR = os.path.abspath(new_path)
+        logger.success("system", f"Workspace changed to: {WORKSPACE_DIR}")
+        try:
+            tree = get_project_tree(WORKSPACE_DIR)
+            return jsonify({"success": True, "workspace": WORKSPACE_DIR, "files": tree})
+        except Exception as e:
+            return jsonify({"success": True, "workspace": WORKSPACE_DIR, "files": [], "warning": str(e)})
 
 @app.route('/api/ide/files', methods=['GET'])
 def ide_list_files():
@@ -1845,5 +1976,19 @@ def ide_rename_item():
 
 # ── ENTRY POINT ───────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    logger.info("system", "DevHunt server starting")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=1225)
+    parser.add_argument('--token', type=str, default=None)
+    args, unknown = parser.parse_known_args()
+    
+    if args.token:
+        API_TOKEN = args.token
+    
+    if API_TOKEN:
+        logger.info("system", f"Secure API token authentication enabled (ends with ...{API_TOKEN[-4:] if len(API_TOKEN) > 4 else ''})")
+    else:
+        logger.warn("system", "Running without secure API token authentication.")
+        
+    logger.info("system", f"DevHunt server starting on host 127.0.0.1, port {args.port}")
+    app.run(host='127.0.0.1', port=args.port, debug=not _is_frozen)

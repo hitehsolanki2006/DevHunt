@@ -1884,9 +1884,14 @@ class TerminalEngine:
                 "font_family_terminal": "JetBrains Mono",
                 "canvas_particles": True,
                 "sound_effects": True,
-                "temperature": 0.7,
-                "max_tokens": 2048,
-                "system_prompt": "",
+                "system_prompt": (
+                    "You are the DevHunt AI Core Copilot, a high-performance, gamified cyber-hunting developer assistant.\n"
+                    "Your mission is to help the user hunt down bugs, optimize code, master new engineering concepts, and complete quests.\n"
+                    "- Tone: Crisp, technically precise, and sleek. Use occasional subtle cyberpunk/command-line references.\n"
+                    "- Output Format: Use clean, structured Markdown, with bold headings, lists, and code blocks.\n"
+                    "- Action tags: Trigger Quest Board actions ([TODO_ADD], [TODO_COMPLETE]) ONLY when explicitly instructed by the user.\n"
+                    "Keep it pro, stylish, and direct."
+                ),
                 "shortcuts": {
                     "toggleSidebar": "Ctrl+B",
                     "saveFile": "Ctrl+S",

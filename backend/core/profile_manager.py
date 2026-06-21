@@ -76,6 +76,7 @@ class ProfileManager:
                 "dismissed_update": None,
                 "read_notifications": [],
                 "theme": "slate",
+                "icon_theme": "emoji",
                 "terminal_username": "guest",
                 "terminal_hostname": "devhunt",
                 "terminal_prompt_symbol": "$",
@@ -89,7 +90,14 @@ class ProfileManager:
                 "sound_effects": True,
                 "temperature": 0.7,
                 "max_tokens": 2048,
-                "system_prompt": "",
+                "system_prompt": (
+                    "You are the DevHunt AI Core Copilot, a high-performance, gamified cyber-hunting developer assistant.\n"
+                    "Your mission is to help the user hunt down bugs, optimize code, master new engineering concepts, and complete quests.\n"
+                    "- Tone: Crisp, technically precise, and sleek. Use occasional subtle cyberpunk/command-line references.\n"
+                    "- Output Format: Use clean, structured Markdown, with bold headings, lists, and code blocks.\n"
+                    "- Action tags: Trigger Quest Board actions ([TODO_ADD], [TODO_COMPLETE]) ONLY when explicitly instructed by the user.\n"
+                    "Keep it pro, stylish, and direct."
+                ),
                 "read_notifications": [],
                 "dismissed_notifications": [],
                 "shortcuts": {
@@ -107,7 +115,12 @@ class ProfileManager:
                     "quests": True,
                     "vault": True,
                     "doc-analysis": True,
-                    "arcade": True
+                    "arcade": True,
+                    "linkedin": True,
+                    "search": True,
+                    "stats": True,
+                    "terminal": True,
+                    "notifications": True
                 }
             }
             ProfileManager.save_settings(default_settings)
@@ -122,6 +135,8 @@ class ProfileManager:
                     data["dismissed_notifications"] = []
                 if "theme" not in data:
                     data["theme"] = "slate"
+                if "icon_theme" not in data:
+                    data["icon_theme"] = "emoji"
                 if "terminal_username" not in data:
                     data["terminal_username"] = "guest"
                 if "terminal_hostname" not in data:
@@ -148,8 +163,15 @@ class ProfileManager:
                     data["temperature"] = 0.7
                 if "max_tokens" not in data:
                     data["max_tokens"] = 2048
-                if "system_prompt" not in data:
-                    data["system_prompt"] = ""
+                if "system_prompt" not in data or not data["system_prompt"]:
+                    data["system_prompt"] = (
+                        "You are the DevHunt AI Core Copilot, a high-performance, gamified cyber-hunting developer assistant.\n"
+                        "Your mission is to help the user hunt down bugs, optimize code, master new engineering concepts, and complete quests.\n"
+                        "- Tone: Crisp, technically precise, and sleek. Use occasional subtle cyberpunk/command-line references.\n"
+                        "- Output Format: Use clean, structured Markdown, with bold headings, lists, and code blocks.\n"
+                        "- Action tags: Trigger Quest Board actions ([TODO_ADD], [TODO_COMPLETE]) ONLY when explicitly instructed by the user.\n"
+                        "Keep it pro, stylish, and direct."
+                    )
                 if "shortcuts" not in data:
                     data["shortcuts"] = {
                         "toggleSidebar": "Ctrl+B",
@@ -167,11 +189,17 @@ class ProfileManager:
                         "quests": True,
                         "vault": True,
                         "doc-analysis": True,
-                        "arcade": True
+                        "arcade": True,
+                        "linkedin": True,
+                        "search": True,
+                        "stats": True,
+                        "terminal": True,
+                        "notifications": True
                     }
                 else:
-                    if "arcade" not in data["feature_toggles"]:
-                        data["feature_toggles"]["arcade"] = True
+                    for k in ["music", "path", "quests", "vault", "doc-analysis", "arcade", "linkedin", "search", "stats", "terminal", "notifications"]:
+                        if k not in data["feature_toggles"]:
+                            data["feature_toggles"][k] = True
                 return data
         except Exception:
             return {}
@@ -191,7 +219,7 @@ class ProfileManager:
             'terminal_sound', 'font_size_editor', 'font_size_terminal',
             'font_family_editor', 'font_family_terminal', 'font_family_system', 'canvas_particles',
             'sound_effects', 'temperature', 'max_tokens', 'system_prompt',
-            'shortcuts'
+            'shortcuts', 'icon_theme'
         ]
         for k, v in updates.items():
             if k in allowed:

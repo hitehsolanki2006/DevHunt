@@ -22,6 +22,21 @@ class KeyManager:
             except Exception:
                 self.keys = []
 
+        # Migrate existing encrypted keys to OS keyring if any
+        migrated = False
+        import keyring
+        for k in self.keys:
+            if 'key_encrypted' in k:
+                try:
+                    decrypted = self._decrypt(k['key_encrypted'])
+                    keyring.set_password("DevHunt", k['id'], decrypted)
+                    del k['key_encrypted']
+                    migrated = True
+                except Exception as e:
+                    print(f"Failed to migrate key {k.get('id')} to keyring: {e}")
+        if migrated:
+            self._save_keys()
+
     def _save_keys(self):
         with open(KEYS_PATH, 'w') as f:
             json.dump(self.keys, f, indent=4)
@@ -33,10 +48,11 @@ class KeyManager:
         return self.fernet.decrypt(encrypted_key.encode()).decode()
 
     def add_key(self, raw_key: str, label: str = None) -> dict:
+        import keyring
         # Check if already exists
         for k in self.keys:
             try:
-                decrypted = self._decrypt(k['key_encrypted'])
+                decrypted = keyring.get_password("DevHunt", k['id'])
                 if decrypted == raw_key:
                     return {"success": False, "message": "API Key already exists."}
             except Exception:
@@ -45,9 +61,14 @@ class KeyManager:
         if not label:
             label = f"Key_{str(uuid.uuid4())[:8]}"
 
+        key_id = str(uuid.uuid4())
+        try:
+            keyring.set_password("DevHunt", key_id, raw_key)
+        except Exception as e:
+            return {"success": False, "message": f"Failed to store key in OS vault: {str(e)}"}
+
         new_key = {
-            "id": str(uuid.uuid4()),
-            "key_encrypted": self._encrypt(raw_key),
+            "id": key_id,
             "label": label,
             "status": "Active", # "Active", "Cooling Down", "Error", "Disabled"
             "cooldown_until": 0,
@@ -59,10 +80,15 @@ class KeyManager:
         return {"success": True, "key": self._mask_key(new_key)}
 
     def remove_key(self, key_id: str) -> bool:
+        import keyring
         initial_len = len(self.keys)
         self.keys = [k for k in self.keys if k['id'] != key_id]
         if len(self.keys) != initial_len:
             self._save_keys()
+            try:
+                keyring.delete_password("DevHunt", key_id)
+            except Exception:
+                pass
             return True
         return False
 
@@ -84,11 +110,15 @@ class KeyManager:
         return [self._mask_key(k) for k in self.keys]
 
     def _mask_key(self, key_dict: dict) -> dict:
+        import keyring
         try:
-            decrypted = self._decrypt(key_dict['key_encrypted'])
-            masked = decrypted[:6] + "..." + decrypted[-4:] if len(decrypted) > 10 else "..."
+            decrypted = keyring.get_password("DevHunt", key_dict['id'])
+            if decrypted:
+                masked = decrypted[:6] + "..." + decrypted[-4:] if len(decrypted) > 10 else "..."
+            else:
+                masked = "not_found_in_vault"
         except Exception:
-            masked = "error_decrypting"
+            masked = "error_reading_vault"
         
         return {
             "id": key_dict['id'],
@@ -118,6 +148,7 @@ class KeyManager:
         Falls back to any Active key if the current index is not Active.
         Returns (key_string, key_id) or (None, None).
         """
+        import keyring
         self._refresh_cooldowns()
         active_keys = [k for k in self.keys if k['status'] == "Active"]
         if not active_keys:
@@ -130,10 +161,13 @@ class KeyManager:
             self._current_key_index = (self._current_key_index + 1) % len(active_keys)
 
             try:
-                decrypted_key = self._decrypt(k['key_encrypted'])
-                return decrypted_key, k['id']
+                decrypted_key = keyring.get_password("DevHunt", k['id'])
+                if decrypted_key:
+                    return decrypted_key, k['id']
+                else:
+                    raise Exception("Key not found in vault")
             except Exception as e:
-                print("Decryption failed in get_active_key_string:", e)
+                print("Key retrieval from vault failed in get_active_key_string:", e)
                 k['status'] = "Error"
                 self._save_keys()
                 # Re-evaluate active keys list since we disabled one
