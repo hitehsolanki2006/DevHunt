@@ -1,0 +1,22 @@
+# Robots.txt for DevHunt
+# https://dev-hunt-local.netlify.app/robots.txt
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://dev-hunt-local.netlify.app/sitemap.xml
+
+# Crawl delay (optional - be nice to servers)
+Crawl-delay: 1
+
+# Disallow admin or private paths (if any in future)
+# Disallow: /admin/
+# Disallow: /private/
+
+# Allow search engines to index main content
+Allow: /index.html
+Allow: /docs.html
+Allow: /*.png
+Allow: /*.jpg
+Allow: /*.svg

@@ -51,10 +51,9 @@ DevHunt is designed to require zero manual Python environment configuration.
 
 ### The Easiest Way: Automated Launchers
 
-1.  **Clone the Repository**:
     ```bash
     git clone https://github.com/hitehsolanki2006/DevHunt.git
-    cd Local-AI
+    cd DevHunt
     ```
 
 2.  **Run the Launcher**:
@@ -78,7 +77,7 @@ DevHunt is designed to require zero manual Python environment configuration.
 
 3.  **Register your Gemini API Key**:
     *   Get a free key from the [Google AI Studio Console](https://aistudio.google.com/app/apikey).
-    *   Open the DevHunt dashboard at `http://localhost:5000`.
+    *   Open the DevHunt dashboard at `http://localhost:1225`.
     *   Navigate to **Settings & Nodes** in the sidebar, paste your key, and click **+ Register Key**.
 
 4.  **Connect via Host Command Line (Optional)**:
@@ -111,7 +110,7 @@ python app.py
 ## 📁 Repository Structure
 
 ```
-Local-AI/
+DevHunt/
 ├── backend/
 │   ├── app.py                # Flask API application entry point
 │   ├── config.py             # App paths, settings constants, and AES secrets
@@ -130,21 +129,15 @@ Local-AI/
 │       ├── profile_manager.py# User profile & settings manager
 │       ├── analytics.py      # Local usage & streak calculations
 │       └── db.py             # SQLite connection pools & schema setup
-├── docs/                     # System and module documentation guide
-│   ├── roadmap.md            # Collapsible study roadmap completed & future milestones
-│   ├── hunt_terminal_docs.md # Hunt terminal emulator commands detailed specification
-│   ├── app_endpoints.md      # Full listing of backend HTTP REST/SSE endpoints
-│   ├── arcade_and_layout.md  # Arcade design, canvas overlays, and minimize sidebar specification
-│   └── ...
-├── frontend/
-│   ├── index.html            # Core user interface
-│   ├── logs.html             # System logs debugger dashboard
-│   ├── app.js                # SSE receivers, state handlers, & rendering
-│   └── styles.css            # Custom CSS themes & glassmorphism styling
-├── run.bat                   # Automated Windows launcher
+├── frontend-src/             # Vite + React IDE (modern interface)
+│   ├── src/                  # React components & pages
+│   ├── dist/                 # Compiled production bundle (served by Flask)
+│   └── public/               # Static assets (docs.html, logs.html, logo.png)
+├── frontend/                 # Legacy plain HTML/JS interface (fallback)
+├── devhunt-website/          # Netlify-ready static marketing site
+├── run.bat                   # Automated Windows launcher (port 1225)
 ├── run.sh                    # Automated macOS/Linux launcher
-├── hunter.bat                # Host console connection batch file (Windows)
-├── hunter                    # Host console connection shell script (Unix)
+├── build_desktop.bat         # Full desktop EXE builder (Tauri + PyInstaller)
 └── README.md
 ```
 
@@ -174,19 +167,7 @@ Local-AI/
 
 ## 📖 Module & Functions Documentation
 
-Comprehensive documentation describing every single function, parameters, outputs, and internal execution pipelines is available in the [docs/](file:///d:/My%20projects/Local-AI/docs/) directory:
-
-*   [roadmap.md](file:///d:/My%20projects/Local-AI/docs/roadmap.md): Completed milestones (roadmaps, document analyst, scraper upgrades) and future architectural layout.
-*   [hunt_terminal_docs.md](file:///d:/My%20projects/Local-AI/docs/hunt_terminal_docs.md): Comprehensive reference guide of all available `hunt` terminal CLI commands.
-*   [check_requirements.py](file:///d:/My%20projects/Local-AI/docs/check_requirements.md): Package version matching & system path verification.
-*   [todo_manager.py](file:///d:/My%20projects/Local-AI/docs/todo_manager.md): CRUD transactions for Quest Board tasks.
-*   [chat_engine.py](file:///d:/My%20projects/Local-AI/docs/chat_engine.md): SSE streaming, key rotation, and context aggregation.
-*   [terminal_engine.py](file:///d:/My%20projects/Local-AI/docs/terminal_engine.md): Hunt Terminal CLI pipeline and subcommand handlers.
-*   [update_manager.py](file:///d:/My%20projects/Local-AI/docs/update_manager.md): Auto-updater checks and git operations.
-*   [memory_manager.py](file:///d:/My%20projects/Local-AI/docs/memory_manager.md): Asynchronous AI core memory consolidator.
-*   [auxiliary_core.md](file:///d:/My%20projects/Local-AI/docs/auxiliary_core.md): Profile metrics, local analytics, key masking, and database pools.
-*   [app_endpoints.md](file:///d:/My%20projects/Local-AI/docs/app_endpoints.md): Full listing of all HTTP endpoints in the backend.
-*   [arcade_and_layout.md](file:///d:/My%20projects/Local-AI/docs/arcade_and_layout.md): Game Arcade canvas, non-blocking overlays, and sidebar layout configuration.
+Comprehensive documentation is available at the [GitHub repository](https://github.com/hitehsolanki2006/DevHunt/tree/main/docs) or view the full interactive docs at `http://localhost:1225/docs` when the app is running.
 
 ---
 
@@ -218,7 +199,8 @@ DevHunt is open-source software released under the [MIT License](LICENSE).
 
 ## 👥 Created By
 
-**Hitesh Solanki**
+**Hitesh Solanki** — Hunter Group
 *   **Website**: [hiteshsolanki.in](https://hiteshsolanki.in)
 *   **Email**: solankihiteshpankajbhai7@gmail.com
+*   **GitHub**: [hitehsolanki2006](https://github.com/hitehsolanki2006)
 *   **Mobile**: +91 9327810431

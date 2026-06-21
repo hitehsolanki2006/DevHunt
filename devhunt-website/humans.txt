@@ -1,0 +1,37 @@
+/* TEAM */
+
+Creator: Hiteh Solanki
+GitHub: https://github.com/hitehsolanki2006
+Project: DevHunt
+
+/* SITE */
+
+Last update: 2026/06/21
+Standards: HTML5, CSS3
+Components: React, Vite, Flask, Tauri, Python
+Software: VS Code, Git
+
+/* THANKS */
+
+Open Source Community
+Google Gemini AI
+React Team
+Tauri Team
+Python Community
+
+/* PROJECT */
+
+Name: DevHunt
+Description: Local-first AI developer workspace
+License: MIT
+Repository: https://github.com/hitehsolanki2006/DevHunt
+Version: 1.0.0
+
+/* STACK */
+
+Frontend: React 19, Vite, CodeMirror 6
+Backend: Python 3.10+, Flask
+Desktop: Tauri v2, Rust
+Database: SQLite
+AI: Google Gemini SDK
+Fonts: Plus Jakarta Sans, JetBrains Mono

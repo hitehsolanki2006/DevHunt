@@ -33,7 +33,7 @@ The Google GenAI SDK (`google-genai`) is imported and utilized across seven dist
 
 ### 2. Conversational Chat Engine (`backend/core/chat_engine.py`)
 * **Functions**: `send_message` (POST `/api/chat`) and `stream_message` (POST `/api/chat/stream`).
-* **Model Used**: Evaluated dynamically via `classify_query()` from [model_selector.py](file:///d:/My%20projects/Local-AI/backend/core/model_selector.py):
+* **Model Used**: Evaluated dynamically via `classify_query()` from [model_selector.py](file:///e:/git-projects/DevHunt/backend/core/model_selector.py):
   - Uses `gemini-2.5-flash` if the search similarity queries yield matching RAG documents context (`similarity > 0.45`).
   - Uses `gemini-3.1-flash-lite` by default for standard queries to maximize throughput speed and conserve daily quotas.
   - Can be manually overridden via `model_override` parameters in JSON request payloads.
