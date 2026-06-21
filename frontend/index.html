@@ -11,6 +11,39 @@
     href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Fira+Sans:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&family=Outfit:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tokenParam = urlParams.get('token');
+      if (tokenParam) {
+        localStorage.setItem('X-DevHunt-Token', tokenParam);
+        window.__DEVHUNT_TOKEN__ = tokenParam;
+      } else {
+        window.__DEVHUNT_TOKEN__ = localStorage.getItem('X-DevHunt-Token') || '';
+      }
+
+      const originalFetch = window.fetch;
+      window.fetch = async function (url, options = {}) {
+        if (typeof url === 'string' && url.includes('/api/')) {
+          options.headers = options.headers || {};
+          const token = window.__DEVHUNT_TOKEN__;
+          if (token) {
+            if (options.headers instanceof Headers) {
+              options.headers.set('X-DevHunt-Token', token);
+            } else if (Array.isArray(options.headers)) {
+              const hasToken = options.headers.some(([k]) => k.toLowerCase() === 'x-devhunt-token');
+              if (!hasToken) {
+                options.headers.push(['X-DevHunt-Token', token]);
+              }
+            } else {
+              options.headers['X-DevHunt-Token'] = token;
+            }
+          }
+        }
+        return originalFetch(url, options);
+      };
+    })();
+  </script>
 </head>
 
 <body class="theme-slate">
@@ -19,17 +52,7 @@
   <!-- 1. TOP MAIN HEADER -->
   <header class="topbar-main">
     <div class="brand">
-      <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="dg-slate" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stop-color="#3b82f6" />
-            <stop offset="100%" stop-color="#1d4ed8" />
-          </linearGradient>
-        </defs>
-        <path fill="url(#dg-slate)"
-          d="M8 36c4-8 12-10 18-6 2-6 8-10 14-8 4 2 6 6 4 10-2 4-8 4-10 0 2 6-2 12-8 12-4 0-8-2-10-6-2 6 2 12 8 14-8 2-18-4-16-16zm38-16c2 0 4 2 4 4s-2 4-4 4-4-2-4-4 2-4 4-4z" />
-        <circle cx="46" cy="22" r="1.5" fill="#1e1e24" />
-      </svg>
+      <img class="logo-svg" src="logo.png" alt="DevHunt Logo" />
       <span class="brand-name">DevHunt</span>
     </div>
 
@@ -206,7 +229,7 @@
     <!-- 3. COLLAPSIBLE EXPLORER SIDE PANEL -->
     <aside class="explorer-sidebar" id="explorer-sidebar">
       <div class="explorer-header">
-        <span id="explorer-title">EXPLORER: LOCAL-AI</span>
+        <span id="explorer-title">EXPLORER: DEVHUNT</span>
         <div style="display: flex; gap: 6px; align-items: center;">
           <button id="explorer-new-file-btn" class="explorer-action-btn" title="New File"
             style="background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px;">
@@ -1876,7 +1899,7 @@
       <span class="status-bar-sep">|</span>
       <span>v1.2.0</span>
       <span class="status-bar-sep">|</span>
-      <span>api :: localhost:5000</span>
+      <span id="status-bar-api-text">api :: localhost:1225</span>
     </div>
     <div class="status-bar-right">
       <span class="status-bar-text" id="status-bar-indent-size">

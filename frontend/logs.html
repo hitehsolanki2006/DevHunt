@@ -413,7 +413,39 @@
 <div class="page-footer" id="page-footer">DevHunt System Logs — Real-time SQLite stream viewer</div>
 
 <script>
-const API = 'http://localhost:5000/api';
+(function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const tokenParam = urlParams.get('token');
+  if (tokenParam) {
+    localStorage.setItem('X-DevHunt-Token', tokenParam);
+    window.__DEVHUNT_TOKEN__ = tokenParam;
+  } else {
+    window.__DEVHUNT_TOKEN__ = localStorage.getItem('X-DevHunt-Token') || '';
+  }
+
+  const originalFetch = window.fetch;
+  window.fetch = async function (url, options = {}) {
+    if (typeof url === 'string' && url.includes('/api/')) {
+      options.headers = options.headers || {};
+      const token = window.__DEVHUNT_TOKEN__;
+      if (token) {
+        if (options.headers instanceof Headers) {
+          options.headers.set('X-DevHunt-Token', token);
+        } else if (Array.isArray(options.headers)) {
+          const hasToken = options.headers.some(([k]) => k.toLowerCase() === 'x-devhunt-token');
+          if (!hasToken) {
+            options.headers.push(['X-DevHunt-Token', token]);
+          }
+        } else {
+          options.headers['X-DevHunt-Token'] = token;
+        }
+      }
+    }
+    return originalFetch(url, options);
+  };
+})();
+
+const API = `${window.location.origin}/api`;
 let autoTimer = null;
 let autoActive = false;
 let lastLogCount = 0;
@@ -558,7 +590,7 @@ async function loadLogs() {
       <div class="empty-state">
         <div class="icon">⚠️</div>
         <p>// Error loading logs: ${escHtml(e.message)}</p>
-        <p style="font-size:11px; margin-top:4px">Is the Flask server running on localhost:5000?</p>
+        <p style="font-size:11px; margin-top:4px">Is the Flask server running? Try: <code>run.bat</code> (default port 1225)</p>
       </div>`;
   }
 }

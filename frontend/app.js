@@ -1,5 +1,13 @@
 const API_BASE = '/api';
 
+// Dynamically display correct API host in bottom status bar
+document.addEventListener("DOMContentLoaded", () => {
+  const apiSpan = document.getElementById("status-bar-api-text");
+  if (apiSpan) {
+    apiSpan.textContent = `api :: ${window.location.host}`;
+  }
+});
+
 /* ========== Sidebar navigation ========== */
 (() => {
   const c = document.getElementById('dragon-bg');
@@ -830,7 +838,7 @@ async function sendChatMessage() {
     }
 
   } catch (error) {
-    aiDiv.innerHTML = `⚠️ **Network Connection Failed**. Verify Flask API is active on localhost:5000.`;
+    aiDiv.innerHTML = `⚠️ **Network Connection Failed**. Verify Flask API is active on localhost:1225.`;
   }
 }
 
@@ -3393,9 +3401,9 @@ function updatePrompt(promptEl) {
   let displayCwd = terminalCwd;
 
   // Try to find the root folder path and substitute with ~
-  const rootIndex = terminalCwd.indexOf("Local-AI");
+  const rootIndex = terminalCwd.indexOf("DevHunt");
   if (rootIndex !== -1) {
-    const subPath = terminalCwd.substring(rootIndex + 8).replace(/\\/g, '/');
+    const subPath = terminalCwd.substring(rootIndex + 7).replace(/\\/g, '/');
     displayCwd = "~" + subPath;
   } else {
     // If not matching, just display basename
@@ -6349,7 +6357,7 @@ window.closeLocalFolder = () => {
   if (menuCloseLocal) menuCloseLocal.style.display = 'none';
   
   const explTitle = document.getElementById('explorer-title');
-  if (explTitle) explTitle.textContent = `EXPLORER: LOCAL-AI`;
+  if (explTitle) explTitle.textContent = `EXPLORER: DEVHUNT`;
   
   window.renderTabs();
   window.refreshExplorer();

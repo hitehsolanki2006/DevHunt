@@ -8,53 +8,69 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&family=Caveat:wght@700&display=swap" rel="stylesheet">
 <style>
   :root {
-    /* Classic Light Theme (Docker / Kubernetes Style) */
-    --bg: #f8fafc;
-    --bg-2: #f1f5f9;
-    --surface: #ffffff;
-    --border: #cbd5e1;
-    --border-hot: #4f46e5;
-    --text: #0f172a;
-    --muted: #64748b;
+    /* Premium Dark Theme (Matching DevHunt Site) */
+    --bg: #060608;
+    --bg-2: #0b0b0f;
+    --surface: #0e0e12;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-hot: #10b981;
+    --text: #ededed;
+    --muted: #888888;
     --green: #10b981;
-    --cyan: #4f46e5;
+    --cyan: #06b6d4;
     --magenta: #d946ef;
     --amber: #f59e0b;
     --red: #ef4444;
-    --accent: #4f46e5;
-    --display: 'Inter', sans-serif;
+    --accent: #10b981;
+    --display: 'Plus Jakarta Sans', 'Inter', sans-serif;
     --mono: 'JetBrains Mono', monospace;
     --sans: 'Inter', sans-serif;
   }
 
-
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13.5px; min-height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
+  body { 
+    background: var(--bg); 
+    color: var(--text); 
+    font-family: var(--sans); 
+    font-size: 13.5px; 
+    min-height: 100vh; 
+    overflow: hidden; 
+    transition: background 0.3s, color 0.3s; 
+  }
 
   /* Top Bar */
   .topbar {
     display: flex; align-items: center; gap: 20px;
     padding: 10px 24px; border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
+    background: rgba(6, 6, 8, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     position: sticky; top: 0; z-index: 100; height: 50px;
   }
-  .topbar h1 { font-family: var(--display); font-size: 14px; color: var(--green); letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+  .topbar h1 { 
+    font-family: var(--display); 
+    font-size: 14px; 
+    color: #ffffff; 
+    letter-spacing: 1px; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+  }
   .topbar h1 span { font-size: 11px; color: var(--muted); font-family: var(--sans); letter-spacing: 1px; font-weight: normal; }
 
   /* Search Container in Top Bar */
   .search-box-container {
-    display: flex; align-items: center; background: rgba(0,0,0,0.04);
+    display: flex; align-items: center; background: rgba(255,255,255,0.02);
     border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
     width: 320px; max-width: 400px; cursor: pointer; transition: all 0.2s;
   }
-  .search-box-container:hover { border-color: var(--cyan); box-shadow: 0 0 10px rgba(79, 70, 229, 0.1); }
+  .search-box-container:hover { border-color: var(--border-hot); box-shadow: 0 0 10px rgba(16, 185, 129, 0.1); }
   .search-box-container input {
     background: transparent; border: none; outline: none; color: var(--text);
     font-family: var(--mono); font-size: 11.5px; flex: 1; pointer-events: none;
   }
   .search-kbd {
-    background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1);
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
     color: var(--muted); font-family: var(--mono); font-size: 9px;
     padding: 2px 5px; border-radius: 4px; display: inline-block; font-weight: bold;
   }
@@ -68,13 +84,13 @@
 
   /* Sidebar Navigation (Left) */
   .left-sidebar {
-    width: 260px; flex-shrink: 0; background: rgba(0,0,0,0.15);
+    width: 260px; flex-shrink: 0; background: #08080a;
     border-right: 1px solid var(--border); padding: 16px;
     display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
   }
   .sidebar-filter-wrapper { position: relative; }
   .sidebar-filter-wrapper input {
-    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    width: 100%; background: rgba(255,255,255,0.02); border: 1px solid var(--border);
     color: var(--text); font-family: var(--sans); font-size: 12px;
     padding: 6px 10px; border-radius: 5px; outline: none; transition: border-color 0.2s;
   }
@@ -90,14 +106,14 @@
     font-size: 12px; color: var(--muted); text-decoration: none;
     transition: all 0.2s ease; cursor: pointer; border: 1px solid transparent;
   }
-  .sidebar-nav-link:hover { background: rgba(0, 0, 0, 0.04); color: var(--text); }
+  .sidebar-nav-link:hover { background: var(--bg-card-h); color: var(--text); }
   .sidebar-nav-link.active {
-    background: rgba(0, 255, 163, 0.08); border-color: rgba(0, 255, 163, 0.15);
+    background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.15);
     color: var(--green); font-weight: bold;
   }
 
   /* Content Area */
-  .content-pane { flex: 1; overflow-y: auto; padding: 32px 40px; background: rgba(0,0,0,0.08); scroll-behavior: smooth; }
+  .content-pane { flex: 1; overflow-y: auto; padding: 32px 40px; background: var(--bg); scroll-behavior: smooth; }
   
   /* Breadcrumbs */
   .breadcrumbs {
@@ -118,7 +134,7 @@
   /* Right Sidebar (Table of Contents) */
   .right-sidebar {
     width: 220px; flex-shrink: 0; border-left: 1px solid var(--border);
-    background: rgba(0,0,0,0.1); padding: 24px 16px; overflow-y: auto;
+    background: #08080a; padding: 24px 16px; overflow-y: auto;
   }
   .toc-title {
     font-family: var(--display); font-size: 9px; color: var(--cyan);
@@ -136,24 +152,26 @@
 
   /* Article Details Styling */
   .card-container { display: flex; flex-direction: column; gap: 28px; }
-  h1.section-title { font-family: var(--display); font-size: 20px; color: var(--green); margin-bottom: 14px; text-shadow: none; }
+  h1.section-title { font-family: var(--display); font-size: 20px; color: #ffffff; margin-bottom: 14px; text-shadow: none; }
   h2.section-subtitle {
     font-family: var(--display); font-size: 14px; color: var(--cyan);
     margin-top: 32px; margin-bottom: 12px; border-bottom: 1px solid var(--border);
     padding-bottom: 8px; letter-spacing: 0.5px;
   }
-  h3.section-inner-title { font-family: var(--sans); font-size: 13px; color: var(--text); margin-top: 24px; margin-bottom: 8px; font-weight: 600; }
-  p { line-height: 1.65; color: var(--text); margin-bottom: 14px; font-size: 13.5px; }
-  ul, ol { padding-left: 24px; margin-bottom: 14px; line-height: 1.65; color: var(--text); }
+  h3.section-inner-title { font-family: var(--sans); font-size: 13px; color: #ffffff; margin-top: 24px; margin-bottom: 8px; font-weight: 600; }
+  p { line-height: 1.65; color: var(--text-muted); margin-bottom: 14px; font-size: 13.5px; }
+  p strong { color: #ffffff; }
+  ul, ol { padding-left: 24px; margin-bottom: 14px; line-height: 1.65; color: var(--text-muted); }
   li { margin-bottom: 6px; font-size: 13.5px; }
-  code { font-family: var(--mono); background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px; color: var(--cyan); font-size: 12px; }
+  li strong { color: #ffffff; }
+  code { font-family: var(--mono); background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; color: var(--cyan); font-size: 12px; }
   pre {
-    background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px;
+    background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px;
     padding: 16px; overflow-x: auto; margin: 16px 0; font-family: var(--mono); font-size: 12px; line-height: 1.5;
     color: var(--text);
   }
   .callout {
-    border-left: 3px solid var(--amber); background: rgba(255,181,71,0.03);
+    border-left: 3px solid var(--amber); background: rgba(245,158,11,0.03);
     padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 18px 0;
   }
   .callout-title { font-weight: 700; color: var(--amber); margin-bottom: 4px; font-family: var(--display); font-size: 10.5px; letter-spacing: 1px; }
@@ -161,9 +179,9 @@
   /* Tables */
   .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   .data-table th, .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: left; }
-  .data-table th { font-family: var(--display); font-size: 10.5px; color: var(--cyan); background: var(--bg-2); letter-spacing: 1px; }
+  .data-table th { font-family: var(--display); font-size: 10.5px; color: var(--cyan); background: rgba(255,255,255,0.02); letter-spacing: 1px; }
   .data-table td { font-size: 12.5px; }
-  .data-table tr:hover { background: rgba(0,0,0,0.01); }
+  .data-table tr:hover { background: rgba(255,255,255,0.01); }
 
   /* Badges */
   .badge {
@@ -177,10 +195,10 @@
   /* Grid details */
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 18px 0; }
   .grid-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px;
+    background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 20px;
     display: flex; flex-direction: column; justify-content: space-between; transition: border-color 0.2s;
   }
-  .grid-card:hover { border-color: var(--cyan); }
+  .grid-card:hover { border-color: var(--border-hot); }
   .grid-card h4 { font-family: var(--display); font-size: 12.5px; color: var(--cyan); margin-bottom: 8px; }
   .grid-card p { margin-bottom: 16px; font-size: 12px; line-height: 1.5; color: var(--muted); }
 
@@ -190,7 +208,7 @@
     font-family: var(--mono); font-size: 11px; cursor: pointer; border: 1px solid transparent;
     letter-spacing: 1px; font-weight: bold; text-align: center; transition: all 0.2s;
   }
-  .btn-primary { background: var(--green); color: #0b0f14; }
+  .btn-primary { background: var(--green); color: #060608; }
   .btn-primary:hover { background: #00d492; transform: translateY(-1px); }
   .btn-ghost { background: transparent; border-color: rgba(56,189,248,0.4); color: var(--cyan); }
   .btn-ghost:hover { background: rgba(56,189,248,0.05); transform: translateY(-1px); }
@@ -198,18 +216,18 @@
   /* Algolia-like search modal */
   .modal-overlay {
     display: none; align-items: flex-start; padding-top: 10vh;
-    background: rgba(5,7,10,0.85); backdrop-filter: blur(4px);
+    background: rgba(3,3,4,0.85); backdrop-filter: blur(4px);
     position: fixed; inset: 0; z-index: 1000;
   }
   .modal-overlay.show { display: flex; }
   .search-modal {
-    width: 600px; background: var(--surface); border: 1px solid var(--border);
+    width: 600px; background: #09090c; border: 1px solid var(--border);
     border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
-    max-height: 70vh; box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    max-height: 70vh; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
   }
   .search-modal-header {
     display: flex; align-items: center; padding: 14px;
-    border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.03);
+    border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);
   }
   .search-modal-header input {
     flex: 1; border: none; background: transparent; color: var(--text);
@@ -218,28 +236,29 @@
   .search-modal-results { overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
   
   .search-result-item {
-    padding: 10px 14px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.04);
-    background: rgba(0,0,0,0.01); cursor: pointer; transition: all 0.15s;
+    padding: 10px 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.01); cursor: pointer; transition: all 0.15s;
   }
   .search-result-item:hover, .search-result-item.selected {
     background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.2);
   }
   .search-result-title { font-family: var(--display); font-size: 11px; color: var(--green); margin-bottom: 4px; }
-  .search-result-match { font-size: 12px; color: var(--text); line-height: 1.45; }
+  .search-result-match { font-size: 12px; color: var(--text-muted); line-height: 1.45; }
   .search-result-match mark { background: rgba(79, 70, 229, 0.15); color: var(--cyan); font-weight: bold; border-radius: 2px; padding: 0 2px; }
   
   .search-modal-footer {
     display: flex; justify-content: space-between; align-items: center;
     padding: 8px 16px; border-top: 1px solid var(--border);
-    background: rgba(0,0,0,0.03); font-size: 10.5px; color: var(--muted);
+    background: rgba(255,255,255,0.02); font-size: 10.5px; color: var(--muted);
   }
-  .search-modal-footer span kbd { background: rgba(0,0,0,0.05); padding: 1px 4px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.08); }
+  .search-modal-footer span kbd { background: rgba(255,255,255,0.04); padding: 1px 4px; border-radius: 3px; border: 1px solid var(--border); }
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <h1>⬡ DEVHUNT DOCUMENTATION <span>v1.2.0</span></h1>
+  <img src="/logo.png" alt="DevHunt" style="height:32px; width:32px; object-fit:contain; border-radius:7px; flex-shrink:0;">
+  <h1>⬡ DEVHUNT DOCUMENTATION <span>v1.0 Beta</span></h1>
   
   <!-- Interactive Top Search -->
   <div class="search-box-container" onclick="openSearchModal()">
@@ -297,6 +316,61 @@
         <p><strong>DevHunt</strong> is a local-first, developer-centric environment designed by developers, for developers. It functions as an integrated center displaying analytics, a terminal-like environment (Hunt Terminal), and a RAG-powered cognitive assistant.</p>
         
         <p>A core feature in this ecosystem is the <strong>Multi-Agent Document Intelligence and Forensics</strong> tool (Doc Forensics). This subsystem acts independently from the Intel Vault, giving developers a dedicated interface to scan and audit ticket invoices, documents, and cards for evidence of forgery or compliance issues.</p>
+        
+        <h2 class="section-subtitle" id="sec-overview-techstack">Modern &amp; Offline Tech Stack</h2>
+        <p>DevHunt is structured as a high-performance offline codebase designed for safety, low memory usage, and minimal latency. By keeping resources local and avoiding heavy cloud telemetry loops, the platform achieves instant responsiveness.</p>
+        
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 200px;">Tech Component</th>
+              <th style="width: 140px;">Technology Used</th>
+              <th>How We Use It &amp; Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Backend Core &amp; Routing</strong></td>
+              <td><code>Python 3.10+ / Flask</code></td>
+              <td>Flask serves as our micro-routing controller. It starts instantly, maintains a tiny memory footprint (~40MB RAM at idle), processes REST endpoints, and manages Server-Sent Events (SSE) for streaming AI assistant responses.</td>
+            </tr>
+            <tr>
+              <td><strong>Frontend Architecture</strong></td>
+              <td><code>Vite / React 18</code></td>
+              <td>The client shell utilizes React 18 for high-performance concurrent rendering. Vite packages modular components into static files that Flask hosts directly, allowing sub-second UI switches.</td>
+            </tr>
+            <tr>
+              <td><strong>Native Desktop Window</strong></td>
+              <td><code>Tauri v2 / Rust</code></td>
+              <td>Instead of standard browsers, Tauri runs a Rust shell wrapping the system's native WebView2 rendering engine. This bypasses the massive RAM and storage overhead typical of Electron-based systems (saving over 500MB RAM).</td>
+            </tr>
+            <tr>
+              <td><strong>Local Storage</strong></td>
+              <td><code>SQLite Database</code></td>
+              <td>All application data (chat logs, Kanban tasks, key status flags, indexed RAG files, system logs, LinkedIn drafts) is persisted in a local database file (<code>backend/data/devhunt.db</code>). It supports raw SQLite transactions directly within the same process.</td>
+            </tr>
+            <tr>
+              <td><strong>Code Editor Module</strong></td>
+              <td><code>CodeMirror 6 Editor</code></td>
+              <td>Powering the IDE workspace, CodeMirror 6 provides syntax highlighting, automatic indentation, search and replace, and drag-and-drop actions. Optimized for editing massive codebase scripts.</td>
+            </tr>
+            <tr>
+              <td><strong>PyInstaller Bundling</strong></td>
+              <td><code>PyInstaller Bundler</code></td>
+              <td>Bundles the Flask core, Python runtime, and libraries (OpenCV, cryptography, keyring, PyMuPDF) into a standalone backend executable sidecar, ensuring developers do not need to manually configure Python dependencies on their host.</td>
+            </tr>
+            <tr>
+              <td><strong>AI Assistant API</strong></td>
+              <td><code>Google Gemini SDK</code></td>
+              <td>Interactions with Gemini (flash, flash-lite, embeddings) are routed through the Google GenAI SDK. Features rotation pools, response latency auditing, and local rule-based offline fallbacks.</td>
+            </tr>
+            <tr>
+              <td><strong>Open Source License</strong></td>
+              <td><code>MIT License</code></td>
+              <td>Fully open-source, allowing you to modify, self-host, and distribute installers freely.</td>
+            </tr>
+          </tbody>
+        </table>
         
         <h2 class="section-subtitle" id="sec-overview-features">Key Platform Features</h2>
         <p>DevHunt exposes multiple functional panes to consolidate all dev activities into a single premium interface:</p>
@@ -461,12 +535,12 @@
       <!-- ==================== 02. ARCHITECTURE ==================== -->
       <div class="doc-section" id="sec-architecture">
         <h1 class="section-title">02. Architecture &amp; Files</h1>
-        <p>DevHunt leverages a lightweight stack, utilizing <strong>Flask (Python 3.10+)</strong> for the API controller, and an <strong>SQLite</strong> database for persistence. The frontend is built on <strong>Vanilla HTML, CSS, and JS</strong> to avoid framework compilation overheads and maximize rendering speed.</p>
+        <p>DevHunt leverages a lightweight stack, utilizing <strong>Flask (Python 3.10+)</strong> for the API server, <strong>SQLite</strong> for local persistence, and a <strong>Vite + React</strong> frontend for the modern IDE interface (compiled to a static bundle). The legacy plain HTML/JS frontend is also available as a fallback in the <code>frontend/</code> directory.</p>
         
         <h2 class="section-subtitle" id="sec-arch-structure">Directory Structure Map</h2>
         <p>Understanding the exact locations of configuration files, engines, and persistence caches:</p>
         
-        <pre><code>Local-AI/
+        <pre><code>DevHunt/
 ├── backend/
 │   ├── app.py                # Flask controller, static routing, SSE routes
 │   ├── config.py             # Server paths (Uploads dir, DB files, and key files)
@@ -479,14 +553,14 @@
 │   │   ├── chat_engine.py       # SSE message streamer &amp; chat session context
 │   │   └── terminal_engine.py   # Command parse loops &amp; OS process runners
 │   └── uploads/              # Storage directory for ELA deltas &amp; diagrams
-├── frontend/
-│   ├── index.html            # Main UI Dashboard
-│   ├── styles.css            # Custom CSS core design system and tokens
-│   ├── app.js                # Frontend controllers, SSE connectors, and slider handlers
-│   ├── arcade.js             # Offline mini-game arcade engine (Snake, Runner, Decrypt, Sweeper)
-│   ├── logs.html             # Standalone system logs console
-│   └── docs.html             # Standalone documentation manual
-└── run.bat                   # Automated platform startup script</code></pre>
+├── frontend-src/          # Vite + React IDE (modern interface)
+│   ├── src/                 # React components &amp; pages
+│   ├── dist/                # Compiled production bundle (served by Flask)
+│   └── public/              # Static assets (docs.html, logs.html, logo.png)
+├── frontend/              # Legacy plain HTML/JS interface (fallback)
+├── run.bat                # Automated Windows launcher (port 1225)
+├── run.sh                 # Automated macOS/Linux launcher
+└── build_desktop.bat      # Full desktop EXE build script (Tauri + PyInstaller)</code></pre>
 
         <h2 class="section-subtitle" id="sec-arch-db">Database Persistence Schemas</h2>
         <p>The SQLite database file is stored at <code>backend/data/devhunt.db</code>. It serves as the primary persistent data warehouse for the platform. It manages the following tables:</p>
@@ -614,35 +688,50 @@
       <!-- ==================== 03. SETUP & INSTALLATION ==================== -->
       <div class="doc-section" id="sec-setup">
         <h1 class="section-title">03. Setup &amp; Installation</h1>
-        <p>This manual covers how to install, verify, and run the DevHunt application suite on Windows, macOS, or Linux systems.</p>
+        <p>This manual covers how to install, verify, and run the DevHunt application suite. The platform offers compiled native installers for Windows, and automated shell bootstrap scripts for macOS, Linux, and Windows source configurations.</p>
         
-        <h2 class="section-subtitle" id="sec-setup-pre">Prerequisites</h2>
+        <h2 class="section-subtitle" id="sec-setup-pre">Prerequisites (Running from Source)</h2>
         <ul>
-          <li><strong>Python Version</strong>: <code>Python >= 3.10</code> is strictly required.</li>
+          <li><strong>Python Version</strong>: <code>Python >= 3.10</code> is required on the host system.</li>
           <li><strong>System Path</strong>: Python and pip must be configured in your environment variable PATH.</li>
-          <li><strong>OCR Fallbacks</strong>: (Optional) Install Tesseract-OCR to enable scanner fallback for image texts.</li>
+          <li><strong>Tesseract OCR</strong>: (Optional) Install Tesseract-OCR to enable rule-based local backup text parsing.</li>
         </ul>
 
-        <h2 class="section-subtitle" id="sec-setup-auto">1. Launcher Execution (Windows)</h2>
-        <p>Run the launcher script in the workspace root directory. It automatically builds a venv, checks package versions, installs required packages, and boots Flask:</p>
-        <pre><code class="lang-bash">run.bat</code></pre>
+        <h2 class="section-subtitle" id="sec-setup-installers">1. Precompiled Installers (Windows Desktop)</h2>
+        <p>For a native desktop experience on Windows 10 or 11, use the precompiled installers. These bundle both the frontend shell (Tauri) and python core (PyInstaller) together:</p>
+        <ul>
+          <li><strong>Standard Setup (EXE)</strong>: Double-click <code>DevHunt_Setup.exe</code> to launch the installation wizard. It installs DevHunt into your local profile directory and registers desktop/start menu shortcuts automatically.</li>
+          <li><strong>Enterprise Installer (MSI)</strong>: Run <code>DevHunt_Setup.msi</code> for system-wide administrative deployments.</li>
+        </ul>
+        <div class="callout">
+          <div class="callout-title">NATIVE PACKAGING DETAILS</div>
+          <p>Upon installation, the client launches a native Rust-based container that silently executes the Python backend executable sidecar in the background on local port <code>1225</code> before presenting a sleek WebView workspace container.</p>
+        </div>
 
-        <h2 class="section-subtitle" id="sec-setup-manual">2. Manual CLI Steps (Linux / macOS / Windows)</h2>
-        <p>If you prefer running manual command lines:</p>
-        <pre><code class="lang-bash"># Activate the virtual environment
-cd backend
-python -m venv venv
-source venv/bin/activate  # Or venv\Scripts\activate on Windows
+        <h2 class="section-subtitle" id="sec-setup-unix">2. Shell Automation Launcher (macOS &amp; Linux)</h2>
+        <p>On Unix-based operating systems, use the automated bootstrap script to compile the workspace environment and start the application:</p>
+        <pre><code class="lang-bash"># Make script executable (if needed)
+chmod +x run.sh
 
-# Install python dependencies
-pip install -r requirements.txt
+# Run launcher
+./run.sh</code></pre>
+        <p>The launcher automatically checks the system Python version, initializes a virtual environment (<code>backend/venv/</code>), installs dependencies from `requirements.txt`, sets up local loopback auth tokens, and opens your default browser at `http://localhost:1225`.</p>
 
-# Run the Flask server
-python app.py</code></pre>
+        <h2 class="section-subtitle" id="sec-setup-win-source">3. CLI Launcher (Windows from Source)</h2>
+        <p>If running from source on Windows, execute the command batch file in the root folder:</p>
+        <pre><code class="lang-cmd">run.bat</code></pre>
+        <p>This script replicates the shell verification checks, sets up the local Python virtual environment, and boots the Flask API server side-by-side with Vite compilation.</p>
 
-        <h2 class="section-subtitle" id="sec-setup-verify">3. Startup Verification Checks</h2>
-        <p>Verify that PyMuPDF, OpenCV, Pillow, Pyzbar, and Matplotlib packages are correctly configured in the active environment:</p>
-        <pre><code class="lang-bash">python check_requirements.py</code></pre>
+        <h2 class="section-subtitle" id="sec-setup-docker">4. Container Deployment (Docker)</h2>
+        <div class="callout">
+          <div class="callout-title">DOCKER SUPPORT COMING SOON</div>
+          <p>A unified Dockerfile and docker-compose orchestration configuration is currently in development to support fully containerized local hosting environments.</p>
+        </div>
+
+        <h2 class="section-subtitle" id="sec-setup-verify">5. Startup Verification Checks</h2>
+        <p>To verify that all local computer vision, file analysis, and database libraries are correctly imported inside your virtual environment, run the requirement verifier:</p>
+        <pre><code class="lang-bash"># Activate virtual env first, then run:
+python check_requirements.py</code></pre>
       </div>
 
       <!-- ==================== 04. TROUBLESHOOTING ==================== -->
@@ -653,15 +742,15 @@ python app.py</code></pre>
         <h2 class="section-subtitle" id="sec-tr-db">Database Lock Resolution</h2>
         <div class="callout">
           <div class="callout-title">DATABASE LOCKED ALERT</div>
-          <p>Occurs when SQLite encounters multiple write hooks on different threads, commonly when duplicate `python app.py` servers run concurrently on port 5000. Force kill all active python threads using PowerShell:</p>
+          <p>Occurs when SQLite encounters multiple write hooks on different threads, commonly when duplicate <code>python app.py</code> servers run concurrently on port 1225. Force kill all active python threads using PowerShell:</p>
           <pre><code class="lang-powershell">Stop-Process -Name "python" -Force</code></pre>
         </div>
 
-        <h2 class="section-subtitle" id="sec-tr-port">Port 5000 Address Busy</h2>
+        <h2 class="section-subtitle" id="sec-tr-port">Port 1225 Address Busy</h2>
         <div class="callout">
           <div class="callout-title">PORT OCCUPIED ALERT</div>
-          <p>If the terminal prints `OSError: [Errno 98] Address already in use`, it means port 5000 is held by an orphaned instance. Free port 5000 in Windows using:</p>
-          <pre><code class="lang-powershell">netstat -ano | findstr 5000
+          <p>If the terminal prints <code>OSError: [Errno 98] Address already in use</code>, it means port 1225 is held by an orphaned instance. Free port 1225 in Windows using:</p>
+          <pre><code class="lang-powershell">netstat -ano | findstr 1225
 # Kill process using the PID found at the end of output line
 taskkill /PID &lt;PID&gt; /F</code></pre>
         </div>
@@ -1120,13 +1209,13 @@ Options:
    (  |_|_|  )   Shell: Hunt Terminal v1.0
     \_______/    CPU: AMD Ryzen 5 (12 Cores)
    DEVHUNT NODE  Memory: 8192MB / 16384MB (50%)
-                 Workspace Path: d:\My projects\Local-AI</code></pre>
+                 Workspace Path: e:\git-projects\DevHunt</code></pre>
 
         <h3 class="section-inner-title">◎ 03. hunt pwd</h3>
         <p><strong>Syntax:</strong> <code>hunt pwd</code></p>
         <p>Prints the current absolute directory path where the terminal session is operating. Used to check context state before executing relative file paths.</p>
         <pre><code>$ hunt pwd
-d:\My projects\Local-AI</code></pre>
+e:\git-projects\DevHunt</code></pre>
 
         <h3 class="section-inner-title">◎ 04. hunt ls</h3>
         <p><strong>Syntax:</strong> <code>hunt ls [options] [path]</code></p>
@@ -1145,7 +1234,7 @@ drwxr-xr-x  1 guest staff        - Jun 13 11:17 core/
         <p><strong>Syntax:</strong> <code>hunt cd [path]</code></p>
         <p>Changes the working directory of the terminal session. If executed without arguments, returns to the project workspace root. It warns the user if they navigate outside the DevHunt workspace boundaries.</p>
         <pre><code>$ hunt cd backend
-Switched session context to d:\My projects\Local-AI\backend</code></pre>
+Switched session context to e:\git-projects\DevHunt\backend</code></pre>
 
         <h3 class="section-inner-title">◎ 06. hunt cat</h3>
         <p><strong>Syntax:</strong> <code>hunt cat &lt;filename&gt;</code></p>
@@ -1254,8 +1343,8 @@ SSL Certificate Audit for google.com:
         <h3 class="section-inner-title">◎ 15. hunt port</h3>
         <p><strong>Syntax:</strong> <code>hunt port &lt;host&gt; &lt;port&gt;</code></p>
         <p>Checks if a specific TCP port is open and listening on a target host. Uses socket connection timeouts to assess port connectivity quickly.</p>
-        <pre><code>$ hunt port localhost 5000
-Port 5000 is OPEN on localhost</code></pre>
+        <pre><code>$ hunt port localhost 1225
+Port 1225 is OPEN on localhost</code></pre>
 
         <h3 class="section-inner-title">◎ 16. hunt trace</h3>
         <p><strong>Syntax:</strong> <code>hunt trace &lt;host&gt;</code></p>
@@ -1308,7 +1397,7 @@ Result: 96.00</code></pre>
         <pre><code>$ hunt localports
 ACTIVE LOCAL LISTENERS:
   Proto  Local Address          State
-  TCP    127.0.0.1:5000         LISTENING
+  TCP    127.0.0.1:1225         LISTENING
   TCP    127.0.0.1:27017        LISTENING</code></pre>
 
         <h3 class="section-inner-title">◎ 22. hunt portscan</h3>
@@ -1323,7 +1412,7 @@ ACTIVE LOCAL LISTENERS:
 Scanning common ports on localhost...
   Port 80/TCP   : CLOSED
   Port 443/TCP  : CLOSED
-  Port 5000/TCP : OPEN (Flask server)</code></pre>
+  Port 1225/TCP : OPEN (Flask server)</code></pre>
 
         <h3 class="section-inner-title">◎ 23. hunt quest</h3>
         <p><strong>Syntax:</strong> <code>hunt quest [add &lt;title&gt; [priority] [desc] | done &lt;id&gt; | rm &lt;id&gt;]</code></p>
@@ -1352,7 +1441,7 @@ ID   KEY PREFIX  LABEL         STATUS    REQUESTS (24H)
         <pre><code>$ hunt memory
 AI CONSOLIDATED DEVELOPER MEMORIES:
   - User prefers dark mode.
-  - Python project uses Flask backend at port 5000.</code></pre>
+  - Python project uses Flask backend at port 1225.</code></pre>
 
         <h3 class="section-inner-title">◎ 26. hunt backup</h3>
         <p><strong>Syntax:</strong> <code>hunt backup export</code></p>
@@ -1612,7 +1701,7 @@ guest@devhunt:~$ </code></pre>
 
         <div style="margin-top: 30px; border-top: 1px dashed var(--border); padding-top: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-family: var(--mono);" class="muted">
           <span>GITHUB REPOSITORY: <a href="https://github.com/hitehsolanki2006/DevHunt" target="_blank" style="color: var(--cyan); text-decoration: none;">hitehsolanki2006/DevHunt ↗</a></span>
-          <span>AUTHOR: <a href="https://www.hiteshsolanki.in" target="_blank" style="color: var(--cyan); text-decoration: none;">Hitesh Solanki</a></span>
+          <span>AUTHOR: <a href="https://www.hiteshsolanki.in" target="_blank" style="color: var(--cyan); text-decoration: none;">Hitesh Solanki</a> · <span style="color: var(--green);">Hunter Group</span></span>
         </div>
       </div>
 
