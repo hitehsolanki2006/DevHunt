@@ -1,0 +1,33 @@
+[package]
+name = "devhunt"
+version = "1.0.0"
+description = "DevHunt — AI Assistant & IDE"
+authors = ["DevHunt"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "devhunt_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "devhunt"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-fs = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = "z"        # Optimize compilation for binary size
+lto = true             # Enable link-time optimization (removes dead code)
+codegen-units = 1      # Reduce parallelism during codegen to maximize size checks
+panic = "abort"        # Disable unwinding on panic, removing stack trace code
+strip = true           # Automatically strip symbols and debug info from the binary
