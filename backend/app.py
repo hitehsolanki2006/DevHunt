@@ -28,9 +28,31 @@ _is_frozen = getattr(_sys, 'frozen', False)
 _frontend_mode = _os.environ.get('DEVHUNT_FRONTEND_MODE', 'react').lower()
 
 if _is_frozen:
-    # Inside PyInstaller bundle: assets are directly in the bundle folder (resolved via sys._MEIPASS)
-    _react_dist = _os.path.join(_sys._MEIPASS, 'frontend-src', 'dist')
-    _legacy_dir = _os.path.join(_sys._MEIPASS, 'frontend')
+    # Inside PyInstaller bundle: check both root and _internal subdirectory to handle different PyInstaller versions/modes
+    _react_dist_options = [
+        _os.path.join(_sys._MEIPASS, '_internal', 'frontend-src', 'dist'),
+        _os.path.join(_sys._MEIPASS, 'frontend-src', 'dist'),
+        _os.path.join(_os.path.dirname(_sys.executable), '_internal', 'frontend-src', 'dist'),
+        _os.path.join(_os.path.dirname(_sys.executable), 'frontend-src', 'dist'),
+    ]
+    _legacy_dir_options = [
+        _os.path.join(_sys._MEIPASS, '_internal', 'frontend'),
+        _os.path.join(_sys._MEIPASS, 'frontend'),
+        _os.path.join(_os.path.dirname(_sys.executable), '_internal', 'frontend'),
+        _os.path.join(_os.path.dirname(_sys.executable), 'frontend'),
+    ]
+    
+    _react_dist = _react_dist_options[0]
+    for opt in _react_dist_options:
+        if _os.path.isdir(opt):
+            _react_dist = opt
+            break
+            
+    _legacy_dir = _legacy_dir_options[0]
+    for opt in _legacy_dir_options:
+        if _os.path.isdir(opt):
+            _legacy_dir = opt
+            break
 else:
     # Dev mode: assets are in the parent directory paths
     _react_dist = _os.path.join(_os.path.dirname(__file__), '..', 'frontend-src', 'dist')
@@ -40,6 +62,12 @@ if _frontend_mode == 'legacy':
     _static_dir = _legacy_dir
 else:
     _static_dir = _react_dist if _os.path.isdir(_react_dist) else _legacy_dir
+
+# Log the resolved directories to the debugging log
+print(f"[DEBUG] _is_frozen={_is_frozen}, _frontend_mode={_frontend_mode}")
+print(f"[DEBUG] Resolved _react_dist to: {_react_dist} (exists={_os.path.isdir(_react_dist)})")
+print(f"[DEBUG] Resolved _legacy_dir to: {_legacy_dir} (exists={_os.path.isdir(_legacy_dir)})")
+print(f"[DEBUG] Resolved _static_dir to: {_static_dir} (exists={_os.path.isdir(_static_dir)})")
 
 app = Flask(__name__, static_folder=_static_dir, static_url_path='')
 CORS(app, resources={r"/api/*": {"origins": "*"}})
