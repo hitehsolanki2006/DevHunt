@@ -24,3 +24,24 @@ backend/data/*.log
 backend/uploads/
 empty_workspace/
 
+# Node
+node_modules/
+package-lock.json
+package.json
+
+# Web & Tauri Build Artifacts
+build/
+dist/
+dist_desktop/
+backend/build/
+backend/dist/
+devhunt_cargo_target/
+
+# Local Temp Files
+err.txt
+out.txt
+
+# Netlify Website Large Binaries
+devhunt-website/*.exe
+devhunt-website/*.msi
+
