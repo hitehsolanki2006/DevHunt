@@ -28,9 +28,9 @@ _is_frozen = getattr(_sys, 'frozen', False)
 _frontend_mode = _os.environ.get('DEVHUNT_FRONTEND_MODE', 'react').lower()
 
 if _is_frozen:
-    # Inside PyInstaller bundle: assets are directly in the bundle folder
-    _react_dist = _os.path.join(_os.path.dirname(__file__), 'frontend-src', 'dist')
-    _legacy_dir = _os.path.join(_os.path.dirname(__file__), 'frontend')
+    # Inside PyInstaller bundle: assets are directly in the bundle folder (resolved via sys._MEIPASS)
+    _react_dist = _os.path.join(_sys._MEIPASS, 'frontend-src', 'dist')
+    _legacy_dir = _os.path.join(_sys._MEIPASS, 'frontend')
 else:
     # Dev mode: assets are in the parent directory paths
     _react_dist = _os.path.join(_os.path.dirname(__file__), '..', 'frontend-src', 'dist')
