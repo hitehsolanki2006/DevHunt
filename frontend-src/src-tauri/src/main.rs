@@ -58,6 +58,7 @@ fn main() {
     });
 
     // Spawn the Python backend process
+    let mut token_opt = None;
     let _backend = if backend_path.exists() {
         let backend_dir = backend_path.parent().unwrap();
         // Generate a session token using system time (no rand dependency needed)
@@ -67,6 +68,7 @@ fn main() {
             .subsec_nanos();
         let pid = std::process::id();
         let token = format!("{:08x}{:08x}{:08x}{:08x}", nanos, pid, nanos ^ pid, nanos.wrapping_mul(pid));
+        token_opt = Some(token.clone());
         let child = Command::new(&backend_path)
             .current_dir(backend_dir)
             .arg("--port")
@@ -91,6 +93,18 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
+        .setup(move |app| {
+            if let Some(token) = token_opt {
+                use tauri::Manager;
+                if let Some(window) = app.get_webview_window("main") {
+                    let target_url = format!("http://localhost:1225/?token={}", token);
+                    if let Ok(url) = tauri::Url::parse(&target_url) {
+                        let _ = window.navigate(url);
+                    }
+                }
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
