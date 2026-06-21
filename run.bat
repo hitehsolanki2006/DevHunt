@@ -120,12 +120,51 @@ if %errorlevel% neq 0 (
 )
 
 :run_server
+:: Initialize default values
+set PORT=1225
+set UI_CHOICE=2
+
+:: Parse command line arguments
+:parse_args
+if "%~1"=="" goto after_args
+if "%~1"=="--port" (
+    set PORT=%~2
+    shift
+    shift
+    goto parse_args
+)
+shift
+goto parse_args
+:after_args
+
+:: Prompt for frontend UI mode
+echo.
+echo Select Frontend UI Mode:
+echo   [1] Legacy HTML/CSS
+echo   [2] Modern Vite React (Recommended)
+echo.
+set /p UI_CHOICE="Enter selection (1 or 2, default 2): "
+
+if "%UI_CHOICE%"=="1" (
+    set DEVHUNT_FRONTEND_MODE=legacy
+    echo [INFO] Legacy HTML/CSS mode selected.
+) else (
+    set DEVHUNT_FRONTEND_MODE=react
+    echo [INFO] Modern Vite React mode selected.
+)
+
+:: Generate secure token using python
+for /f "tokens=*" %%i in ('backend\venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(16))"') do set SECURE_TOKEN=%%i
+
+:: Set environment variables
+set X_DEVHUNT_TOKEN=%SECURE_TOKEN%
+
 :: Move to backend directory
 cd /d "%~dp0backend"
 
 :: Start Flask in background
-echo [1/2] Starting Flask server on http://localhost:5000 ...
-start "" /B venv\Scripts\python.exe app.py
+echo [1/2] Starting Flask server on http://localhost:%PORT% ...
+start "" /B venv\Scripts\python.exe app.py --port %PORT% --token %SECURE_TOKEN%
 
 :: Wait for server to boot
 echo [2/2] Waiting for server to start...
@@ -133,7 +172,7 @@ timeout /t 3 /nobreak >nul
 
 :: Detect and open browser
 echo [3/3] Opening browser...
-set URL=http://localhost:5000
+set URL=http://localhost:%PORT%/?token=%SECURE_TOKEN%
 
 :: Try browsers in order of preference
 where chrome >nul 2>&1 && (
@@ -151,8 +190,7 @@ start "" "%URL%"
 
 :done
 echo.
-echo  Server running at: http://localhost:5000
-echo  Logs page:         http://localhost:5000/logs
+echo  Server running at: http://localhost:%PORT%
 echo.
 echo  ==================================================================
 echo   To connect a host command line terminal to the DevHunt server:

@@ -2,7 +2,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$SCRIPT_DIR/backend"
-URL="http://localhost:5000"
+URL="http://localhost:1225"
 
 echo ""
 echo "  ========================================"
@@ -118,22 +118,48 @@ if [ $INSTALL_DEPS -eq 1 ]; then
     fi
 fi
 
+PORT=1225
+UI_CHOICE=2
+
+# Parse arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --port) PORT="$2"; shift ;;
+    esac
+    shift
+done
+
+echo ""
+echo "Select Frontend UI Mode:"
+echo "  [1] Legacy HTML/CSS"
+echo "  [2] Modern Vite React (Recommended)"
+echo ""
+read -p "Enter selection (1 or 2, default 2): " UI_CHOICE
+
+if [ "$UI_CHOICE" = "1" ]; then
+    export DEVHUNT_FRONTEND_MODE="legacy"
+    echo "[INFO] Legacy HTML/CSS mode selected."
+else
+    export DEVHUNT_FRONTEND_MODE="react"
+    echo "[INFO] Modern Vite React mode selected."
+fi
+
+# Generate secure token using python
+SECURE_TOKEN=$(venv/bin/python -c "import secrets; print(secrets.token_hex(16))" 2>/dev/null || openssl rand -hex 16 2>/dev/null || echo "fallback_token")
+export X_DEVHUNT_TOKEN="$SECURE_TOKEN"
+
 cd "$BACKEND_DIR"
 
 # Start Flask in background
+URL="http://localhost:$PORT"
 echo "[1/3] Starting Flask server on $URL ..."
-nohup venv/bin/python app.py > /tmp/devhunt.log 2>&1 &
+nohup venv/bin/python app.py --port "$PORT" --token "$SECURE_TOKEN" > /tmp/devhunt.log 2>&1 &
 SERVER_PID=$!
 echo "      Server PID: $SERVER_PID"
 
 # Wait for server
 echo "[2/3] Waiting for server to start..."
 sleep 3
-
-# Check server is up
-if ! curl -s --max-time 2 "$URL" > /dev/null; then
-    echo "[WARN] Server may still be starting..."
-fi
 
 # Detect and open browser
 echo "[3/3] Opening browser..."
@@ -153,11 +179,10 @@ open_browser() {
     echo "[INFO] Could not detect browser. Open manually: $url"
 }
 
-open_browser "$URL"
+open_browser "$URL/?token=$SECURE_TOKEN"
 
 echo ""
 echo "  Server running at: $URL"
-echo "  Logs page:         $URL/logs"
 echo "  Server log:        /tmp/devhunt.log"
 echo ""
 echo "  =================================================================="
