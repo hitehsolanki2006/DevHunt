@@ -5,7 +5,7 @@ import {
   Play, Trash2 
 } from 'lucide-react';
 
-export default function Settings({ theme, setTheme, onRefreshHeader }) {
+export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTab, setNotificationsSubTab }) {
   const [activeSubTab, setActiveSubTab] = useState('general');
   const [keysList, setKeysList] = useState([]);
   const [newKey, setNewKey] = useState('');
@@ -1237,14 +1237,16 @@ export default function Settings({ theme, setTheme, onRefreshHeader }) {
                       onChange={handleImportBackup} 
                     />
                   </label>
-                  <a 
-                    href="/logs" 
-                    target="_blank" 
+                  <button 
+                    onClick={() => {
+                      if (setActiveTab) setActiveTab('notifications');
+                      if (setNotificationsSubTab) setNotificationsSubTab('logs');
+                    }}
                     className="btn-ghost" 
-                    style={{ textDecoration: 'none', padding: '8px 14px', fontSize: '11px' }}
+                    style={{ padding: '8px 14px', fontSize: '11px', cursor: 'pointer' }}
                   >
-                    ◎ Logs ↗
-                  </a>
+                    ◎ Logs
+                  </button>
                 </div>
                 {backupStatus && (
                   <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--muted)', fontFamily: 'var(--mono)' }}>{backupStatus}</div>

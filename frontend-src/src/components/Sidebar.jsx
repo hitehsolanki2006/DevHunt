@@ -65,7 +65,8 @@ export default function Sidebar({
 
   const handleToggleDirectory = (path, e) => {
     e.stopPropagation();
-    const newExpanded = new Set(expandedDirs);
+    const currentExpanded = (expandedDirs instanceof Set) ? expandedDirs : new Set();
+    const newExpanded = new Set(currentExpanded);
     if (newExpanded.has(path)) {
       newExpanded.delete(path);
     } else {
@@ -105,7 +106,7 @@ export default function Sidebar({
 
   const renderFileTreeNode = (node) => {
     if (node.isDir) {
-      const isExpanded = expandedDirs.has(node.path);
+      const isExpanded = (expandedDirs instanceof Set) ? expandedDirs.has(node.path) : false;
       return (
         <div key={node.path} className="file-tree-item-wrapper" style={{ textAlign: 'left' }}>
           <div 

@@ -34,6 +34,10 @@ if _is_frozen:
         _os.path.join(_sys._MEIPASS, 'frontend-src', 'dist'),
         _os.path.join(_os.path.dirname(_sys.executable), '_internal', 'frontend-src', 'dist'),
         _os.path.join(_os.path.dirname(_sys.executable), 'frontend-src', 'dist'),
+        _os.path.join(_sys._MEIPASS, '_internal', 'dist'),
+        _os.path.join(_sys._MEIPASS, 'dist'),
+        _os.path.join(_os.path.dirname(_sys.executable), '_internal', 'dist'),
+        _os.path.join(_os.path.dirname(_sys.executable), 'dist'),
     ]
     _legacy_dir_options = [
         _os.path.join(_sys._MEIPASS, '_internal', 'frontend'),
@@ -63,7 +67,22 @@ if _frontend_mode == 'legacy':
 else:
     _static_dir = _react_dist if _os.path.isdir(_react_dist) else _legacy_dir
 
-# Log the resolved directories to the debugging log
+# Log the resolved directories to the debugging log and save to disk
+try:
+    _log_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'data')
+    if _is_frozen:
+        _log_dir = _os.path.join(_os.path.dirname(_sys.executable), 'data')
+    _os.makedirs(_log_dir, exist_ok=True)
+    _log_file = _os.path.join(_log_dir, 'devhunt_backend_debug.log')
+    with open(_log_file, 'a', encoding='utf-8') as _log_f:
+        _log_f.write(f"\n[{datetime.datetime.now()}] [BOOT_DEBUG]\n")
+        _log_f.write(f"  _is_frozen={_is_frozen}, _frontend_mode={_frontend_mode}\n")
+        _log_f.write(f"  _react_dist={_react_dist} (exists={_os.path.isdir(_react_dist)})\n")
+        _log_f.write(f"  _legacy_dir={_legacy_dir} (exists={_os.path.isdir(_legacy_dir)})\n")
+        _log_f.write(f"  _static_dir={_static_dir} (exists={_os.path.isdir(_static_dir)})\n")
+except Exception as _e:
+    print(f"Failed to write to devhunt_backend_debug.log: {_e}")
+
 print(f"[DEBUG] _is_frozen={_is_frozen}, _frontend_mode={_frontend_mode}")
 print(f"[DEBUG] Resolved _react_dist to: {_react_dist} (exists={_os.path.isdir(_react_dist)})")
 print(f"[DEBUG] Resolved _legacy_dir to: {_legacy_dir} (exists={_os.path.isdir(_legacy_dir)})")
@@ -1579,40 +1598,12 @@ def music_stream(filename):
         mime_map = {
             '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
             '.flac': 'audio/flac', '.aac': 'audio/aac', '.m4a': 'audio/mp4',
-            '.opus': 'audio/opus', '.weba': 'audio/webm', '.webm': 'audio/webm'
+            '.opus': 'audio/opus', '.weba': 'audio/webm', '.webm': 'video/webm'
         }
         mime = mime_map.get(ext, 'audio/mpeg')
 
-        # Support range requests for seeking
-        file_size = os.path.getsize(filepath)
-        range_header = request.headers.get('Range')
-        if range_header:
-            byte_start, byte_end = 0, file_size - 1
-            m = __import__('re').search(r'(\d+)-(\d*)', range_header)
-            if m:
-                byte_start = int(m.group(1))
-                if m.group(2):
-                    byte_end = int(m.group(2))
-            length = byte_end - byte_start + 1
-            def generate():
-                with open(filepath, 'rb') as fh:
-                    fh.seek(byte_start)
-                    remaining = length
-                    while remaining > 0:
-                        chunk = fh.read(min(65536, remaining))
-                        if not chunk:
-                            break
-                        remaining -= len(chunk)
-                        yield chunk
-            resp = Response(generate(), 206, mimetype=mime,
-                            content_type=mime, direct_passthrough=True)
-            resp.headers['Content-Range'] = f'bytes {byte_start}-{byte_end}/{file_size}'
-            resp.headers['Accept-Ranges'] = 'bytes'
-            resp.headers['Content-Length'] = str(length)
-            return resp
-        else:
-            from flask import send_file
-            return send_file(filepath, mimetype=mime, conditional=True)
+        from flask import send_file
+        return send_file(filepath, mimetype=mime, conditional=True)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1720,7 +1711,7 @@ def ide_read_file():
     
     # Secure path to prevent directory traversal
     abs_path = os.path.abspath(os.path.join(WORKSPACE_DIR, rel_path))
-    if not abs_path.startswith(os.path.abspath(WORKSPACE_DIR)):
+    if not abs_path.lower().startswith(os.path.abspath(WORKSPACE_DIR).lower()):
         return jsonify({"success": False, "error": "Access denied"}), 403
         
     if not os.path.exists(abs_path) or os.path.isdir(abs_path):
@@ -1744,7 +1735,7 @@ def ide_save_file():
         
     # Secure path to prevent directory traversal
     abs_path = os.path.abspath(os.path.join(WORKSPACE_DIR, rel_path))
-    if not abs_path.startswith(os.path.abspath(WORKSPACE_DIR)):
+    if not abs_path.lower().startswith(os.path.abspath(WORKSPACE_DIR).lower()):
         return jsonify({"success": False, "error": "Access denied"}), 403
         
     try:
@@ -1856,7 +1847,7 @@ def ide_replace_files():
                     paths.append(full_path)
                     
         for abs_path in paths:
-            if not abs_path.startswith(os.path.abspath(WORKSPACE_DIR)):
+            if not abs_path.lower().startswith(os.path.abspath(WORKSPACE_DIR).lower()):
                 continue
             if not os.path.exists(abs_path) or os.path.isdir(abs_path):
                 continue
@@ -1893,7 +1884,7 @@ def ide_file_gitdiff():
         return jsonify({"success": False, "error": "Path required"}), 400
         
     abs_path = os.path.abspath(os.path.join(WORKSPACE_DIR, rel_path))
-    if not abs_path.startswith(os.path.abspath(WORKSPACE_DIR)):
+    if not abs_path.lower().startswith(os.path.abspath(WORKSPACE_DIR).lower()):
         return jsonify({"success": False, "error": "Access denied"}), 403
         
     if not os.path.exists(abs_path):
@@ -1950,7 +1941,7 @@ def ide_create_item():
     if not rel_path:
         return jsonify({"success": False, "error": "Path required"}), 400
     abs_path = os.path.abspath(os.path.join(WORKSPACE_DIR, rel_path))
-    if not abs_path.startswith(os.path.abspath(WORKSPACE_DIR)):
+    if not abs_path.lower().startswith(os.path.abspath(WORKSPACE_DIR).lower()):
         return jsonify({"success": False, "error": "Access denied"}), 403
     try:
         if item_type == 'directory':
@@ -1971,7 +1962,7 @@ def ide_delete_item():
     if not rel_path:
         return jsonify({"success": False, "error": "Path required"}), 400
     abs_path = os.path.abspath(os.path.join(WORKSPACE_DIR, rel_path))
-    if not abs_path.startswith(os.path.abspath(WORKSPACE_DIR)):
+    if not abs_path.lower().startswith(os.path.abspath(WORKSPACE_DIR).lower()):
         return jsonify({"success": False, "error": "Access denied"}), 403
     try:
         if os.path.isdir(abs_path):
@@ -1993,7 +1984,7 @@ def ide_rename_item():
         return jsonify({"success": False, "error": "Paths required"}), 400
     abs_old = os.path.abspath(os.path.join(WORKSPACE_DIR, old_path))
     abs_new = os.path.abspath(os.path.join(WORKSPACE_DIR, new_path))
-    if not abs_old.startswith(os.path.abspath(WORKSPACE_DIR)) or not abs_new.startswith(os.path.abspath(WORKSPACE_DIR)):
+    if not abs_old.lower().startswith(os.path.abspath(WORKSPACE_DIR).lower()) or not abs_new.lower().startswith(os.path.abspath(WORKSPACE_DIR).lower()):
         return jsonify({"success": False, "error": "Access denied"}), 403
     try:
         os.rename(abs_old, abs_new)

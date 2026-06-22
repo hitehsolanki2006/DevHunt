@@ -52,24 +52,31 @@ export default function ChatPanel({ theme, activeModel, activeKey, onAddQuest })
   const [streamingText, setStreamingText] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   
-  const [targets, setTargets] = useState([
-    { text: 'Docker volumes deep-dive', priority: 'HIGH' },
-    { text: 'K8s pod lifecycle', priority: 'HIGH' },
-    { text: 'Bash scripting refresher', priority: 'MED' },
-    { text: 'Git rebase patterns', priority: 'MED' }
-  ]);
-  
-  const [quests, setQuests] = useState([
-    { id: 1, text: 'Review CI/CD notes', checked: false },
-    { id: 2, text: 'Read Terraform doc', checked: true },
-    { id: 3, text: 'Lab: nginx reverse proxy', checked: false }
-  ]);
-
+  const [allTodos, setAllTodos] = useState([]);
   const chatFeedRef = useRef(null);
+
+  const loadQuests = async () => {
+    try {
+      const res = await fetch('/api/todos');
+      const data = await res.json();
+      if (data.success) {
+        setAllTodos(data.todos || []);
+      }
+    } catch (err) {
+      console.error('Failed to load quests in ChatPanel', err);
+    }
+  };
 
   useEffect(() => {
     loadSessions();
     loadHistory(activeSession);
+    loadQuests();
+
+    // Listen to custom refresh events
+    window.addEventListener('devhunt-refresh-quests', loadQuests);
+    return () => {
+      window.removeEventListener('devhunt-refresh-quests', loadQuests);
+    };
   }, []);
 
   useEffect(() => {
@@ -182,6 +189,14 @@ export default function ChatPanel({ theme, activeModel, activeKey, onAddQuest })
               } else if (data.text) {
                 fullReplyText += data.text;
                 setStreamingText(fullReplyText);
+              } else if (data.type === 'done') {
+                if (data.todo_detected) {
+                  window.dispatchEvent(new CustomEvent('devhunt-refresh-quests'));
+                }
+                if (data.linkedin_detected) {
+                  window.dispatchEvent(new CustomEvent('devhunt-refresh-linkedin'));
+                  alert(`✓ Added draft to LinkedIn: "${data.linkedin_detected.title || 'Untitled Post'}"`);
+                }
               }
             } catch (e) {
               // Ignore parse errors on partial streams
@@ -196,6 +211,7 @@ export default function ChatPanel({ theme, activeModel, activeKey, onAddQuest })
       setStreamingText('');
       setIsStreaming(false);
       loadSessions(); // refresh counts
+      loadQuests(); // reload quests list
     } catch (err) {
       console.error('Streaming error', err);
       setMessages(prev => [...prev, { role: 'assistant', content: `Stream connection failed: ${err.message}`, timestamp: new Date().toISOString() }]);
@@ -203,8 +219,22 @@ export default function ChatPanel({ theme, activeModel, activeKey, onAddQuest })
     }
   };
 
-  const handleQuestToggle = (id) => {
-    setQuests(prev => prev.map(q => q.id === id ? { ...q, checked: !q.checked } : q));
+  const handleQuestToggle = async (id, currentStatus) => {
+    const nextStatus = currentStatus === 'done' ? 'todo' : 'done';
+    try {
+      const res = await fetch(`/api/todos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadQuests();
+        window.dispatchEvent(new CustomEvent('devhunt-refresh-quests'));
+      }
+    } catch (err) {
+      console.error('Failed to toggle quest', err);
+    }
   };
 
   const formatTime = (ts) => {
@@ -332,35 +362,41 @@ export default function ChatPanel({ theme, activeModel, activeKey, onAddQuest })
           <h3>Today's Targets</h3>
         </div>
         <ul className="target-list" style={{ listStyle: 'none', padding: '0', margin: '0' }}>
-          {targets.map((t, i) => (
-            <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span className={`tag tag-${t.priority.toLowerCase()}`}>{t.priority}</span> 
-              <span className="target-text">{t.text}</span>
+          {allTodos.filter(t => t.status !== 'done' && t.priority.toLowerCase() === 'high').map((t) => (
+            <li key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span className="tag tag-high">HIGH</span> 
+              <span className="target-text" style={{ fontSize: '11.5px' }}>{t.title}</span>
             </li>
           ))}
+          {allTodos.filter(t => t.status !== 'done' && t.priority.toLowerCase() === 'high').length === 0 && (
+            <li className="muted" style={{ fontStyle: 'italic', fontSize: '11px' }}>No high targets pending</li>
+          )}
         </ul>
 
         <div className="card-head no-border" style={{ marginTop: '12px' }}>
           <h3>Quick Quests</h3>
         </div>
         <ul className="quest-mini" style={{ listStyle: 'none', padding: '0', margin: '0' }}>
-          {quests.map(q => {
+          {allTodos.filter(t => t.status !== 'done' && t.priority.toLowerCase() !== 'high').map(q => {
             const inputId = `quest-chk-${q.id}`;
             return (
               <li key={q.id} className="quest-mini-item" style={{ marginBottom: '6px' }}>
                 <input 
                   id={inputId}
                   type="checkbox" 
-                  checked={q.checked} 
-                  onChange={() => handleQuestToggle(q.id)} 
+                  checked={q.status === 'done'} 
+                  onChange={() => handleQuestToggle(q.id, q.status)} 
                 /> 
                 <label htmlFor={inputId}>
                   <span className="checkbox-box"></span>
-                  <span className="quest-mini-title">{q.text}</span>
+                  <span className="quest-mini-title">{q.title}</span>
                 </label>
               </li>
             );
           })}
+          {allTodos.filter(t => t.status !== 'done' && t.priority.toLowerCase() !== 'high').length === 0 && (
+            <li className="muted" style={{ fontStyle: 'italic', fontSize: '11px' }}>No pending quests</li>
+          )}
         </ul>
       </aside>
     </div>

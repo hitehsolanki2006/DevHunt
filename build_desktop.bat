@@ -17,6 +17,22 @@ set CARGO_TARGET_DIR=e:\git-projects\devhunt_cargo_target
 echo [INFO] Cargo target folder: %CARGO_TARGET_DIR%
 echo.
 
+:: ── Version Management ──────────────────────────────────────────────────────
+for /f "tokens=*" %%i in ('python -c "import json; print(json.load(open('frontend-src/src-tauri/tauri.conf.json'))['version'])"') do set APP_VERSION=%%i
+echo [INFO] Current application version: %APP_VERSION%
+set /p ask_update="Do you want to update the version? (y/n): "
+if /i not "%ask_update%"=="y" goto skip_version_update
+
+set /p new_version="Enter new version (e.g. 1.0.1): "
+if "%new_version%"=="" goto skip_version_update
+
+python -c "import json; p='frontend-src/src-tauri/tauri.conf.json'; d=json.load(open(p)); d['version']='%new_version%'; json.dump(d, open(p, 'w'), indent=2)"
+set APP_VERSION=%new_version%
+echo [INFO] Version updated to %APP_VERSION%
+
+:skip_version_update
+echo.
+
 :: ── Step 1: Rust MSVC Toolchain ─────────────────────────────────────────────
 echo [1/5] Configuring Rust MSVC Toolchain...
 call rustup default stable-x86_64-pc-windows-msvc
@@ -68,8 +84,8 @@ cd /d "%~dp0"
 
 :: Try common installer paths
 set INSTALLER_FOUND=0
-if exist "%CARGO_TARGET_DIR%\release\bundle\nsis\DevHunt_1.0.0_x64-setup.exe" set INSTALLER_FOUND=1
-if exist "%CARGO_TARGET_DIR%\x86_64-pc-windows-msvc\release\bundle\nsis\DevHunt_1.0.0_x64-setup.exe" set INSTALLER_FOUND=1
+if exist "%CARGO_TARGET_DIR%\release\bundle\nsis\DevHunt_%APP_VERSION%_x64-setup.exe" set INSTALLER_FOUND=1
+if exist "%CARGO_TARGET_DIR%\x86_64-pc-windows-msvc\release\bundle\nsis\DevHunt_%APP_VERSION%_x64-setup.exe" set INSTALLER_FOUND=1
 if %INSTALLER_FOUND% neq 1 (
     echo [ERROR] Tauri build did not produce an installer.
     echo         Check %CARGO_TARGET_DIR%\release\bundle\ for output.

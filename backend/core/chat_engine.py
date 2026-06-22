@@ -115,7 +115,14 @@ class ChatEngine:
             "- User: 'Remove the countdown post task' -> append [TODO_DELETE: countdown post]\n"
             "- User: 'I need to study Python. Can you suggest tasks?' -> Suggest tasks and ask: 'Would you like me to add these tasks to your Quest Board?' (Do NOT append any tags yet! Wait for permission.)\n"
             "- User: 'Yes, add them' (in response to suggestion) -> append [TODO_ADD: ...]\n"
-            "- User: 'Do you remember we discussed the summit?' -> Do NOT append any tags."
+            "- User: 'Do you remember we discussed the summit?' -> Do NOT append any tags.\n\n"
+            "[LinkedIn Drafts Integration]\n"
+            "You can save drafts of LinkedIn posts directly to the user's LinkedIn Panel.\n"
+            "CRITICAL RULES FOR LINKEDIN POSTS:\n"
+            "1. If you draft or suggest a LinkedIn post, or if the user requests a post topic, write/draft the post first, and then EXPLICITLY ask the user for permission to save it (e.g., 'Would you like me to save this post as a draft in your LinkedIn Panel?'). Do NOT output any tags yet!\n"
+            "2. If and only if the user explicitly approves saving or creating the draft in their latest message (e.g., 'Yes, save it', 'save the draft', 'create draft', 'add to drafts'), append the following tag to the very end of your response:\n"
+            "[LINKEDIN_DRAFT_ADD: Title | Content]\n"
+            "Ensure the Title is short and descriptive, and Content contains the full text of the LinkedIn post. Keep it quietly at the end.\n"
         )
 
         # Fetch consolidated memory list
@@ -153,11 +160,11 @@ class ChatEngine:
         todo_actions = []
         
         # Regex to find [TODO_ADD: Title | Priority | Description]
-        add_pattern = r"\[TODO_ADD:\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\]"
+        add_pattern = r"\[TODO_ADD:\s*([\s\S]*?)\s*\|\s*([\s\S]*?)\s*\|\s*([\s\S]*?)\s*\]"
         # Regex to find [TODO_COMPLETE: Title]
-        complete_pattern = r"\[TODO_COMPLETE:\s*(.*?)\s*\]"
+        complete_pattern = r"\[TODO_COMPLETE:\s*([\s\S]*?)\s*\]"
         # Regex to find [TODO_DELETE: Title]
-        delete_pattern = r"\[TODO_DELETE:\s*(.*?)\s*\]"
+        delete_pattern = r"\[TODO_DELETE:\s*([\s\S]*?)\s*\]"
 
         # Find all ADD actions
         adds = re.findall(add_pattern, text)
@@ -216,9 +223,9 @@ class ChatEngine:
                 todo_actions.append({"action": "delete", "todo": deleted_todo})
 
         # Clean text by removing tag lines
-        clean_text = re.sub(r"\[TODO_ADD:.*?\]\n?", "", text)
-        clean_text = re.sub(r"\[TODO_COMPLETE:.*?\]\n?", "", clean_text)
-        clean_text = re.sub(r"\[TODO_DELETE:.*?\]\n?", "", clean_text).strip()
+        clean_text = re.sub(r"\[TODO_ADD:[\s\S]*?\]\n?", "", text)
+        clean_text = re.sub(r"\[TODO_COMPLETE:[\s\S]*?\]\n?", "", clean_text)
+        clean_text = re.sub(r"\[TODO_DELETE:[\s\S]*?\]\n?", "", clean_text).strip()
 
         # Build todo_detected output
         todo_detected = None
@@ -229,10 +236,53 @@ class ChatEngine:
 
         return clean_text, todo_detected
 
+    def _process_linkedin_tags(self, text: str) -> tuple:
+        """
+        Parses [LINKEDIN_DRAFT_ADD: Title | Content] tags from the model's text,
+        creates the draft in the database, and returns (clean_text, draft_detected).
+        """
+        if not text:
+            return text, None
+
+        import re
+        draft_actions = []
+        
+        # Match [LINKEDIN_DRAFT_ADD: Title | Content]
+        pattern = r"\[LINKEDIN_DRAFT_ADD:\s*(.*?)\s*\|\s*([\s\S]*?)\s*\]"
+        matches = re.findall(pattern, text)
+
+        for title, content in matches:
+            if not title.strip() or not content.strip():
+                continue
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO linkedin_drafts (title, content, status, created_at, updated_at) VALUES (?, ?, 'draft', datetime('now', 'localtime'), datetime('now', 'localtime'))",
+                    (title.strip(), content.strip())
+                )
+                draft_id = cursor.lastrowid
+                conn.commit()
+                conn.close()
+                logger.success("linkedin", f"Created LinkedIn draft '{title}' from chat (ID: {draft_id})")
+                draft_actions.append({"id": draft_id, "title": title.strip()})
+            except Exception as e:
+                logger.error("linkedin", f"Error saving draft from chat: {e}")
+
+        clean_text = re.sub(r"\[LINKEDIN_DRAFT_ADD:[\s\S]*?\]\n?", "", text).strip()
+        
+        draft_detected = None
+        if len(draft_actions) == 1:
+            draft_detected = draft_actions[0]
+        elif len(draft_actions) > 1:
+            draft_detected = {"multi": True, "items": draft_actions}
+
+        return clean_text, draft_detected
+
     def send_message(self, session_id: str, user_message: str, model_override: str = None, source_id: int = None) -> dict:
         # 1. Fetch relevant content from RAG
         rag_results = self.rag_pipeline.search_similarity(user_message, top_k=6 if source_id is not None else 3, source_id=source_id)
-        min_similarity = 0.35 if source_id is not None else 0.45
+        min_similarity = 0.35
         active_rag_docs = [r for r in rag_results if r['similarity'] > min_similarity]
         has_rag = len(active_rag_docs) > 0
 
@@ -350,8 +400,9 @@ class ChatEngine:
                 "error": "All API keys are exhausted or on cooldown. Please try again in 60 seconds."
             }
 
-        # 6. Intent Detection & Auto-Todo
+        # 6. Intent Detection & Auto-Todo / Auto-LinkedIn
         response_text, todo_detected = self._process_todo_tags(response_text)
+        response_text, linkedin_detected = self._process_linkedin_tags(response_text)
 
         # 7. Log to SQLite
         conn = get_db_connection()
@@ -386,7 +437,8 @@ class ChatEngine:
             "model_used": model_name,
             "key_used": used_key_masked,
             "citations": citations,
-            "todo_detected": todo_detected
+            "todo_detected": todo_detected,
+            "linkedin_detected": linkedin_detected
         }
 
     def stream_message(self, session_id: str, user_message: str, model_override: str = None, source_id: int = None):
@@ -398,7 +450,7 @@ class ChatEngine:
 
         # RAG
         rag_results = self.rag_pipeline.search_similarity(user_message, top_k=6 if source_id is not None else 3, source_id=source_id)
-        min_similarity = 0.35 if source_id is not None else 0.45
+        min_similarity = 0.35
         active_rag_docs = [r for r in rag_results if r['similarity'] > min_similarity]
         has_rag = len(active_rag_docs) > 0
 
@@ -460,20 +512,37 @@ class ChatEngine:
 
                 last_chunk = None
 
+                def is_potential_tag_prefix(s: str) -> bool:
+                    valid_prefixes = ["[TODO_ADD:", "[TODO_COMPLETE:", "[TODO_DELETE:", "[LINKEDIN_DRAFT_ADD:"]
+                    for p in valid_prefixes:
+                        if p.startswith(s) or s.startswith(p):
+                            return True
+                    return False
+
                 for chunk in response_stream:
                     last_chunk = chunk
                     if chunk.text:
                         text = chunk.text
                         if in_tag:
                             tag_buffer += text
+                            if not is_potential_tag_prefix(tag_buffer):
+                                full_response += tag_buffer
+                                yield {"type": "token", "text": tag_buffer}
+                                tag_buffer = ""
+                                in_tag = False
                         else:
                             if "[" in text:
                                 parts = text.split("[", 1)
                                 if parts[0]:
                                     full_response += parts[0]
                                     yield {"type": "token", "text": parts[0]}
-                                tag_buffer = "[" + parts[1]
-                                in_tag = True
+                                potential_start = "[" + parts[1]
+                                if is_potential_tag_prefix(potential_start):
+                                    tag_buffer = potential_start
+                                    in_tag = True
+                                else:
+                                    full_response += potential_start
+                                    yield {"type": "token", "text": potential_start}
                             else:
                                 full_response += text
                                 yield {"type": "token", "text": text}
@@ -505,9 +574,11 @@ class ChatEngine:
 
             # Process any buffered tag content
             todo_detected = None
+            linkedin_detected = None
             if tag_buffer:
                 clean_buffer, todo_detected = self._process_todo_tags(tag_buffer)
-                if todo_detected:
+                clean_buffer, linkedin_detected = self._process_linkedin_tags(clean_buffer if todo_detected else tag_buffer)
+                if todo_detected or linkedin_detected:
                     if clean_buffer:
                         full_response += clean_buffer
                         yield {"type": "token", "text": clean_buffer}
@@ -549,7 +620,7 @@ class ChatEngine:
                 for d in active_rag_docs
             ]
 
-            yield {"type": "done", "model_used": model_name, "key_used": used_key_masked, "citations": citations, "todo_detected": todo_detected}
+            yield {"type": "done", "model_used": model_name, "key_used": used_key_masked, "citations": citations, "todo_detected": todo_detected, "linkedin_detected": linkedin_detected}
 
         except Exception as e:
             yield {"type": "error", "error": f"Post-processing Error: {str(e)[:200]}"}

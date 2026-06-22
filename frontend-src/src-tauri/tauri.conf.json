@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "DevHunt",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "identifier": "com.devhunt.ide",
   "build": {
     "frontendDist": "../dist",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "DevHunt — AI Assistant & IDE",
+        "title": "DevHunt \u00e2\u20ac\u201d AI Assistant & IDE",
         "width": 1440,
         "height": 920,
         "minWidth": 1000,

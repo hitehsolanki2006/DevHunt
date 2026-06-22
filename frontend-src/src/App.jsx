@@ -966,10 +966,21 @@ function LinkedInPanel() {
   const [generating, setGenerating] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
+  const [refiningId, setRefiningId] = useState(null);
+  const [refinePrompt, setRefinePrompt] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
 
-  useEffect(() => {
+  const loadDrafts = useCallback(() => {
     fetch('/api/linkedin/drafts').then(r => r.json()).then(d => setDrafts(d.drafts || [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    loadDrafts();
+    window.addEventListener('devhunt-refresh-linkedin', loadDrafts);
+    return () => {
+      window.removeEventListener('devhunt-refresh-linkedin', loadDrafts);
+    };
+  }, [loadDrafts]);
 
   const generate = async () => {
     if (!prompt.trim()) return;
@@ -998,6 +1009,42 @@ function LinkedInPanel() {
     setDrafts(prev => prev.map(d => d.id === editingId ? { ...d, content: editText } : d));
     setEditingId(null);
     setEditText('');
+  };
+
+  const handleRefine = async (id, currentContent) => {
+    if (!refinePrompt.trim()) return;
+    setIsRefining(true);
+    try {
+      const res = await fetch('/api/linkedin/drafts/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: currentContent, refinement_prompt: refinePrompt })
+      });
+      const data = await res.json();
+      if (data.success && data.refined_content) {
+        const updateRes = await fetch(`/api/linkedin/drafts/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: data.refined_content })
+        });
+        const updateData = await updateRes.json();
+        if (updateData.success) {
+          setDrafts(prev => prev.map(draft => draft.id === id ? { ...draft, content: data.refined_content } : draft));
+          alert('✓ Draft refined and updated successfully!');
+        } else {
+          alert('✕ Failed to save refined draft: ' + updateData.error);
+        }
+        setRefiningId(null);
+        setRefinePrompt('');
+      } else {
+        alert('✕ Refinement failed: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error refining draft');
+    } finally {
+      setIsRefining(false);
+    }
   };
 
   return (
@@ -1047,7 +1094,38 @@ function LinkedInPanel() {
                     onClick={() => { setEditingId(d.id); setEditText(d.content); }}>✎ Edit</button>
                   <button className="btn-ghost" style={{ fontSize: 10, color: 'var(--cyan)' }}
                     onClick={() => navigator.clipboard.writeText(d.content)}>📋 Copy</button>
+                  <button className="btn-ghost" style={{ fontSize: 10, color: 'var(--amber)' }}
+                    onClick={() => { setRefiningId(d.id); setRefinePrompt(''); }}>🪄 Refine</button>
                 </div>
+                {refiningId === d.id && (
+                  <div style={{ marginTop: '10px', padding: '10px', background: 'var(--bg-3)', borderRadius: '6px', border: '1px dashed var(--border)', textAlign: 'left' }}>
+                    <label style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 'bold' }}>Refine Draft with AI</label>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                      <input 
+                        placeholder="e.g. 'Make it shorter', 'Add emojis', 'Make it more professional'..."
+                        value={refinePrompt}
+                        onChange={e => setRefinePrompt(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleRefine(d.id, d.content)}
+                        style={{ flex: 1, fontSize: '11px', padding: '6px 10px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text)', outline: 'none' }}
+                      />
+                      <button 
+                        className="btn-primary" 
+                        onClick={() => handleRefine(d.id, d.content)} 
+                        disabled={isRefining}
+                        style={{ fontSize: '10.5px', padding: '4px 12px' }}
+                      >
+                        {isRefining ? 'Refining...' : 'Refine'}
+                      </button>
+                      <button 
+                        className="btn-ghost" 
+                        onClick={() => { setRefiningId(null); setRefinePrompt(''); }} 
+                        style={{ fontSize: '10.5px', padding: '4px 10px' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -1807,6 +1885,18 @@ function StatusBar({ activeTab, activeFilePath, theme }) {
    ROOT APP
 ═══════════════════════════════════════════ */
 export default function App() {
+  const [isBackendReady, setIsBackendReady] = useState(false);
+  const [connectionRetries, setConnectionRetries] = useState(0);
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = useCallback((message, type = 'info') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  }, []);
+
   const [profileSettings, setProfileSettings] = useState({
     terminal_username: 'guest',
     terminal_hostname: 'devhunt',
@@ -2061,12 +2151,24 @@ export default function App() {
     const handlePauseEvent = () => {
       setPlaying(false);
     };
+    const handleError = () => {
+      let msg = 'Audio playback failed.';
+      if (el.error) {
+        if (el.error.code === 1) msg = 'Playback aborted.';
+        else if (el.error.code === 2) msg = 'Network error during audio load.';
+        else if (el.error.code === 3) msg = 'Audio decoding failed. Format might not be supported.';
+        else if (el.error.code === 4) msg = 'Audio source not supported.';
+      }
+      showToast(msg, 'error');
+      setPlaying(false);
+    };
 
     el.addEventListener('timeupdate', handleTimeUpdate);
     el.addEventListener('durationchange', handleDurationChange);
     el.addEventListener('ended', handleEnded);
     el.addEventListener('play', handlePlayEvent);
     el.addEventListener('pause', handlePauseEvent);
+    el.addEventListener('error', handleError);
 
     return () => {
       el.removeEventListener('timeupdate', handleTimeUpdate);
@@ -2074,6 +2176,7 @@ export default function App() {
       el.removeEventListener('ended', handleEnded);
       el.removeEventListener('play', handlePlayEvent);
       el.removeEventListener('pause', handlePauseEvent);
+      el.removeEventListener('error', handleError);
     };
   }, [nextTrack]);
 
@@ -2183,6 +2286,89 @@ export default function App() {
     };
     loadStartupData();
   }, [refreshFileTree]);
+
+  // Centralized active file content loader
+  useEffect(() => {
+    if (!activeFilePath) {
+      setFileContent('');
+      return;
+    }
+
+    setOpenTabs(prev => {
+      if (!prev.includes(activeFilePath)) {
+        return [...prev, activeFilePath];
+      }
+      return prev;
+    });
+
+    const draft = localStorage.getItem(`devhunt_draft_${activeFilePath}`);
+    if (draft !== null) {
+      setFileContent(draft);
+      return;
+    }
+
+    if (activeFilePath.startsWith('Untitled-')) {
+      setFileContent('');
+      return;
+    }
+
+    let active = true;
+    const fetchContent = async () => {
+      try {
+        const res = await fetch(`/api/ide/file?path=${encodeURIComponent(activeFilePath)}`);
+        const data = await res.json();
+        if (data.success && active) {
+          setFileContent(data.content);
+        } else if (!data.success && active) {
+          setFileContent('');
+          showToast(`Failed to load file: ${data.error}`, 'error');
+        }
+      } catch (err) {
+        if (active) {
+          setFileContent('');
+          console.error(err);
+        }
+      }
+    };
+
+    fetchContent();
+    return () => { active = false; };
+  }, [activeFilePath, showToast]);
+
+  // Startup Backend connection checker and window.alert override
+  useEffect(() => {
+    let active = true;
+    const checkConnection = async () => {
+      try {
+        const res = await fetch('/api/profile');
+        if (res.ok && active) {
+          setIsBackendReady(true);
+        } else {
+          throw new Error('Not ready');
+        }
+      } catch (err) {
+        if (active) {
+          setConnectionRetries(c => c + 1);
+          setTimeout(checkConnection, 500);
+        }
+      }
+    };
+    checkConnection();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const originalAlert = window.alert;
+    window.alert = (msg) => {
+      const isSuccess = msg.startsWith('✓') || msg.toLowerCase().includes('success') || msg.toLowerCase().includes('successfully') || msg.toLowerCase().includes('passed');
+      const isError = msg.startsWith('✕') || msg.toLowerCase().includes('failed') || msg.toLowerCase().includes('error');
+      const type = isSuccess ? 'success' : (isError ? 'error' : 'info');
+      showToast(msg, type);
+    };
+    return () => {
+      window.alert = originalAlert;
+    };
+  }, [showToast]);
 
   /* ── Settings badges ──────────────────── */
   const loadSettingsBadges = useCallback(() => {
@@ -2711,6 +2897,8 @@ export default function App() {
         theme={theme}
         setTheme={(t) => { setTheme(t); applyTheme(t); }}
         onRefreshHeader={handleSettingsRefresh}
+        setActiveTab={setActiveTab}
+        setNotificationsSubTab={setNotificationsSubTab}
       />
     ),
   };
@@ -2783,6 +2971,35 @@ export default function App() {
   };
 
   /* ── RENDER ───────────────────────────── */
+  if (!isBackendReady) {
+    return (
+      <div className="initial-loader-container" style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        backgroundColor: '#0b0f14',
+        color: '#10b981',
+        fontFamily: 'var(--mono)',
+        fontSize: '13px',
+        letterSpacing: '2px',
+      }}>
+        <div className="cyber-spinner" style={{
+          width: '50px',
+          height: '50px',
+          border: '3px solid rgba(16, 185, 129, 0.1)',
+          borderTopColor: '#10b981',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          marginBottom: '20px',
+          boxShadow: '0 0 15px rgba(16, 185, 129, 0.3)',
+        }}></div>
+        <div className="loader-text">SYNCHRONIZING WITH DEVHUNT CORES... ({connectionRetries})</div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Neon theme background canvas */}
@@ -2891,6 +3108,53 @@ export default function App() {
       {/* ══ STATUS BAR ══════════════════════ */}
       <StatusBar activeTab={activeTab} activeFilePath={activeFilePath} theme={theme} />
       <audio ref={audioRef} style={{ display: 'none' }} />
+
+      {/* Toast Notification Container */}
+      <div className="toast-container" style={{
+        position: 'fixed',
+        bottom: '36px',
+        right: '20px',
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        pointerEvents: 'none'
+      }}>
+        {toasts.map(t => (
+          <div key={t.id} className={`toast-card toast-${t.type}`} style={{
+            pointerEvents: 'auto',
+            background: 'rgba(30, 30, 40, 0.85)',
+            backdropFilter: 'blur(12px)',
+            borderLeft: `4px solid ${t.type === 'error' ? 'var(--red)' : t.type === 'success' ? 'var(--green)' : 'var(--accent)'}`,
+            borderTop: '1px solid rgba(255,255,255,0.05)',
+            borderRight: '1px solid rgba(255,255,255,0.05)',
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            borderRadius: '6px',
+            padding: '12px 18px',
+            color: 'var(--text)',
+            fontSize: '12px',
+            fontFamily: 'var(--display)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            minWidth: '260px',
+            maxWidth: '380px',
+            animation: 'toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px'
+          }}>
+            <span>{t.message}</span>
+            <button onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--muted)',
+              cursor: 'pointer',
+              fontSize: '10px',
+              padding: '0 4px'
+            }}>✕</button>
+          </div>
+        ))}
+      </div>
     </>
   );
 }

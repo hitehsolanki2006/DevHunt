@@ -12,6 +12,10 @@ export default function QuestBoard() {
 
   useEffect(() => {
     loadTodos();
+    window.addEventListener('devhunt-refresh-quests', loadTodos);
+    return () => {
+      window.removeEventListener('devhunt-refresh-quests', loadTodos);
+    };
   }, []);
 
   const loadTodos = async () => {

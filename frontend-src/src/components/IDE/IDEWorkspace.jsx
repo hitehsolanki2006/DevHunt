@@ -125,40 +125,8 @@ export default function IDEWorkspace({
     openFile(path);
   };
 
-  const openFile = async (path) => {
-    // Check draft first
-    const draft = localStorage.getItem(`devhunt_draft_${path}`);
-    if (draft !== null) {
-      setActiveFilePath(path);
-      setFileContent(draft);
-      if (!openTabs.includes(path)) {
-        setOpenTabs(prev => [...prev, path]);
-      }
-      return;
-    }
-
-    if (path.startsWith('Untitled-')) {
-      setActiveFilePath(path);
-      setFileContent('');
-      if (!openTabs.includes(path)) {
-        setOpenTabs(prev => [...prev, path]);
-      }
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/ide/file?path=${encodeURIComponent(path)}`);
-      const data = await res.json();
-      if (data.success) {
-        setActiveFilePath(path);
-        setFileContent(data.content);
-        if (!openTabs.includes(path)) {
-          setOpenTabs(prev => [...prev, path]);
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
+  const openFile = (path) => {
+    setActiveFilePath(path);
   };
 
   const handleCloseTab = (path, e) => {
