@@ -1499,45 +1499,201 @@ class TerminalEngine:
         return self.format_red("Usage: hunt memory [list | refine | clear]"), current_dir
 
     def cmd_backup(self, args, current_dir):
-        if not args or args[0].lower() != "export":
-            return self.format_red("Usage: hunt backup export"), current_dir
+        if not args or args[0].lower() not in ["export", "import"]:
+            return self.format_red("Usage: hunt backup [export | import <filename>]"), current_dir
 
         from core.db import get_db_connection
         from config import KEYS_PATH, LEARNING_PATH_JSON
         from core.profile_manager import ProfileManager
         import json
-        
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM messages ORDER BY timestamp ASC")
-            messages = [dict(r) for r in cursor.fetchall()]
-            cursor.execute("SELECT id, name, type, path, status, chunk_count, created_at FROM knowledge_sources")
-            knowledge_sources = [dict(r) for r in cursor.fetchall()]
-            conn.close()
 
-            keys_data = json.load(open(KEYS_PATH)) if os.path.exists(KEYS_PATH) else []
-            lp_data = json.load(open(LEARNING_PATH_JSON)) if os.path.exists(LEARNING_PATH_JSON) else {}
+        if args[0].lower() == "export":
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM messages ORDER BY timestamp ASC")
+                messages = [dict(r) for r in cursor.fetchall()]
+                cursor.execute("SELECT id, name, type, path, status, chunk_count, created_at FROM knowledge_sources")
+                knowledge_sources = [dict(r) for r in cursor.fetchall()]
+                
+                cursor.execute("SELECT * FROM todos")
+                todos = [dict(r) for r in cursor.fetchall()]
+                cursor.execute("SELECT * FROM user_memories")
+                user_memories = [dict(r) for r in cursor.fetchall()]
+                cursor.execute("SELECT * FROM linkedin_drafts")
+                linkedin_drafts = [dict(r) for r in cursor.fetchall()]
+                cursor.execute("SELECT * FROM document_analyses")
+                document_analyses = [dict(r) for r in cursor.fetchall()]
+                
+                conn.close()
 
-            backup = {
-                "backup_version": "1.0",
-                "exported_at": datetime.datetime.now().isoformat(),
-                "chat_history": messages,
-                "knowledge_sources": knowledge_sources,
-                "keys": keys_data,
-                "profile": ProfileManager.get_profile(),
-                "settings": ProfileManager.get_settings(),
-                "learning_path": lp_data,
-            }
-            
-            fname = f"devhunt_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            bpath = os.path.join(self.workspace_root, fname)
-            with open(bpath, 'w') as f:
-                json.dump(backup, f, indent=2)
+                keys_data = json.load(open(KEYS_PATH)) if os.path.exists(KEYS_PATH) else []
+                lp_data = json.load(open(LEARNING_PATH_JSON)) if os.path.exists(LEARNING_PATH_JSON) else {}
 
-            return self.format_green(f"Full system backup successfully exported:\n  {bpath}"), current_dir
-        except Exception as e:
-            return self.format_red(f"Backup failed: {str(e)}"), current_dir
+                backup = {
+                    "backup_version": "1.0",
+                    "exported_at": datetime.datetime.now().isoformat(),
+                    "chat_history": messages,
+                    "knowledge_sources": knowledge_sources,
+                    "todos": todos,
+                    "user_memories": user_memories,
+                    "linkedin_drafts": linkedin_drafts,
+                    "document_analyses": document_analyses,
+                    "keys": keys_data,
+                    "profile": ProfileManager.get_profile(),
+                    "settings": ProfileManager.get_settings(),
+                    "learning_path": lp_data,
+                }
+                
+                fname = f"devhunt_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                bpath = os.path.join(self.workspace_root, fname)
+                with open(bpath, 'w') as f:
+                    json.dump(backup, f, indent=2)
+
+                return self.format_green(f"Full system backup successfully exported:\n  {bpath}"), current_dir
+            except Exception as e:
+                return self.format_red(f"Backup export failed: {str(e)}"), current_dir
+        else:
+            # Import command
+            if len(args) < 2:
+                return self.format_red("Usage: hunt backup import <filename_or_path>"), current_dir
+            bpath = args[1]
+            if not os.path.isabs(bpath):
+                bpath = os.path.abspath(os.path.join(self.workspace_root, bpath))
+            if not os.path.exists(bpath):
+                return self.format_red(f"Backup file not found: {bpath}"), current_dir
+
+            try:
+                with open(bpath, 'r', encoding='utf-8') as f:
+                    backup = json.load(f)
+
+                restored = {}
+
+                if backup.get('profile'):
+                    ProfileManager.update_profile(backup['profile'])
+                    restored['profile'] = True
+
+                if backup.get('settings'):
+                    ProfileManager.update_settings(backup['settings'])
+                    restored['settings'] = True
+
+                if backup.get('keys'):
+                    with open(KEYS_PATH, 'w') as f:
+                        json.dump(backup['keys'], f, indent=4)
+                    from core.key_manager import KeyManager
+                    km = KeyManager()
+                    km._load_keys()
+                    restored['keys'] = len(backup['keys'])
+
+                if backup.get('learning_path'):
+                    with open(LEARNING_PATH_JSON, 'w') as f:
+                        json.dump(backup['learning_path'], f, indent=4)
+                    restored['learning_path'] = True
+
+                if backup.get('chat_history'):
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    count = 0
+                    for msg in backup['chat_history']:
+                        try:
+                            cursor.execute(
+                                """INSERT OR IGNORE INTO messages
+                                   (id, session_id, role, content, model_used, key_used, timestamp, tokens_used)
+                                   VALUES (?,?,?,?,?,?,?,?)""",
+                                (msg.get('id'), msg.get('session_id'), msg.get('role'),
+                                 msg.get('content'), msg.get('model_used'), msg.get('key_used'),
+                                 msg.get('timestamp'), msg.get('tokens_used', 0))
+                            )
+                            count += 1
+                        except Exception:
+                            pass
+                    conn.commit()
+                    conn.close()
+                    restored['chat_messages'] = count
+
+                if backup.get('todos'):
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    count = 0
+                    for t in backup['todos']:
+                        try:
+                            cursor.execute(
+                                """INSERT OR IGNORE INTO todos
+                                   (id, title, description, priority, status, due_date, tags, source, created_at, completed_at)
+                                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                                (t.get('id'), t.get('title'), t.get('description'), t.get('priority'),
+                                 t.get('status'), t.get('due_date'), t.get('tags'), t.get('source'),
+                                 t.get('created_at'), t.get('completed_at'))
+                            )
+                            count += 1
+                        except Exception:
+                            pass
+                    conn.commit()
+                    conn.close()
+                    restored['quests'] = count
+
+                if backup.get('user_memories'):
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    count = 0
+                    for m in backup['user_memories']:
+                        try:
+                            cursor.execute(
+                                """INSERT OR REPLACE INTO user_memories
+                                   (id, session_id, consolidated_facts, last_updated)
+                                   VALUES (?,?,?,?)""",
+                                (m.get('id'), m.get('session_id'), m.get('consolidated_facts'), m.get('last_updated'))
+                            )
+                            count += 1
+                        except Exception:
+                            pass
+                    conn.commit()
+                    conn.close()
+                    restored['user_memories'] = count
+
+                if backup.get('linkedin_drafts'):
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    count = 0
+                    for d in backup['linkedin_drafts']:
+                        try:
+                            cursor.execute(
+                                """INSERT OR REPLACE INTO linkedin_drafts
+                                   (id, title, content, status, created_at, updated_at)
+                                   VALUES (?,?,?,?,?,?)""",
+                                (d.get('id'), d.get('title'), d.get('content'), d.get('status'), d.get('created_at'), d.get('updated_at'))
+                            )
+                            count += 1
+                        except Exception:
+                            pass
+                    conn.commit()
+                    conn.close()
+                    restored['linkedin_drafts'] = count
+
+                if backup.get('document_analyses'):
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    count = 0
+                    for d in backup['document_analyses']:
+                        try:
+                            cursor.execute(
+                                """INSERT OR REPLACE INTO document_analyses
+                                   (id, source_id, final_score, verdict, risk_level, report_json, ela_image_path, dashboard_image_path, created_at)
+                                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                                (d.get('id'), d.get('source_id'), d.get('final_score'), d.get('verdict'),
+                                 d.get('risk_level'), d.get('report_json'), d.get('ela_image_path'),
+                                 d.get('dashboard_image_path'), d.get('created_at'))
+                            )
+                            count += 1
+                        except Exception:
+                            pass
+                    conn.commit()
+                    conn.close()
+                    restored['document_analyses'] = count
+
+                return self.format_green(f"Backup restored successfully from {bpath}:\n  {restored}"), current_dir
+            except Exception as e:
+                return self.format_red(f"Backup import failed: {str(e)}"), current_dir
 
     def cmd_history(self, args, current_dir):
         limit = 20
