@@ -62,10 +62,10 @@ export default function QuestBoard() {
   };
 
   const handleMoveTodo = async (id, currentStatus) => {
-    let nextStatus = 'todo';
-    if (currentStatus === 'todo') nextStatus = 'in_progress';
+    let nextStatus = 'pending';
+    if (currentStatus === 'pending') nextStatus = 'in_progress';
     else if (currentStatus === 'in_progress') nextStatus = 'done';
-    else if (currentStatus === 'done') nextStatus = 'todo';
+    else if (currentStatus === 'done') nextStatus = 'pending';
 
     try {
       const res = await fetch(`/api/todos/${id}`, {
@@ -208,7 +208,7 @@ export default function QuestBoard() {
         className="kanban-wrapper" 
         style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 180px)', overflowX: 'auto', paddingBottom: '10px', marginTop: '10px' }}
       >
-        {renderColumn('todo', 'Todo', 'var(--cyan)')}
+        {renderColumn('pending', 'Todo', 'var(--cyan)')}
         {renderColumn('in_progress', 'In Progress', 'var(--amber)')}
         {renderColumn('done', 'Completed', 'var(--green)')}
       </div>
