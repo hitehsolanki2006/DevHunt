@@ -12,8 +12,8 @@ No subscriptions. No third-party data tracking. Everything is stored on your mac
 
 ## 🚀 Key Features
 
-*   **🛠️ Self-Healing Setup**: Run a single command (`run.bat` or `run.sh`) to verify Python 3.10+, check virtual environment health (auto-rebuilds if broken), and use a fast dependency checker to skip installation checks if satisfied.
-*   **🖥️ Hunt Terminal CLI**: Run cross-platform shell commands, manage todos, test API keys, view memory, and check notifications via the `hunt` command-line utility directly in the browser.
+*   **🛠️ Self-Healing Setup**: Run a single command (`run.bat` or `run.sh`) to verify Python 3.10+, check virtual environment health (auto-rebuilds if broken), use a fast dependency checker to skip installation checks if satisfied, and automatically kill orphaned processes to free up port 1225 (or the custom set port) before launching.
+*   **🖥️ Hunt Terminal CLI**: Run cross-platform shell commands, manage todos, test API keys, view memory, check notifications, and perform full system backup imports/exports (`hunt backup import <file>`) via the `hunt` command-line utility directly in the browser or terminal client.
 *   **🗺️ Interactive Roadmap Path & Quest Sync**: Generate custom learning roadmaps. Expand cards to view daily milestones, study resources, reference badges, and use the quick `+ Add Quest` shortcut to directly add tasks to your Quest Board.
 *   **🧠 Long-Term AI Memory**: Automatically aggregates and saves facts, user details, and preferences from conversation history to SQLite. View and edit facts directly on the settings page.
 *   **📡 System Messages & Git Auto-Updater**: Dedicated announcements tab that displays software updates, git pull releases, and local warnings. Automatically checks and pulls updates.
