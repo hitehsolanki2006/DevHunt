@@ -1117,6 +1117,8 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                     <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
                       <th style={{ padding: '8px', textAlign: 'left' }}>LABEL</th>
                       <th style={{ padding: '8px', textAlign: 'left' }}>MASKED KEY</th>
+                      <th style={{ padding: '8px', textAlign: 'center' }}>SUCCESS</th>
+                      <th style={{ padding: '8px', textAlign: 'center' }}>FAIL</th>
                       <th style={{ padding: '8px', textAlign: 'center' }}>STATUS</th>
                       <th style={{ padding: '8px', textAlign: 'center' }}>TEST</th>
                       <th style={{ padding: '8px', textAlign: 'center' }}>DELETE</th>
@@ -1127,6 +1129,8 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       <tr key={k.id} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '8px', fontWeight: 'bold' }}>{k.label || 'Unnamed Key'}</td>
                         <td style={{ padding: '8px', fontFamily: 'var(--mono)' }}>{k.masked_key}</td>
+                        <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'var(--mono)', color: 'var(--green)' }}>{k.request_count ?? 0}</td>
+                        <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'var(--mono)', color: (k.error_count ?? 0) > 0 ? 'var(--red)' : 'var(--muted)' }}>{k.error_count ?? 0}</td>
                         <td style={{ padding: '8px', textAlign: 'center' }}>
                           <button 
                             className={`btn-ghost ${k.status === 'Active' ? 'active' : ''}`}
@@ -1150,7 +1154,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                     ))}
                     {keysList.length === 0 && (
                       <tr>
-                        <td colSpan="5" style={{ textAlign: 'center', padding: '20px 0', color: 'var(--muted)' }}>
+                        <td colSpan="7" style={{ textAlign: 'center', padding: '20px 0', color: 'var(--muted)' }}>
                           No API keys registered. Key rotation is currently disabled.
                         </td>
                       </tr>
