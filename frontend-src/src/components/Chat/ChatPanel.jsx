@@ -315,24 +315,56 @@ export default function ChatPanel({ theme, activeModel, activeKey, onAddQuest })
 
         {/* Chat Messages Feed */}
         <div className="chat-feed" id="chat-feed" ref={chatFeedRef} style={{ flex: '1', overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {messages.map((msg, i) => (
-            <div 
-              key={i} 
-              className={`msg ${msg.role === 'user' ? 'user' : 'ai'}`}
-              style={{ textAlign: 'left' }}
-            >
-              <div dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.content) }} />
-              <span className="msg-time">{formatTime(msg.timestamp)}</span>
-            </div>
-          ))}
+          {messages.map((msg, i) => {
+            let grammarTip = null;
+            let content = msg.content;
+            if (msg.role === 'assistant' || msg.role === 'ai') {
+              const grammarMatch = content.match(/^>\s*\*Grammar Tip:\s*(.*?)\*\s*\n?/);
+              if (grammarMatch) {
+                grammarTip = grammarMatch[1];
+                content = content.replace(/^>\s*\*Grammar Tip:\s*(.*?)\*\s*\n?/, '').trim();
+              }
+            }
+            return (
+              <div 
+                key={i} 
+                className={`msg ${msg.role === 'user' ? 'user' : 'ai'}`}
+                style={{ textAlign: 'left' }}
+              >
+                {grammarTip && (
+                  <div className="callout" style={{ marginBottom: '8px' }}>
+                    <div className="callout-title">✎ GRAMMAR &amp; PHRASING TIP</div>
+                    <i>{grammarTip}</i>
+                  </div>
+                )}
+                <div dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }} />
+                <span className="msg-time">{formatTime(msg.timestamp)}</span>
+              </div>
+            );
+          })}
           
           {/* Stream chunk preview */}
-          {isStreaming && streamingText && (
-            <div className="msg ai" style={{ textAlign: 'left' }}>
-              <div dangerouslySetInnerHTML={{ __html: parseMarkdown(streamingText) }} />
-              <span className="streaming-cursor">█</span>
-            </div>
-          )}
+          {isStreaming && streamingText && (() => {
+            let grammarTip = null;
+            let content = streamingText;
+            const grammarMatch = content.match(/^>\s*\*Grammar Tip:\s*(.*?)\*\s*\n?/);
+            if (grammarMatch) {
+              grammarTip = grammarMatch[1];
+              content = content.replace(/^>\s*\*Grammar Tip:\s*(.*?)\*\s*\n?/, '').trim();
+            }
+            return (
+              <div className="msg ai" style={{ textAlign: 'left' }}>
+                {grammarTip && (
+                  <div className="callout" style={{ marginBottom: '8px' }}>
+                    <div className="callout-title">✎ GRAMMAR &amp; PHRASING TIP</div>
+                    <i>{grammarTip}</i>
+                  </div>
+                )}
+                <div dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }} />
+                <span className="streaming-cursor">█</span>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Input box */}
