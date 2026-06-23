@@ -159,6 +159,12 @@ for /f "tokens=*" %%i in ('backend\venv\Scripts\python.exe -c "import secrets; p
 :: Set environment variables
 set X_DEVHUNT_TOKEN=%SECURE_TOKEN%
 
+:: Free port 1225 if it is already in use by an orphaned process
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%PORT%" ^| findstr "LISTENING"') do (
+    echo [INFO] Freeing port %PORT% held by PID %%a ...
+    taskkill /F /PID %%a >nul 2>&1
+)
+
 :: Move to backend directory
 cd /d "%~dp0backend"
 
