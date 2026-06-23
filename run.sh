@@ -129,6 +129,21 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Free port if already in use by an orphaned process
+if command -v lsof &>/dev/null; then
+    PORT_PID=$(lsof -t -i:"$PORT" -sTCP:LISTEN)
+    if [ ! -z "$PORT_PID" ]; then
+        echo "[INFO] Freeing port $PORT held by PID $PORT_PID ..."
+        kill -9 $PORT_PID 2>/dev/null
+    fi
+elif command -v fuser &>/dev/null; then
+    PORT_PID=$(fuser "$PORT"/tcp 2>/dev/null)
+    if [ ! -z "$PORT_PID" ]; then
+        echo "[INFO] Freeing port $PORT held by PID $PORT_PID ..."
+        fuser -k "$PORT"/tcp 2>/dev/null
+    fi
+fi
+
 echo ""
 echo "Select Frontend UI Mode:"
 echo "  [1] Legacy HTML/CSS"
