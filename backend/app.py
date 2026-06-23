@@ -100,6 +100,9 @@ def check_api_token():
         return
     if not request.path.startswith('/api/'):
         return
+    # Bypass auth check for native browser streaming and downloads which cannot pass headers
+    if request.path.startswith('/api/music/stream/') or request.path.startswith('/api/music/download/'):
+        return
     if API_TOKEN:
         token = request.headers.get('X-DevHunt-Token')
         if token != API_TOKEN:
@@ -1158,6 +1161,17 @@ def export_full_backup():
         messages = [dict(r) for r in cursor.fetchall()]
         cursor.execute("SELECT id, name, type, path, status, chunk_count, created_at FROM knowledge_sources")
         knowledge_sources = [dict(r) for r in cursor.fetchall()]
+        
+        # Get extra tables for complete backup
+        cursor.execute("SELECT * FROM todos")
+        todos = [dict(r) for r in cursor.fetchall()]
+        cursor.execute("SELECT * FROM user_memories")
+        user_memories = [dict(r) for r in cursor.fetchall()]
+        cursor.execute("SELECT * FROM linkedin_drafts")
+        linkedin_drafts = [dict(r) for r in cursor.fetchall()]
+        cursor.execute("SELECT * FROM document_analyses")
+        document_analyses = [dict(r) for r in cursor.fetchall()]
+        
         conn.close()
 
         keys_data = json.load(open(KEYS_PATH)) if os.path.exists(KEYS_PATH) else []
@@ -1168,6 +1182,10 @@ def export_full_backup():
             "exported_at":     datetime.datetime.now().isoformat(),
             "chat_history":    messages,
             "knowledge_sources": knowledge_sources,
+            "todos":           todos,
+            "user_memories":   user_memories,
+            "linkedin_drafts": linkedin_drafts,
+            "document_analyses": document_analyses,
             "keys":            keys_data,
             "profile":         ProfileManager.get_profile(),
             "settings":        ProfileManager.get_settings(),
@@ -1189,8 +1207,9 @@ def import_full_backup():
             return jsonify({"success": False, "error": "No file uploaded"}), 400
         content = request.files['file'].read().decode('utf-8')
         backup  = json.loads(content)
-        if backup.get('backup_version') != '1.0':
-            return jsonify({"success": False, "error": "Unknown backup version"}), 400
+        
+        backup_version = backup.get('backup_version', '1.0')
+        logger.info("backup", f"Importing backup version: {backup_version}")
 
         restored = {}
         from core.db import get_db_connection
@@ -1234,6 +1253,86 @@ def import_full_backup():
             conn.commit()
             conn.close()
             restored['chat_messages'] = count
+
+        if backup.get('todos'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            count = 0
+            for t in backup['todos']:
+                try:
+                    cursor.execute(
+                        """INSERT OR IGNORE INTO todos
+                           (id, title, description, priority, status, due_date, tags, source, created_at, completed_at)
+                           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                        (t.get('id'), t.get('title'), t.get('description'), t.get('priority'),
+                         t.get('status'), t.get('due_date'), t.get('tags'), t.get('source'),
+                         t.get('created_at'), t.get('completed_at'))
+                    )
+                    count += 1
+                except Exception:
+                    pass
+            conn.commit()
+            conn.close()
+            restored['quests'] = count
+
+        if backup.get('user_memories'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            count = 0
+            for m in backup['user_memories']:
+                try:
+                    cursor.execute(
+                        """INSERT OR REPLACE INTO user_memories
+                           (id, session_id, consolidated_facts, last_updated)
+                           VALUES (?,?,?,?)""",
+                        (m.get('id'), m.get('session_id'), m.get('consolidated_facts'), m.get('last_updated'))
+                    )
+                    count += 1
+                except Exception:
+                    pass
+            conn.commit()
+            conn.close()
+            restored['user_memories'] = count
+
+        if backup.get('linkedin_drafts'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            count = 0
+            for d in backup['linkedin_drafts']:
+                try:
+                    cursor.execute(
+                        """INSERT OR REPLACE INTO linkedin_drafts
+                           (id, title, content, status, created_at, updated_at)
+                           VALUES (?,?,?,?,?,?)""",
+                        (d.get('id'), d.get('title'), d.get('content'), d.get('status'), d.get('created_at'), d.get('updated_at'))
+                    )
+                    count += 1
+                except Exception:
+                    pass
+            conn.commit()
+            conn.close()
+            restored['linkedin_drafts'] = count
+
+        if backup.get('document_analyses'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            count = 0
+            for d in backup['document_analyses']:
+                try:
+                    cursor.execute(
+                        """INSERT OR REPLACE INTO document_analyses
+                           (id, source_id, final_score, verdict, risk_level, report_json, ela_image_path, dashboard_image_path, created_at)
+                           VALUES (?,?,?,?,?,?,?,?,?)""",
+                        (d.get('id'), d.get('source_id'), d.get('final_score'), d.get('verdict'),
+                         d.get('risk_level'), d.get('report_json'), d.get('ela_image_path'),
+                         d.get('dashboard_image_path'), d.get('created_at'))
+                    )
+                    count += 1
+                except Exception:
+                    pass
+            conn.commit()
+            conn.close()
+            restored['document_analyses'] = count
 
         logger.success("backup", "Backup restored", restored)
         return jsonify({"success": True, "restored": restored})
@@ -1419,7 +1518,7 @@ def apply_updates_endpoint():
 # ── MUSIC PLAYER ──────────────────────────────────────────────────────────────
 MUSIC_DIR = os.path.join(UPLOADS_DIR, 'music')
 os.makedirs(MUSIC_DIR, exist_ok=True)
-ALLOWED_AUDIO_EXTS = {'.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a', '.opus', '.weba', '.webm'}
+ALLOWED_AUDIO_EXTS = {'.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a', '.mp4', '.opus', '.weba', '.webm'}
 
 
 def get_audio_duration(filepath):
@@ -1554,7 +1653,7 @@ def music_youtube():
             try:
                 # Setup native options (no ffmpeg dependency)
                 ydl_opts_native = {
-                    'format': 'bestaudio/best',
+                    'format': 'bestaudio[ext=m4a]/bestaudio/best',
                     'outtmpl': os.path.join(MUSIC_DIR, '%(title)s [%(id)s].%(ext)s'),
                     'quiet': True,
                     'no_warnings': True,
@@ -1598,7 +1697,8 @@ def music_stream(filename):
         mime_map = {
             '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
             '.flac': 'audio/flac', '.aac': 'audio/aac', '.m4a': 'audio/mp4',
-            '.opus': 'audio/opus', '.weba': 'audio/webm', '.webm': 'video/webm'
+            '.mp4': 'audio/mp4', '.opus': 'audio/opus', '.weba': 'audio/webm',
+            '.webm': 'audio/webm'
         }
         mime = mime_map.get(ext, 'audio/mpeg')
 
