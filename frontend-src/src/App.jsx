@@ -705,13 +705,272 @@ function SearchPanel() {
   );
 }
 
-/* ───────────────────────────────
-   PANEL: TERMINAL STATS
-─────────────────────────────── */
-function TerminalStats() {
+function fmtNum(n) {
+  if (n === undefined || n === null) return '0';
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
+}
+
+function drawBarChart(canvas, labels, values, colors, theme) {
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 400;
+  const H = canvas.offsetHeight || 160;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const isLight = theme === 'light';
+  const gridColor = isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255,255,255,0.06)';
+  const labelColor = isLight ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255,255,255,0.3)';
+  const xAxisLabelColor = isLight ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255,255,255,0.45)';
+  const emptyColor = isLight ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255,255,255,0.15)';
+
+  if (!values.length || Math.max(...values) === 0) {
+    ctx.fillStyle = emptyColor;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data yet — send a chat message', W / 2, H / 2);
+    return;
+  }
+
+  const padding = { top: 16, right: 10, bottom: 36, left: 36 };
+  const chartW = W - padding.left - padding.right;
+  const chartH = H - padding.top - padding.bottom;
+  const maxVal = Math.max(...values) * 1.15 || 1;
+  const barGap = 10;
+  const barW = Math.max(12, (chartW - (labels.length - 1) * barGap) / labels.length);
+
+  // Grid lines
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padding.top + (chartH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + chartW, y); ctx.stroke();
+    ctx.fillStyle = labelColor;
+    ctx.font = `9px JetBrains Mono, monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(fmtNum(Math.round(maxVal * (1 - i / 4))), padding.left - 4, y + 3);
+  }
+
+  // Bars
+  labels.forEach((label, i) => {
+    const barX = padding.left + i * (barW + barGap);
+    const barH = (values[i] / maxVal) * chartH;
+    const barY = padding.top + chartH - barH;
+    const color = colors[i % colors.length];
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(0, barY, 0, barY + barH);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, color + '44');
+    ctx.fillStyle = grad;
+
+    // Glow
+    ctx.shadowColor = color;
+    ctx.shadowBlur = isLight ? 1 : 8;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barW, barH, 3);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Value on top of bar
+    ctx.fillStyle = color;
+    ctx.font = `bold 9px JetBrains Mono, monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(fmtNum(values[i]), barX + barW / 2, barY - 3);
+
+    // X-axis label
+    ctx.fillStyle = xAxisLabelColor;
+    ctx.font = `9px JetBrains Mono, monospace`;
+    const shortLabel = label.length > 14 ? label.slice(0, 12) + '…' : label;
+    ctx.save();
+    ctx.translate(barX + barW / 2, padding.top + chartH + 6);
+    ctx.rotate(-Math.PI / 6);
+    ctx.textAlign = 'right';
+    ctx.fillText(shortLabel, 0, 0);
+    ctx.restore();
+  });
+}
+
+function drawDailyChart(canvas, days, messages, theme) {
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 500;
+  const H = canvas.offsetHeight || 140;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const padding = { top: 14, right: 10, bottom: 30, left: 32 };
+  const chartW = W - padding.left - padding.right;
+  const chartH = H - padding.top - padding.bottom;
+
+  const isLight = theme === 'light';
+  const gridColor = isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255,255,255,0.05)';
+  const labelColor = isLight ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255,255,255,0.25)';
+  const dayLabelColor = isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(255,255,255,0.35)';
+  const emptyColor = isLight ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255,255,255,0.15)';
+  
+  const isNeon = theme === 'neon';
+  const isDevil = theme === 'devil';
+  const chartColor = isLight ? '#4f46e5' : (isNeon ? '#34d399' : (isDevil ? '#f4f4f5' : '#6366f1'));
+  const chartColorLight = isLight ? 'rgba(79, 70, 229, 0.15)' : (isNeon ? '#34d39933' : (isDevil ? 'rgba(244, 244, 245, 0.15)' : 'rgba(99, 102, 241, 0.15)'));
+  const chartLineColor = isLight ? '#4f46e5cc' : (isNeon ? '#34d399bb' : (isDevil ? '#f4f4f5cc' : '#6366f1cc'));
+
+  if (!messages.length || Math.max(...messages) === 0) {
+    ctx.fillStyle = emptyColor;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No activity in the last 14 days', W / 2, H / 2);
+    return;
+  }
+
+  const maxVal = Math.max(...messages) * 1.2 || 1;
+  const barW = Math.max(8, chartW / days.length - 4);
+  const barGap = (chartW - barW * days.length) / (days.length - 1 || 1);
+
+  // Grid lines
+  ctx.strokeStyle = gridColor;
+  for (let i = 0; i <= 3; i++) {
+    const y = padding.top + (chartH / 3) * i;
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + chartW, y); ctx.stroke();
+    ctx.fillStyle = labelColor;
+    ctx.font = `9px JetBrains Mono, monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(fmtNum(Math.round(maxVal * (1 - i / 3))), padding.left - 4, y + 3);
+  }
+
+  const points = [];
+  days.forEach((day, i) => {
+    const x = padding.left + i * (barW + barGap);
+    const bH = (messages[i] / maxVal) * chartH;
+    const y = padding.top + chartH - bH;
+
+    const grad = ctx.createLinearGradient(0, y, 0, y + bH);
+    grad.addColorStop(0, chartColor);
+    grad.addColorStop(1, chartColorLight);
+    ctx.shadowColor = chartColor; ctx.shadowBlur = isLight ? 1 : 6;
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, bH, 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    points.push({ x: x + barW / 2, y });
+
+    if (i % 2 === 0) {
+      ctx.fillStyle = dayLabelColor;
+      ctx.font = `8.5px JetBrains Mono, monospace`;
+      ctx.textAlign = 'center';
+      const d = day ? day.slice(5) : '';
+      ctx.fillText(d, x + barW / 2, padding.top + chartH + 14);
+    }
+  });
+
+  if (points.length > 1) {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      const cpx = (points[i - 1].x + points[i].x) / 2;
+      ctx.bezierCurveTo(cpx, points[i - 1].y, cpx, points[i].y, points[i].x, points[i].y);
+    }
+    ctx.strokeStyle = chartLineColor;
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = chartColor; ctx.shadowBlur = isLight ? 1 : 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    points.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = chartColor;
+      ctx.shadowColor = chartColor; ctx.shadowBlur = isLight ? 1 : 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+  }
+}
+
+function drawDonutChart(canvas, values, labels, colors, theme) {
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 140;
+  const H = canvas.offsetHeight || 140;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const isLight = theme === 'light';
+  const emptyColor = isLight ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255,255,255,0.15)';
+  const donutHoleBg = isLight ? '#ffffff' : '#0c0f12';
+  const donutCenterText = isLight ? '#0f172a' : '#ffffff';
+  const donutTotalLabel = isLight ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255,255,255,0.4)';
+
+  const total = values.reduce((a, b) => a + b, 0);
+  if (!total) {
+    ctx.fillStyle = emptyColor;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data', W / 2, H / 2 + 4);
+    return;
+  }
+
+  const cx = W / 2, cy = H / 2, r = Math.min(W, H) / 2 - 10, innerR = r * 0.55;
+  let startAngle = -Math.PI / 2;
+
+  values.forEach((v, i) => {
+    if (!v) return;
+    const sweep = (v / total) * Math.PI * 2;
+    const color = colors[i % colors.length];
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, startAngle, startAngle + sweep);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = isLight ? 1 : 10;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    startAngle += sweep;
+  });
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+  ctx.fillStyle = donutHoleBg;
+  ctx.fill();
+
+  ctx.fillStyle = donutCenterText;
+  const labelFont = isLight ? 'bold 13px Inter, monospace' : 'bold 13px Orbitron, monospace';
+  ctx.font = labelFont;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(fmtNum(total), cx, cy);
+  ctx.font = `9px JetBrains Mono, monospace`;
+  ctx.fillStyle = donutTotalLabel;
+  ctx.fillText('total', cx, cy + 14);
+  ctx.textBaseline = 'alphabetic';
+}
+
+function TerminalStats({ theme }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState({ name: '', goal: '', target: 240, startDate: '2025-09-01' });
+
+  const dailyCanvasRef = useRef(null);
+  const modelsCanvasRef = useRef(null);
+  const keysCanvasRef = useRef(null);
+  const roleCanvasRef = useRef(null);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -727,6 +986,57 @@ function TerminalStats() {
     fetch('/api/profile').then(r => r.json()).then(d => { if (d) setProfile(d); }).catch(() => {});
   }, [fetchStats]);
 
+  useEffect(() => {
+    if (!stats) return;
+
+    // Daily activity
+    const dayMap = {};
+    (stats.daily_activity || []).forEach(r => { dayMap[r.day] = r.messages; });
+    const today = new Date();
+    const dailyDays = [], dailyMsgs = [];
+    for (let i = 13; i >= 0; i--) {
+      const dt = new Date(today);
+      dt.setDate(today.getDate() - i);
+      const key = dt.toISOString().slice(0, 10);
+      dailyDays.push(key);
+      dailyMsgs.push(dayMap[key] || 0);
+    }
+    drawDailyChart(dailyCanvasRef.current, dailyDays, dailyMsgs, theme);
+
+    // Palettes
+    const isLight = theme === 'light';
+    const isNeon = theme === 'neon';
+    const isDevil = theme === 'devil';
+
+    const STATS_PALETTE_LIGHT = ['#4f46e5', '#10b981', '#f59e0b', '#d946ef', '#0ea5e9', '#ef4444', '#8b5cf6', '#ec4899'];
+    const STATS_PALETTE_NEON = ['#34d399', '#38bdf8', '#fbbf24', '#f87171', '#a78bfa', '#34d399', '#f472b6', '#60a5fa'];
+    const STATS_PALETTE_SLATE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#14b8a6', '#f43f5e'];
+    const STATS_PALETTE_DEVIL = ['#f4f4f5', '#e4e4e7', '#cbd5e1', '#94a3b8', '#64748b', '#475569', '#334155', '#1e293b'];
+    const palette = isLight ? STATS_PALETTE_LIGHT : (isNeon ? STATS_PALETTE_NEON : (isDevil ? STATS_PALETTE_DEVIL : STATS_PALETTE_SLATE));
+
+    // Model Distribution
+    const modelLabels = (stats.model_distribution || []).map(m => m.model || 'Unknown');
+    const modelReqs = (stats.model_distribution || []).map(m => m.requests);
+    drawBarChart(modelsCanvasRef.current, modelLabels, modelReqs, palette, theme);
+
+    // Keys Workload
+    const keyLabels = (stats.key_workload || []).map(k => k.label || k.masked || 'Key');
+    const keyReqs = (stats.key_workload || []).map(k => k.requests);
+    const KEY_COLORS = isLight 
+      ? ['#4f46e5', '#10b981', '#f59e0b', '#8b5cf6'] 
+      : (isNeon ? ['#38bdf8', '#60a5fa', '#a78bfa', '#f472b6'] : (isDevil ? ['#f4f4f5', '#cbd5e1', '#94a3b8', '#475569'] : ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6']));
+    drawBarChart(keysCanvasRef.current, keyLabels, keyReqs, KEY_COLORS, theme);
+
+    // Role Split
+    const userCount = stats.role_split?.user || 0;
+    const aiCount = stats.role_split?.assistant || 0;
+    const donutColors = isLight 
+      ? ['#10b981', '#4f46e5'] 
+      : (isNeon ? ['#34d399', '#38bdf8'] : (isDevil ? ['#f4f4f5', '#475569'] : ['#10b981', '#6366f1']));
+    drawDonutChart(roleCanvasRef.current, [userCount, aiCount], ['User', 'AI'], donutColors, theme);
+
+  }, [stats, theme]);
+
   const saveProfile = async () => {
     try {
       await fetch('/api/profile', {
@@ -736,6 +1046,98 @@ function TerminalStats() {
       });
     } catch {}
   };
+
+  const getInsights = () => {
+    let peakDay = 'None';
+    let peakMsgs = 0;
+    if (stats?.daily_activity && stats.daily_activity.length > 0) {
+      stats.daily_activity.forEach(r => {
+        if (r.messages > peakMsgs) {
+          peakMsgs = r.messages;
+          peakDay = r.day;
+        }
+      });
+    }
+    const savingsStr = typeof stats?.est_savings === 'number' ? stats.est_savings.toFixed(3) : '0.000';
+    const avgTokensStr = typeof stats?.avg_tokens === 'number' ? stats.avg_tokens.toFixed(1) : '0.0';
+    const activeSessStr = typeof stats?.active_sessions_count === 'number' ? stats.active_sessions_count : '0';
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)' }}>
+          <span className="muted" style={{ fontSize: 10 }}>TOKEN EFFICIENCY</span>
+          <span style={{ color: 'var(--cyan)', fontWeight: 'bold', fontSize: 11 }}>{avgTokensStr} tok/msg</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)' }}>
+          <span className="muted" style={{ fontSize: 10 }}>CLOUD COST SAVED</span>
+          <span style={{ color: 'var(--green)', fontWeight: 'bold', fontSize: 11 }}>${savingsStr}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)' }}>
+          <span className="muted" style={{ fontSize: 10 }}>ACTIVE SESSIONS</span>
+          <span style={{ color: 'var(--amber)', fontWeight: 'bold', fontSize: 11 }}>{activeSessStr} active</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+          <span className="muted" style={{ fontSize: 10 }}>PEAK ACTIVITY DAY</span>
+          <span style={{ color: 'var(--magenta)', fontWeight: 'bold', fontSize: 11 }}>{peakDay} ({peakMsgs} msg)</span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTokenBars = () => {
+    if (!stats || !stats.model_distribution || stats.model_distribution.length === 0) {
+      return <div style={{ color: 'var(--muted)', fontSize: 11, textAlign: 'center', padding: '20px 0' }}>No token data yet</div>;
+    }
+    const maxTok = Math.max(...stats.model_distribution.map(m => m.tokens), 1);
+    const progressBg = theme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+    const isLight = theme === 'light';
+    const isNeon = theme === 'neon';
+    const isDevil = theme === 'devil';
+
+    const STATS_PALETTE_LIGHT = ['#4f46e5', '#10b981', '#f59e0b', '#d946ef', '#0ea5e9', '#ef4444', '#8b5cf6', '#ec4899'];
+    const STATS_PALETTE_NEON = ['#34d399', '#38bdf8', '#fbbf24', '#f87171', '#a78bfa', '#34d399', '#f472b6', '#60a5fa'];
+    const STATS_PALETTE_SLATE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#14b8a6', '#f43f5e'];
+    const STATS_PALETTE_DEVIL = ['#f4f4f5', '#e4e4e7', '#cbd5e1', '#94a3b8', '#64748b', '#475569', '#334155', '#1e293b'];
+    const palette = isLight ? STATS_PALETTE_LIGHT : (isNeon ? STATS_PALETTE_NEON : (isDevil ? STATS_PALETTE_DEVIL : STATS_PALETTE_SLATE));
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {stats.model_distribution.map((m, i) => {
+          const pct = maxTok > 0 ? Math.max(2, (m.tokens / maxTok) * 100) : 0;
+          const color = palette[i % palette.length];
+          return (
+            <div key={i}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'var(--mono)', marginBottom: 4 }}>
+                <span style={{ color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{m.model || 'Unknown'}</span>
+                <span style={{ color: color, fontWeight: 'bold' }}>{fmtNum(m.tokens)} tok</span>
+              </div>
+              <div style={{ height: 8, background: progressBg, borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}88)`, borderRadius: 4, boxShadow: `0 0 6px ${color}55`, transition: 'width 0.6s ease' }}></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const isLight = theme === 'light';
+  const isNeon = theme === 'neon';
+  const isDevil = theme === 'devil';
+
+  const STATS_PALETTE_LIGHT = ['#4f46e5', '#10b981', '#f59e0b', '#d946ef', '#0ea5e9', '#ef4444', '#8b5cf6', '#ec4899'];
+  const STATS_PALETTE_NEON = ['#34d399', '#38bdf8', '#fbbf24', '#f87171', '#a78bfa', '#34d399', '#f472b6', '#60a5fa'];
+  const STATS_PALETTE_SLATE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#14b8a6', '#f43f5e'];
+  const STATS_PALETTE_DEVIL = ['#f4f4f5', '#e4e4e7', '#cbd5e1', '#94a3b8', '#64748b', '#475569', '#334155', '#1e293b'];
+  const palette = isLight ? STATS_PALETTE_LIGHT : (isNeon ? STATS_PALETTE_NEON : (isDevil ? STATS_PALETTE_DEVIL : STATS_PALETTE_SLATE));
+  
+  const KEY_COLORS = isLight 
+    ? ['#4f46e5', '#10b981', '#f59e0b', '#8b5cf6'] 
+    : (isNeon ? ['#38bdf8', '#60a5fa', '#a78bfa', '#f472b6'] : (isDevil ? ['#f4f4f5', '#cbd5e1', '#94a3b8', '#475569'] : ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6']));
+
+  const donutColors = isLight 
+    ? ['#10b981', '#4f46e5'] 
+    : (isNeon ? ['#34d399', '#38bdf8'] : (isDevil ? ['#f4f4f5', '#475569'] : ['#10b981', '#6366f1']));
 
   return (
     <div style={{ overflowY: 'auto', height: '100%', paddingBottom: 20 }}>
@@ -796,8 +1198,8 @@ function TerminalStats() {
             {[
               { label: 'TOTAL MESSAGES', value: stats?.total_messages ?? '—', sub: 'exchanges logged' },
               { label: 'EST. TOKENS USED', value: stats?.total_tokens ?? '—',  sub: '≈ chars ÷ 4'    },
-              { label: 'ACTIVE MODELS',  value: stats?.active_models  ?? '—', sub: 'model variants'  },
-              { label: 'API KEYS ACTIVE', value: stats?.active_keys   ?? '—', sub: 'registered keys'  },
+              { label: 'ACTIVE MODELS',  value: stats?.model_distribution?.length  ?? '—', sub: 'model variants'  },
+              { label: 'API KEYS ACTIVE', value: stats?.key_workload?.length   ?? '—', sub: 'registered keys'  },
             ].map(k => (
               <div key={k.label} style={{ textAlign: 'center', padding: '12px', background: 'var(--panel-2)', borderRadius: 6 }}>
                 <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--muted)', letterSpacing: 1.5, marginBottom: 4 }}>{k.label}</div>
@@ -809,8 +1211,85 @@ function TerminalStats() {
         </div>
       </div>
 
+      {/* Charts Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14, marginBottom: 20 }}>
+        {/* Daily message volume */}
+        <div className="card">
+          <div className="card-head">
+            <h3>Daily Conversation Volume</h3>
+            <span className="badge" style={{ fontSize: 9 }}>last 14 days</span>
+          </div>
+          <div style={{ position: 'relative', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <canvas ref={dailyCanvasRef} height="140" style={{ width: '100%', height: '140px' }}></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+        {/* Model distribution */}
+        <div className="card">
+          <div className="card-head">
+            <h3>Model Requests Split</h3>
+            <span className="badge" style={{ fontSize: 9 }}>by messages</span>
+          </div>
+          <div style={{ position: 'relative', height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <canvas ref={modelsCanvasRef} height="160" style={{ width: '100%', height: '160px' }}></canvas>
+          </div>
+          <div id="model-legend" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 9, fontFamily: 'var(--mono)', marginTop: 8, justifyContent: 'center' }}>
+            {(stats?.model_distribution || []).map((m, i) => (
+              <span key={i} style={{ color: palette[i % palette.length] }}>■ {m.model || 'Unknown'}: {m.requests} req</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Key workload */}
+        <div className="card">
+          <div className="card-head">
+            <h3>API Key Workload</h3>
+            <span className="badge" style={{ fontSize: 9 }}>by requests</span>
+          </div>
+          <div style={{ position: 'relative', height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <canvas ref={keysCanvasRef} height="160" style={{ width: '100%', height: '160px' }}></canvas>
+          </div>
+          <div id="key-legend" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 9, fontFamily: 'var(--mono)', marginTop: 8, justifyContent: 'center' }}>
+            {(stats?.key_workload || []).map((k, i) => (
+              <span key={i} style={{ color: KEY_COLORS[i % KEY_COLORS.length] }}>■ {k.label || k.masked}: {k.requests} req</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+        {/* Role distribution */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="card-head">
+            <h3>Role Distribution</h3>
+            <span className="badge" style={{ fontSize: 9 }}>user vs assistant</span>
+          </div>
+          <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', gap: 20, padding: '10px 0' }}>
+            <canvas ref={roleCanvasRef} width="140" height="140" style={{ width: '140px', height: '140px' }}></canvas>
+            <div id="role-legend" style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 10, fontFamily: 'var(--mono)' }}>
+              <span style={{ color: donutColors[0] }}>■ User: {stats?.role_split?.user || 0}</span>
+              <span style={{ color: donutColors[1] }}>■ AI: {stats?.role_split?.assistant || 0}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Token per Model & Advanced Insights */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="card" style={{ flex: 1 }}>
+            <div className="card-head"><h3>Token Usage per Model</h3></div>
+            <div id="token-model-bars">{renderTokenBars()}</div>
+          </div>
+          <div className="card">
+            <div className="card-head"><h3>Advanced Insights</h3></div>
+            <div id="advanced-insights-content">{getInsights()}</div>
+          </div>
+        </div>
+      </div>
+
       {/* Sessions table */}
-      {stats?.sessions?.length > 0 && (
+      {stats?.top_sessions?.length > 0 && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="card-head">
             <h3 style={{ fontSize: 12, letterSpacing: 1 }}>TOP SESSIONS</h3>
@@ -820,16 +1299,16 @@ function TerminalStats() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 {['SESSION ID', 'MSGS', '~TOKENS'].map(h => (
-                  <th key={h} style={{ padding: '4px 6px', color: 'var(--muted)', fontSize: 9, textAlign: h === 'SESSION ID' ? 'left' : 'right' }}>{h}</th>
+                  <th key={h} style={{ padding: '6px 6px', color: 'var(--muted)', fontSize: 9, textAlign: h === 'SESSION ID' ? 'left' : 'right' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody id="sessions-table-body">
-              {stats.sessions.slice(0, 10).map((s, i) => (
+              {stats.top_sessions.slice(0, 10).map((s, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '4px 6px', color: 'var(--cyan)' }}>{s.id?.slice(0, 8)}…</td>
-                  <td style={{ padding: '4px 6px', textAlign: 'right' }}>{s.messages}</td>
-                  <td style={{ padding: '4px 6px', textAlign: 'right' }}>{s.tokens}</td>
+                  <td style={{ padding: '6px 6px', color: 'var(--cyan)' }}>{s.session?.slice(0, 8)}…</td>
+                  <td style={{ padding: '6px 6px', textAlign: 'right' }}>{s.messages}</td>
+                  <td style={{ padding: '6px 6px', textAlign: 'right' }}>{s.tokens}</td>
                 </tr>
               ))}
             </tbody>
@@ -1888,6 +2367,26 @@ export default function App() {
   const [isBackendReady, setIsBackendReady] = useState(false);
   const [connectionRetries, setConnectionRetries] = useState(0);
   const [toasts, setToasts] = useState([]);
+  const originalContentRef = useRef(null);
+
+  useEffect(() => {
+    // Clean up empty drafts caused by the previous state race bug
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('devhunt_draft_')) {
+          const val = localStorage.getItem(key);
+          if (val === '' || val === null || val === undefined) {
+            keysToRemove.push(key);
+          }
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) {
+      console.warn('Draft cleanup failed:', e);
+    }
+  }, []);
 
   const showToast = useCallback((message, type = 'info') => {
     const id = Date.now() + Math.random();
@@ -1964,8 +2463,12 @@ export default function App() {
   }, [activeFilePath]);
 
   useEffect(() => {
-    if (activeFilePath) {
-      localStorage.setItem(`devhunt_draft_${activeFilePath}`, fileContent);
+    if (activeFilePath && originalContentRef.current !== null) {
+      if (fileContent !== originalContentRef.current) {
+        localStorage.setItem(`devhunt_draft_${activeFilePath}`, fileContent);
+      } else {
+        localStorage.removeItem(`devhunt_draft_${activeFilePath}`);
+      }
     }
   }, [activeFilePath, fileContent]);
 
@@ -2304,11 +2807,13 @@ export default function App() {
     const draft = localStorage.getItem(`devhunt_draft_${activeFilePath}`);
     if (draft !== null) {
       setFileContent(draft);
-      return;
     }
 
     if (activeFilePath.startsWith('Untitled-')) {
-      setFileContent('');
+      originalContentRef.current = '';
+      if (draft === null) {
+        setFileContent('');
+      }
       return;
     }
 
@@ -2318,14 +2823,21 @@ export default function App() {
         const res = await fetch(`/api/ide/file?path=${encodeURIComponent(activeFilePath)}`);
         const data = await res.json();
         if (data.success && active) {
-          setFileContent(data.content);
+          originalContentRef.current = data.content;
+          if (draft === null) {
+            setFileContent(data.content);
+          }
         } else if (!data.success && active) {
-          setFileContent('');
+          if (draft === null) {
+            setFileContent('');
+          }
           showToast(`Failed to load file: ${data.error}`, 'error');
         }
       } catch (err) {
         if (active) {
-          setFileContent('');
+          if (draft === null) {
+            setFileContent('');
+          }
           console.error(err);
         }
       }
@@ -2334,6 +2846,10 @@ export default function App() {
     fetchContent();
     return () => { active = false; };
   }, [activeFilePath, showToast]);
+
+  useEffect(() => {
+    originalContentRef.current = null;
+  }, [activeFilePath]);
 
   // Startup Backend connection checker and window.alert override
   useEffect(() => {
@@ -2870,7 +3386,7 @@ export default function App() {
     path:          <HuntPath />,
     quests:        <QuestBoard />,
     vault:         <IntelVault />,
-    stats:         <TerminalStats />,
+    stats:         <TerminalStats theme={theme} />,
     music:         <MusicPlayer musicState={musicState} musicControls={musicControls} />,
     arcade:        <Arcade />,
     terminal: (
