@@ -1,0 +1,115 @@
+================================================================================
+          🌠 DEVHUNT — OPEN SOURCE 1,000+ STAR / FORK LAUNCH CHECKLIST
+================================================================================
+
+This file contains the complete action plan to turn the DevHunt repository into
+a developer-friendly contribution magnet and launch it successfully.
+
+--------------------------------------------------------------------------------
+[ ] PHASE 0: CRITICAL BUG FIX (DO THIS FIRST)
+--------------------------------------------------------------------------------
+The project cannot be compiled from a clean pull because package.json is ignored.
+
+- [ ] 0.1 Update root .gitignore:
+      Prefix 'package.json' and 'package-lock.json' with '/' (e.g. '/package.json')
+      so they are only ignored at the root, allowing frontend-src/package.json to
+      be tracked.
+- [ ] 0.2 Restore package.json:
+      Create and commit 'frontend-src/package.json' to the repository.
+- [ ] 0.3 Verify:
+      Run 'npm install' inside 'frontend-src/' to verify dependencies resolve.
+
+--------------------------------------------------------------------------------
+[ ] PHASE 1: REPOSITORY HEALTH & CONTRIBUTOR HYGIENE
+--------------------------------------------------------------------------------
+Make the repository standard, professional, and easy to fork/contribute.
+
+- [ ] 1.1 Create CONTRIBUTING.md:
+      Detail development setup, Vite/Flask port proxy, Tauri command sidecars,
+      and PR standards.
+- [ ] 1.2 Create SECURITY.md:
+      Outline policy to report private security bugs to prevent zero-day disclosures.
+- [ ] 1.3 Create .github/PULL_REQUEST_TEMPLATE.md:
+      Add a standardized template for submitters (linked issues, changes, tests).
+- [ ] 1.4 Create .github/ISSUE_TEMPLATE/bug_report.yml:
+      Add structured issue forms for bug reports with environment selectors.
+- [ ] 1.5 Create .github/ISSUE_TEMPLATE/feature_request.yml:
+      Add structured forms for new feature proposals.
+
+--------------------------------------------------------------------------------
+[ ] PHASE 2: GITHUB REPOSITORY CONFIGURATION (GITHUB SETTINGS UI)
+--------------------------------------------------------------------------------
+Polish the visual presence and settings of the GitHub repository.
+
+- [ ] 2.1 Enable Security Features:
+      Go to: Settings -> Security -> Code security and analysis
+      - Enable: Dependabot alerts
+      - Enable: Private vulnerability reporting
+- [ ] 2.2 Configure Wiki:
+      Go to: Wiki tab
+      - Click "Create the first page"
+      - Write a clean introduction page welcoming developers, linking back to
+        docs and the Netlify landing page.
+- [ ] 2.3 Set Topics & Tags:
+      On the main repo page under "About" settings, add tags:
+      - 'local-first', 'rag', 'tauri-app', 'developer-tools', 'rust',
+        'react', 'python', 'productivity', 'copilot-alternative', 'privacy'
+- [ ] 2.4 Add Social Preview Image:
+      Go to: Settings -> General -> Social preview
+      - Upload a high-resolution 1280x640 banner showing the DevHunt workspace
+        (e.g., the editor, quest board, or themes).
+
+--------------------------------------------------------------------------------
+[ ] PHASE 3: CREATE "GOOD FIRST ISSUES" (CREATE 5-10 OPEN ISSUES)
+--------------------------------------------------------------------------------
+Give developers immediate tasks they can fork the repo to resolve. Create issues
+with labels: "good first issue", "help wanted", "enhancement".
+
+- [ ] Issue 1: "Bug: Clean pull cannot build due to gitignored package.json"
+      - Detail: In the root .gitignore, package.json is ignored globally. We need to prefix the root ignores with '/' (e.g. '/package.json') and restore/commit the 'frontend-src/package.json' file so clean clones can build immediately.
+- [ ] Issue 2: "Refactor: Add more keyboard shortcuts to Game Arcade"
+      - Detail: Map key combinations to speed up play or reload arcade overlay.
+- [ ] Issue 3: "Feature: Add new monospaced fonts to settings selector"
+      - Detail: Add 'Fira Code', 'Comic Mono', or 'Cascadia Code' to Settings.
+- [ ] Issue 4: "UI: Add a copy-to-clipboard button for RAG chunk results in Intel Vault"
+      - Detail: Allow copying raw text from split-screen document sources.
+- [ ] Issue 5: "Feature: Support export logs as JSON/CSV in raw system logs viewer"
+      - Detail: Expose a download file trigger for '/logs' analytics panel.
+- [ ] Issue 6: "Bug: Fix scrollbar styling consistency across dark/light themes"
+      - Detail: Some scrollbars in legacy styling are not fully customized.
+
+--------------------------------------------------------------------------------
+[ ] PHASE 4: THE 6-DAY VIRAL LAUNCH & MARKETING TIMELINE
+================================================================================
+
+--- DAY 1: INITIAL STACKING (Goal: 50-100 Stars) ---
+[ ] Share the WHATSAPP GROUP DRAFT to developer friends, colleagues, and groups.
+    Get the initial base of 50-100 stars.
+[ ] Post the LINKEDIN LAUNCH TEMPLATE along with a video clip/screenshot. Link to
+    GitHub and the Netlify site.
+
+--- DAY 2: DOCUMENTING THE STORY ---
+[ ] Publish the Medium article: "Why I Built DevHunt: An Open-Source,
+    Local-First AI Workspace for Developers".
+[ ] Share the Medium link on Twitter/X and LinkedIn.
+
+--- DAY 3: TECH SUB-COMMUNITIES (Reddit & Hacker News) ---
+[ ] Reddit r/selfhosted post:
+    Focus on: Privacy-first, local SQLite DBs, offline capabilities, zero cloud.
+[ ] Reddit r/opensource post:
+    Focus on: Tauri v2, Rust sidecar architectures, open issue contributor calling.
+[ ] Reddit r/webdev post:
+    Focus on: Building desktop software using React + Tauri v2 + Flask backend.
+[ ] Hacker News Submission:
+    Title: "Show HN: DevHunt – Local-first developer AI workspace and editor"
+    Leave a detailed first comment outlining why you built it.
+
+--- DAY 4-5: SHIFTING TRAFFIC TO THE ECOSYSTEM ---
+[ ] Submit to Product Hunt:
+    Schedule the launch. Present DevHunt as a free open-source alternative.
+[ ] Respond to issues and PRs immediately to show high repo activity.
+
+--- DAY 6: TRENDING WAVE ---
+[ ] If daily velocity stays >100 stars, monitor the Github Trending page.
+    A listing on GitHub Trending triggers massive global organic discovery.
+================================================================================

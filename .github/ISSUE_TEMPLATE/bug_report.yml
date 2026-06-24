@@ -1,0 +1,77 @@
+name: 🐛 Bug Report
+description: Report a bug or issue in DevHunt to help us improve.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Before opening this issue, please search existing issues to confirm this bug hasn't already been reported.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description of the Bug
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe what went wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Explain how we can reproduce the behavior.
+      placeholder: |
+        1. Start the backend server...
+        2. Open the browser or Tauri application...
+        3. Click on the 'Intel Vault' tab...
+        4. Upload a specific document and observe the crash...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Operating System / Environment
+      description: What system are you running DevHunt on?
+      options:
+        - Windows Installer (MSI/EXE setup)
+        - Windows (running from source via run.bat)
+        - macOS (running from source via run.sh)
+        - Linux (running from source via run.sh)
+        - Other (please specify in comments)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Frontend Mode
+      description: Which frontend interface were you using?
+      options:
+        - Modern Vite React UI (Tauri desktop client window)
+        - Modern Vite React UI (Standard web browser)
+        - Legacy HTML/CSS UI
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs / Screenshots
+      description: Paste any terminal errors, console warnings, or Flask debugging logs.
+      placeholder: |
+        Paste backend logs from: backend/data/devhunt_backend_debug.log
+        Or browser console logs...
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Preliminary Verification
+      description: Please verify these items before submitting your bug report.
+      options:
+        - label: I have searched existing issues and verified this is not a duplicate.
+          required: true
+        - label: I have verified that my Gemini API Key is active and has available quota.
+          required: true
