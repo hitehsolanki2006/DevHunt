@@ -1752,12 +1752,20 @@ if not os.path.exists(WORKSPACE_DIR):
 def resolve_and_validate_path(rel_path):
     if not rel_path:
         raise ValueError("Path required")
-    normalized_rel_path = rel_path.replace('\\', '/').lstrip('/')
-    if os.path.isabs(rel_path):
+    # Normalize separators and collapse traversal tokens.
+    normalized_rel_path = os.path.normpath(rel_path.replace('\\', '/'))
+    # Disallow absolute paths from user input.
+    if os.path.isabs(normalized_rel_path) or rel_path.startswith('/') or rel_path.startswith('\\'):
         raise PermissionError("Access denied: Absolute paths are not allowed")
+    # Reject any parent-directory traversal after normalization.
+    if normalized_rel_path == ".." or normalized_rel_path.startswith("../") or "/../" in normalized_rel_path or normalized_rel_path.endswith("/.."):
+        raise PermissionError("Access denied: Path outside workspace")
+        
     workspace_root = os.path.realpath(WORKSPACE_DIR)
     abs_path = os.path.realpath(os.path.join(workspace_root, normalized_rel_path))
-    if os.path.commonpath([workspace_root, abs_path]) != workspace_root:
+    
+    # Ensure the resolved path remains inside workspace_root.
+    if not (abs_path == workspace_root or abs_path.startswith(workspace_root + os.sep)):
         raise PermissionError("Access denied: Path outside workspace")
     return abs_path
 
