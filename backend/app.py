@@ -1752,22 +1752,17 @@ if not os.path.exists(WORKSPACE_DIR):
 def resolve_and_validate_path(rel_path):
     if not rel_path:
         raise ValueError("Path required")
-    # Normalize separators and collapse traversal tokens.
-    normalized_rel_path = os.path.normpath(rel_path.replace('\\', '/'))
-    # Disallow absolute paths from user input.
-    if os.path.isabs(normalized_rel_path) or rel_path.startswith('/') or rel_path.startswith('\\'):
+    from pathlib import Path
+    user_path = Path(rel_path)
+    if user_path.is_absolute() or rel_path.startswith('/') or rel_path.startswith('\\'):
         raise PermissionError("Access denied: Absolute paths are not allowed")
-    # Reject any parent-directory traversal after normalization.
-    if normalized_rel_path == ".." or normalized_rel_path.startswith("../") or "/../" in normalized_rel_path or normalized_rel_path.endswith("/.."):
-        raise PermissionError("Access denied: Path outside workspace")
-        
-    workspace_root = os.path.realpath(WORKSPACE_DIR)
-    abs_path = os.path.realpath(os.path.join(workspace_root, normalized_rel_path))
     
-    # Ensure the resolved path remains inside workspace_root.
-    if not (abs_path == workspace_root or abs_path.startswith(workspace_root + os.sep)):
+    workspace_root = Path(WORKSPACE_DIR).resolve(strict=False)
+    candidate = (workspace_root / user_path).resolve(strict=False)
+    
+    if candidate != workspace_root and workspace_root not in candidate.parents:
         raise PermissionError("Access denied: Path outside workspace")
-    return abs_path
+    return str(candidate)
 
 def get_project_tree(root_dir):
     ignored_dirs = {'.git', 'venv', '.vscode', '__pycache__', 'node_modules', '.gemini'}
@@ -1836,7 +1831,8 @@ def ide_read_file():
             content = f.read()
         return jsonify({"success": True, "content": content, "path": rel_path})
     except (ValueError, PermissionError) as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logger.error("system", f"Invalid file read request: {e}")
+        return jsonify({"success": False, "error": "Invalid file request"}), 400
     except Exception as e:
         logger.error("system", f"Failed to read file: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -1854,7 +1850,8 @@ def ide_save_file():
         logger.success("system", f"IDE saved file: {rel_path}")
         return jsonify({"success": True, "message": "File saved successfully"})
     except (ValueError, PermissionError) as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logger.error("system", f"Invalid save file request: {e}")
+        return jsonify({"success": False, "error": "Invalid request"}), 400
     except Exception as e:
         logger.error("system", f"Failed to save file: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
