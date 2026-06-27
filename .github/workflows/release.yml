@@ -35,6 +35,13 @@ jobs:
       - name: 🦀 Set up Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: 📦 Install Frontend Dependencies & Build React
+        run: |
+          cd frontend-src
+          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+          npm run build
+        shell: bash
+        
       - name: 📦 Install Python Backend Requirements & Compile Binary
         run: |
           cd backend
@@ -44,12 +51,6 @@ jobs:
           pyinstaller devhunt_backend.spec
         shell: bash
 
-      - name: 📦 Install Frontend Dependencies & Build React
-        run: |
-          cd frontend-src
-          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
-          npm run build
-        shell: bash
 
       - name: 🛠️ Build Windows Tauri Installer (EXE & MSI)
         run: |
