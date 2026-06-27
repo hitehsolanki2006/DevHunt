@@ -414,9 +414,21 @@ export default function Arcade() {
      ========================================================================= */
   const initDecrypt = () => {
     setDecryptAttempts(4);
-    const shuffled = [...wordPool].sort(() => 0.5 - Math.random());
+    const cryptoShuffle = (array) => {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const rArr = new Uint32Array(1);
+        window.crypto.getRandomValues(rArr);
+        const j = rArr[0] % (i + 1);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    };
+    const shuffled = cryptoShuffle(wordPool);
     const words = shuffled.slice(0, 8);
-    const passcode = words[Math.floor(Math.random() * words.length)];
+    const rIdxArr = new Uint32Array(1);
+    window.crypto.getRandomValues(rIdxArr);
+    const passcode = words[rIdxArr[0] % words.length];
     
     setDecryptWords(words);
     setDecryptPasscode(passcode);

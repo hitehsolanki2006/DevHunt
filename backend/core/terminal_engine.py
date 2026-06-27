@@ -241,9 +241,13 @@ class TerminalEngine:
             
             try:
                 import html
+                if self.os_type == "Windows":
+                    shell_cmd = ["cmd.exe", "/c", cmd_line]
+                else:
+                    shell_cmd = ["/bin/sh", "-c", cmd_line]
                 res = subprocess.run(
-                    cmd_line,
-                    shell=True,
+                    shell_cmd,
+                    shell=False,
                     cwd=current_dir,
                     capture_output=True,
                     text=True,
@@ -906,6 +910,7 @@ class TerminalEngine:
         ]
 
         context = ssl.create_default_context()
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         try:
             with socket.create_connection((host, 443), timeout=5) as sock:
                 with context.wrap_socket(sock, server_hostname=host) as ssock:

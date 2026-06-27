@@ -2336,6 +2336,16 @@ function StatusBar({ activeTab, activeFilePath, theme }) {
     return () => clearInterval(t);
   }, []);
 
+  const handleOpenDocs = async (e) => {
+    e.preventDefault();
+    try {
+      const { open } = await import('@tauri-apps/plugin-shell');
+      await open('https://dev-hunt-local.netlify.app/docs.html');
+    } catch (err) {
+      window.open('https://dev-hunt-local.netlify.app/docs.html', '_blank');
+    }
+  };
+
   return (
     <div className="status-bar-bottom">
       <div className="status-bar-left">
@@ -2354,7 +2364,7 @@ function StatusBar({ activeTab, activeFilePath, theme }) {
         <span className="status-bar-sep">|</span>
         <span>{time}</span>
         <span className="status-bar-sep">|</span>
-        <a href="/docs" target="_blank" style={{ color: 'rgba(255,255,255,0.8)' }}>Docs</a>
+        <a href="https://dev-hunt-local.netlify.app/docs.html" onClick={handleOpenDocs} style={{ color: 'rgba(255,255,255,0.8)' }}>Docs</a>
       </div>
     </div>
   );

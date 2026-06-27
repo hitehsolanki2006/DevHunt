@@ -383,11 +383,188 @@
     background: rgba(255,255,255,0.02); font-size: 10.5px; color: var(--muted);
   }
   .search-modal-footer span kbd { background: rgba(255,255,255,0.04); padding: 1px 4px; border-radius: 3px; border: 1px solid var(--border); }
+
+  /* Sidebar toggle button (hidden on desktop) */
+  .sidebar-toggle {
+    display: none;
+  }
+
+  @media (max-width: 1024px) {
+    .right-sidebar { display: none; }
+  }
+
+  @media (max-width: 768px) {
+    .search-kbd {
+      display: none;
+    }
+    
+    .topbar {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      height: auto;
+      padding: 8px 12px;
+      gap: 6px 12px;
+      z-index: 101;
+    }
+    .topbar h1 {
+      display: none;
+    }
+    .sidebar-toggle {
+      display: flex;
+      grid-column: 1;
+    }
+    .topbar-brand {
+      grid-column: 2;
+      justify-self: flex-start;
+      margin-left: 0;
+    }
+    .topbar-links {
+      display: none !important;
+    }
+    .mobile-only-links {
+      display: block !important;
+    }
+    .search-box-container {
+      grid-column: 1 / -1;
+      width: 100%;
+      max-width: none;
+      margin: 2px 0;
+    }
+
+    .layout {
+      height: calc(100vh - 110px);
+      position: relative;
+    }
+    .left-sidebar {
+      position: absolute;
+      top: 0;
+      left: -240px;
+      width: 240px;
+      height: 100%;
+      z-index: 90;
+      padding: 16px;
+      transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 5px 0 15px rgba(0, 0, 0, 0.5);
+    }
+    .left-sidebar.open {
+      left: 0;
+    }
+    .sidebar-section-title {
+      font-size: 9px;
+      margin: 14px 0 6px 6px;
+    }
+    .sidebar-nav-link {
+      padding: 8px 10px;
+      font-size: 12.5px;
+    }
+
+    .content-pane {
+      padding: 16px;
+    }
+    .sidebar-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: var(--sans);
+      font-weight: 500;
+      gap: 6px;
+    }
+    .sidebar-toggle:hover {
+      background: var(--bg-card-h);
+      border-color: var(--border-hover);
+    }
+    
+    /* Overlay for when sidebar is open */
+    .sidebar-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+      z-index: 85;
+    }
+    .sidebar-overlay.show {
+      display: block;
+    }
+    
+    /* Responsive details inside doc section */
+    .grid-2 {
+      grid-template-columns: 1fr;
+    }
+    .data-table {
+      display: block;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    h1.section-title {
+      font-size: 16px;
+      letter-spacing: -0.3px;
+    }
+    h2.section-subtitle {
+      font-size: 13.5px;
+      margin-top: 20px;
+      padding-bottom: 6px;
+    }
+    h3.section-inner-title {
+      font-size: 12px;
+      margin-top: 16px;
+    }
+    p, li {
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    pre {
+      padding: 10px;
+      font-size: 10px;
+      border-radius: 6px;
+    }
+    .breadcrumbs {
+      font-size: 9px;
+      margin-bottom: 12px;
+    }
+
+    /* Search Modal on mobile */
+    .search-modal {
+      width: calc(100% - 24px);
+      margin: 0 auto;
+      max-height: 80vh;
+    }
+    .search-modal-results {
+      max-height: 50vh;
+    }
+    .search-result-item {
+      padding: 8px 10px;
+    }
+    .search-result-title {
+      font-size: 9.5px;
+    }
+    .search-result-match {
+      font-size: 11px;
+    }
+    .search-modal-footer {
+      font-size: 9px;
+      flex-wrap: wrap;
+      gap: 4px;
+      line-height: 1.4;
+      padding: 6px 12px;
+    }
+  }
 </style>
 </head>
 <body>
 
 <div class="topbar">
+  <button class="sidebar-toggle" aria-label="Toggle navigation menu" onclick="toggleLeftSidebar()">
+    <span>☰</span> Menu
+  </button>
   <a href="index.html" class="topbar-brand" style="display: flex; align-items: center; gap: 10px; text-decoration: none; transition: opacity 0.15s;">
     <img src="logo.png" alt="DevHunt" style="height:28px; width:auto; object-fit:contain;">
     <span style="font-size: 14px; font-weight: 800; letter-spacing: 2px; color: #ffffff; background: linear-gradient(135deg, #ffffff 40%, #a3a3a3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">DEVHUNT</span>
@@ -408,6 +585,7 @@
 </div>
 
 <div class="layout">
+  <div class="sidebar-overlay" onclick="toggleLeftSidebar()"></div>
   <!-- 1. LEFT SIDEBAR NAVIGATION -->
   <div class="left-sidebar">
     <!-- Filter sidebar input -->
@@ -417,6 +595,10 @@
 
     <!-- Sidebar menu links -->
     <div class="sidebar-menu">
+      <div class="mobile-only-links" style="display: none; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
+        <a href="index.html" style="display: block; color: var(--green); text-decoration: none; font-size: 12.5px; padding: 8px 12px; font-weight: 600;">← Return to Site</a>
+        <a href="https://github.com/hitehsolanki2006/DevHunt" target="_blank" style="display: block; color: var(--text-muted); text-decoration: none; font-size: 12.5px; padding: 8px 12px; font-weight: 600; margin-top: 4px;">GitHub Repo ↗</a>
+      </div>
       <div class="sidebar-section-title">GETTING STARTED</div>
       <a class="sidebar-nav-link active" data-sec-id="sec-overview">01. Overview</a>
       <a class="sidebar-nav-link" data-sec-id="sec-architecture">02. Architecture &amp; Files</a>
@@ -1911,8 +2093,23 @@ guest@devhunt:~$ </code></pre>
   navLinks.forEach(link => {
     link.addEventListener('click', () => {
       initSection(link.dataset.secId);
+      
+      // Close mobile sidebar on navigation click
+      const sidebar = document.querySelector('.left-sidebar');
+      const overlay = document.querySelector('.sidebar-overlay');
+      if (sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
+      }
     });
   });
+
+  function toggleLeftSidebar() {
+    const sidebar = document.querySelector('.left-sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('show');
+  }
 
   // Filter Left Sidebar Nav Links
   function filterSidebar() {

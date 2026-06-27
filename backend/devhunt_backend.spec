@@ -34,7 +34,7 @@ a = Analysis(
         'google.generativeai', 'google.genai', 'google.auth', 'google.auth.transport',
         'google.protobuf',
         # PDF / doc processing
-        'PyPDF2', 'fitz', 'pymupdf', 'pdfminer',
+        'pypdf', 'PyPDF2', 'fitz', 'pymupdf', 'pdfminer',
         # Web scraping
         'bs4', 'requests', 'urllib3', 'certifi', 'charset_normalizer',
         # Data

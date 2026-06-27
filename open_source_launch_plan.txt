@@ -1,0 +1,134 @@
+================================================================================
+🚀 DEVHUNT — OPEN-SOURCE LAUNCH & COMMUNITY GROWTH PLAN
+================================================================================
+
+This document covers:
+1. What to do about the GitHub "main branch isn't protected" warning.
+2. A step-by-step launch & viral marketing strategy to get 1,000+ stars/forks
+   and attract active open-source contributors within 1-2 weeks.
+
+--------------------------------------------------------------------------------
+PART 1: GITHUB BRANCH PROTECTION WARNING
+--------------------------------------------------------------------------------
+The warning in your screenshot reads: "Your main branch isn't protected."
+
+* Why this is shown:
+  Currently, anyone with access can push code directly to the 'main' branch,
+  rebase it, delete history, or override commits. As you transition DevHunt into
+  a public open-source project, direct pushes risk breaking stable releases.
+
+* How to resolve it:
+  1. Click the "Protect this branch" button (or go to repository Settings -> 
+     Branches).
+  2. Click "Add branch protection rule".
+  3. Under "Branch name pattern", type: main
+  4. Enable these recommended settings:
+     [x] Require a pull request before merging (Require approvals: 1)
+     [x] Require conversation resolution before merging
+     [x] Restrict who can push to matching branches (leave empty so only admin/PRs can merge)
+  5. Scroll to the bottom and click "Create" or "Save Changes".
+
+--------------------------------------------------------------------------------
+PART 2: ROADMAP TO 1,000+ STARS & ACTIVE FORKS IN 1-2 WEEKS
+--------------------------------------------------------------------------------
+To hit 1,000+ stars and attract developers to commit code, you need to turn the
+repo into an interactive, friendly environment. Developers fork repos when they
+see "good first issues" and a clear path to contribute.
+
+---
+STEP 1: PRE-LAUNCH GITHUB HYGIENE (Do this today)
+---
+1. Create a CONTRIBUTING.md file:
+   Detail exactly how to set up the dev environment, run Vite + Flask local
+   servers, and submit pull requests (PRs).
+2. Create 5-10 "Good First Issues" in GitHub:
+   Create issues with labels: "good first issue", "help wanted", "hacktoberfest".
+   Examples:
+   - "Refactor: Add more keyboard shortcuts to Game Arcade"
+   - "Feature: Add new monospaced fonts to settings selector"
+   - "UI: Add a copy button for RAG chunk results in Intel Vault"
+   This gives developers immediate tasks to fork the repo and submit PRs.
+
+---
+STEP 2: LINKEDIN LAUNCH POST TEMPLATE (Day 1)
+---
+Post this on LinkedIn with a screenshot or a 30-second screen recording showing
+the animated themes or the Quest board:
+
+"""
+🚀 I just open-sourced DevHunt: A 100% local-first developer workspace!
+
+Are you tired of expensive AI subscriptions, cloud telemetry loops, and fragmented tools? 
+
+DevHunt replaces a dozen disconnected tabs with a premium, local-first dashboard:
+✅ Streaming Chat with Gemini API (stateful key rotation)
+✅ Split-screen Document Analyst (RAG vector store in SQLite)
+✅ Integrated Multi-tab IDE with CodeMirror 6 and terminal shell
+✅ Offline Arcade Mini-games (Git snake, hex minesweeper)
+✅ Local Music Player with YouTube converter
+
+It runs on Tauri v2, Rust, Python, and React. Zero cloud storage. Zero tracking.
+
+I’m looking for developers, contributors, and testers to shape the future of local AI workspaces!
+👉 Star the repo on GitHub: https://github.com/hitehsolanki2006/DevHunt
+👉 Download compiled MSI/EXE: https://dev-hunt-local.netlify.app/
+
+Leave an issue, fork the repo, and let me know your thoughts! Let's build the ultimate local dev suite together. 💻
+
+#opensource #ai #developers #programming #github #reactjs #rust
+"""
+
+---
+STEP 3: MEDIUM ARTICLE LAUNCH STRUCTURE (Day 2)
+---
+Write a Medium article titled:
+"Why I Built DevHunt: An Open-Source, Local-First AI Workspace for Developers"
+
+Key Sections to include:
+1. The Problem: Cloud AI tools track metadata, consume massive bandwidth, and require heavy monthly subscriptions.
+2. The Solution (DevHunt): Privacy first. Local SQLite, local RAG files, Tauri desktop shell, and Gemini API keys.
+3. Showcasing the Architecture: Explain Tauri + Python sidecar implementation.
+4. Calling for Contributions: Invite readers to fork the repository, try the setup scripts, and submit issues or pull requests.
+5. Embed the links: Include the GitHub repo and Netlify site links.
+
+---
+STEP 4: WHATSAPP GROUP SHARE DRAFT (Day 1)
+---
+Keep it short, direct, and actionable:
+
+"""
+Hey guys! I’ve just released **DevHunt**, a local-first AI workspace and IDE for developers. It runs 100% on your machine, does local semantic search (RAG) on PDFs/Notes, has a built-in terminal, and has retro offline games.
+
+I’m looking to grow it as a major open-source project. Could you please take 10 seconds to **star and fork the repository**? It really helps with visibility! 
+
+GitHub Repo: https://github.com/hitehsolanki2006/DevHunt
+Official Site: https://dev-hunt-local.netlify.app/
+
+Let me know if you run into any setup issues or have feature requests!
+"""
+
+---
+STEP 5: SUBMITTING TO DISCOVERY PLATFORMS (Day 3 - 5)
+---
+These sites drive the traffic needed to hit 1,000+ stars overnight:
+1. Hacker News (news.ycombinator.com):
+   Submit as: "Show HN: DevHunt – Local-first developer AI workspace and editor"
+   Write a nice, humble comment explaining why you built it. HN loves local-first, privacy-respecting tools.
+2. Reddit Communities:
+   Post in:
+   - r/selfhosted (focus on local SQLite, no telemetry, self-hosting)
+   - r/opensource (focus on contributions, MIT license)
+   - r/webdev (focus on React/Tauri/Rust stack)
+3. Product Hunt (producthunt.com):
+   Launch DevHunt as a free product. Product Hunt launches can drive thousands of visitors and hundreds of GitHub stars in a single day.
+4. GitHub Trending:
+   If you get 100+ stars in a single day, GitHub's algorithm will list you on the daily "Trending Repositories" page, which organically drives 1,000+ stars globally.
+
+--------------------------------------------------------------------------------
+REALITY CHECK & SPREADING THE WORD
+--------------------------------------------------------------------------------
+Getting 1,000+ stars in 2 weeks requires active sharing. Use your WhatsApp groups
+first to get the initial 50-100 stars. Once you hit 100 stars, submit to Hacker 
+News and Reddit. The self-hosted and privacy community will amplify the project, 
+leading to forks, code contributions, and feedback issues.
+================================================================================

@@ -111,7 +111,7 @@ export default function ChatPanel({ theme, activeModel, activeKey, onAddQuest })
   };
 
   const createNewSession = () => {
-    const newId = 'session_' + Math.random().toString(36).substring(2, 9);
+    const newId = 'session_' + crypto.randomUUID();
     setActiveSession(newId);
     setMessages([]);
     setSessions(prev => [
