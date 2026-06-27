@@ -1755,17 +1755,31 @@ def resolve_and_validate_path(rel_path):
     if '\x00' in rel_path:
         raise PermissionError("Access denied: Invalid path")
 
-    from pathlib import Path
-    user_path = Path(rel_path)
-    if user_path.is_absolute() or rel_path.startswith('/') or rel_path.startswith('\\'):
+    # Normalize separators and collapse traversal tokens.
+    normalized_rel_path = os.path.normpath(rel_path.replace('\\', '/'))
+    
+    # Disallow absolute and drive-qualified paths from user input.
+    drive, _ = os.path.splitdrive(normalized_rel_path)
+    if (
+        os.path.isabs(normalized_rel_path)
+        or bool(drive)
+        or normalized_rel_path.startswith('/')
+        or normalized_rel_path.startswith('//')
+        or rel_path.startswith('\\')
+    ):
         raise PermissionError("Access denied: Absolute paths are not allowed")
+        
+    # Allow only safe relative path characters and separators.
+    import re
+    if not re.fullmatch(r"[A-Za-z0-9._\-/() ]+", normalized_rel_path):
+        raise PermissionError("Access denied: Invalid characters in path")
 
     workspace_root = os.path.realpath(WORKSPACE_DIR)
-    candidate = os.path.realpath(os.path.join(workspace_root, str(user_path)))
+    abs_path = os.path.realpath(os.path.join(workspace_root, normalized_rel_path))
 
-    if os.path.commonpath([workspace_root, candidate]) != workspace_root:
+    if os.path.commonpath([workspace_root, abs_path]) != workspace_root:
         raise PermissionError("Access denied: Path outside workspace")
-    return candidate
+    return abs_path
 
 def get_project_tree(root_dir):
     ignored_dirs = {'.git', 'venv', '.vscode', '__pycache__', 'node_modules', '.gemini'}
