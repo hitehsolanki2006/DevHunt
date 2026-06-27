@@ -1752,17 +1752,20 @@ if not os.path.exists(WORKSPACE_DIR):
 def resolve_and_validate_path(rel_path):
     if not rel_path:
         raise ValueError("Path required")
+    if '\x00' in rel_path:
+        raise PermissionError("Access denied: Invalid path")
+
     from pathlib import Path
     user_path = Path(rel_path)
     if user_path.is_absolute() or rel_path.startswith('/') or rel_path.startswith('\\'):
         raise PermissionError("Access denied: Absolute paths are not allowed")
-    
-    workspace_root = Path(WORKSPACE_DIR).resolve(strict=False)
-    candidate = (workspace_root / user_path).resolve(strict=False)
-    
-    if candidate != workspace_root and workspace_root not in candidate.parents:
+
+    workspace_root = os.path.realpath(WORKSPACE_DIR)
+    candidate = os.path.realpath(os.path.join(workspace_root, str(user_path)))
+
+    if os.path.commonpath([workspace_root, candidate]) != workspace_root:
         raise PermissionError("Access denied: Path outside workspace")
-    return str(candidate)
+    return candidate
 
 def get_project_tree(root_dir):
     ignored_dirs = {'.git', 'venv', '.vscode', '__pycache__', 'node_modules', '.gemini'}
