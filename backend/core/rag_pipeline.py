@@ -3,7 +3,7 @@ import re
 import json
 import requests
 from bs4 import BeautifulSoup
-import PyPDF2
+import pypdf as PyPDF2
 from google import genai
 from google.genai import types
 from core.db import get_db_connection
@@ -108,10 +108,33 @@ class RAGPipeline:
         finally:
             conn.close()
 
+    def is_safe_url(self, url: str) -> bool:
+        from urllib.parse import urlparse
+        import socket
+        import ipaddress
+        
+        try:
+            parsed = urlparse(url)
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+            # Resolve hostname to IP
+            ip_address = socket.gethostbyname(hostname)
+            ip = ipaddress.ip_address(ip_address)
+            # Check if the IP is private, loopback, link-local, etc.
+            if ip.is_private or ip.is_loopback or ip.is_link_local:
+                return False
+            return True
+        except Exception:
+            return False
+
     def index_url(self, url: str) -> int:
         url = url.strip()
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
+
+        if not self.is_safe_url(url):
+            raise Exception("Access denied: Target URL resolves to a local or private network address.")
 
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

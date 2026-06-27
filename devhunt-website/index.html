@@ -614,6 +614,15 @@
       align-items: center;
       justify-content: center;
     }
+    .dl-icon svg {
+      width: 32px;
+      height: 32px;
+      fill: var(--text-muted);
+      transition: fill 0.15s;
+    }
+    .dl-item:hover .dl-icon svg {
+      fill: var(--accent);
+    }
     .dl-name {
       font-weight: 700;
       font-size: 14px;
@@ -762,18 +771,245 @@
     }
 
     /* ── RESPONSIVE ── */
+    .nav-toggle {
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 24px;
+      height: 18px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      z-index: 101;
+    }
+    .nav-toggle span {
+      width: 100%;
+      height: 2px;
+      background-color: var(--text);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .nav-toggle.open span:nth-child(1) {
+      transform: translateY(8px) rotate(45deg);
+    }
+    .nav-toggle.open span:nth-child(2) {
+      opacity: 0;
+    }
+    .nav-toggle.open span:nth-child(3) {
+      transform: translateY(-8px) rotate(-45deg);
+    }
+
     @media (max-width: 900px) {
       .bento-grid { grid-template-columns: repeat(2, 1fr); }
       .dl-grid { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 640px) {
-      .bento-grid { grid-template-columns: 1fr; }
-      .dl-grid { grid-template-columns: 1fr; }
-      .dl-box { padding: 40px 24px; }
-      .cli-step { padding: 20px; gap: 16px; }
-      .nav-links { display: none; } /* Mobile simplicity */
-      .foot-inner { flex-direction: column; align-items: flex-start; }
-      .hero { padding: 80px 0 60px; }
+      body {
+        font-size: 11.5px;
+      }
+      .container {
+        padding: 0 12px;
+      }
+      .hero {
+        padding: 40px 0 28px;
+      }
+      .hero-logo-wrapper {
+        width: 56px;
+        height: 56px;
+        margin-bottom: 14px;
+      }
+      .hero-badge {
+        margin-bottom: 16px;
+        font-size: 8.5px;
+        padding: 3px 8px;
+      }
+      .hero-title {
+        font-size: 24px !important;
+        letter-spacing: -1px;
+        margin-bottom: 12px;
+      }
+      .hero-subtitle {
+        font-size: 11px;
+        margin-bottom: 20px;
+        line-height: 1.55;
+      }
+      .hero-actions {
+        gap: 8px;
+        margin-bottom: 24px;
+      }
+      .btn {
+        padding: 8px 14px;
+        font-size: 11.5px;
+        border-radius: 6px;
+        width: 100%;
+      }
+      .hero-stats {
+        gap: 12px;
+      }
+      .hero-stat-item {
+        font-size: 9.5px;
+      }
+
+      section {
+        padding: 48px 0;
+      }
+      .section-header {
+        margin-bottom: 28px;
+      }
+      .section-title {
+        font-size: 18px;
+        letter-spacing: -0.5px;
+      }
+      .section-subtitle {
+        font-size: 11px;
+      }
+
+      .bento-grid { grid-template-columns: 1fr; gap: 12px; }
+      .bento-card {
+        padding: 18px 16px;
+        border-radius: 10px;
+      }
+      .bento-card-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+      }
+      .bento-card-title {
+        font-size: 12.5px;
+      }
+      .bento-card-desc {
+        font-size: 11px;
+      }
+
+      .dl-grid { grid-template-columns: 1fr; gap: 12px; }
+      .dl-box { padding: 24px 14px; border-radius: 12px; }
+      .dl-box-title {
+        font-size: 18px;
+      }
+      .dl-box-desc {
+        font-size: 11.5px;
+        margin-bottom: 20px;
+      }
+      .dl-item {
+        padding: 16px 12px;
+        border-radius: 10px;
+      }
+      .dl-icon {
+        height: 36px;
+        margin-bottom: 12px;
+      }
+      .dl-icon svg {
+        width: 24px;
+        height: 24px;
+      }
+      .dl-name {
+        font-size: 11.5px;
+      }
+      .dl-filename {
+        font-size: 9px;
+        margin-bottom: 10px;
+      }
+      .dl-btn {
+        font-size: 10.5px;
+        padding: 6px;
+        border-radius: 5px;
+      }
+
+      .cli-step { 
+        padding: 16px 12px; 
+        gap: 8px; 
+        flex-direction: column; 
+        align-items: center; 
+        text-align: center;
+        border-radius: 10px;
+      }
+      .cli-step-num {
+        margin-bottom: 2px;
+        width: 24px;
+        height: 24px;
+        font-size: 10.5px;
+      }
+      .cli-step-title {
+        font-size: 12.5px;
+      }
+      .cli-step-desc {
+        font-size: 11px;
+        margin-bottom: 8px;
+      }
+      .cli-console {
+        flex-direction: column;
+        gap: 6px;
+        align-items: stretch;
+        width: 100%;
+        padding: 6px 10px;
+        box-sizing: border-box;
+      }
+      .cli-console-text {
+        text-align: left;
+        font-size: 9px;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .cli-console-copy {
+        align-self: flex-end;
+        margin-left: 0;
+        font-size: 9px;
+        padding: 2px 6px;
+      }
+
+      .nav-toggle {
+        display: flex;
+        width: 20px;
+        height: 14px;
+      }
+      .nav-toggle.open span:nth-child(1) {
+        transform: translateY(6px) rotate(45deg);
+      }
+      .nav-toggle.open span:nth-child(3) {
+        transform: translateY(-6px) rotate(-45deg);
+      }
+      .nav-links {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        top: 68px;
+        left: 0;
+        right: 0;
+        background: #060608;
+        border-bottom: 1px solid var(--border);
+        padding: 16px;
+        gap: 8px;
+        align-items: stretch;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        z-index: 9999;
+      }
+      .nav-links.active {
+        display: flex;
+      }
+      .nav-links a {
+        text-align: center;
+        padding: 8px;
+        width: 100%;
+        font-size: 12px;
+        background: rgba(255, 255, 255, 0.01);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+      }
+      .nav-links .btn-nav {
+        background: #ffffff;
+        color: #060608;
+      }
+
+      .foot-inner { flex-direction: column; align-items: center; text-align: center; gap: 16px; }
+      .foot-brand { align-items: center; }
+      .foot-brand img { height: 20px; }
+      .foot-brand span { font-size: 12px; }
+      .foot-author { font-size: 10.5px; }
+      .foot-links { justify-content: center; gap: 2px; }
+      .foot-links a { font-size: 11px; padding: 3px 6px; }
+      .foot-copy { font-size: 10px; }
     }
   </style>
 </head>
@@ -793,6 +1029,11 @@
         <img class="nav-brand-logo" src="logo.png" alt="" />
         <span class="nav-brand-text">DEVHUNT</span>
       </a>
+      <button class="nav-toggle" aria-label="Toggle navigation" onclick="toggleNav()">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <nav class="nav-links" aria-label="Primary navigation">
         <a href="#features">Features</a>
         <a href="#setup">Setup</a>
@@ -972,18 +1213,22 @@
 
         <div class="dl-grid">
           <!-- Card EXE -->
-          <a href="DevHunt_Setup.exe" class="dl-item" id="dl-exe-link">
+          <a href="https://github.com/hitehsolanki2006/DevHunt/releases/download/v1.0.2/DevHunt_Setup.exe" class="dl-item" id="dl-exe-link">
             <span class="dl-item-tag">EXE</span>
-            <div class="dl-icon" aria-hidden="true">🪟</div>
+            <div class="dl-icon" aria-hidden="true">
+              <svg viewBox="0 0 88 88"><path d="M0 12.402l35.687-4.86.016 34.316-35.703.093v-29.549zm35.687-5.597l52.313-7.605v42.505l-52.313.19v-35.09zm52.313 40.244l.016 42.595-52.329-7.534-.015-35.127 52.328.066zm-56.329 34.795l-31.671-4.328v-25.596l31.671.074v29.85z"/></svg>
+            </div>
             <div class="dl-name">Windows Setup</div>
             <div class="dl-filename">DevHunt_Setup.exe</div>
             <button class="dl-btn" tabindex="-1">Download</button>
           </a>
 
           <!-- Card MSI -->
-          <a href="DevHunt_Setup.msi" class="dl-item" id="dl-msi-link">
+          <a href="https://github.com/hitehsolanki2006/DevHunt/releases/download/v1.0.2/DevHunt_Setup.msi" class="dl-item" id="dl-msi-link">
             <span class="dl-item-tag">MSI</span>
-            <div class="dl-icon" aria-hidden="true">📦</div>
+            <div class="dl-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 3.27-5.66 3.27-5.66-3.27L12 2.69m0-1.69a1 1 0 0 0-.5.13l-7 4A1 1 0 0 0 4 6v8a1 1 0 0 0 .5.87l7 4A1 1 0 0 0 12 19v-6.5l5-2.88V6.82l-5-2.88M19.5 5.13l-7 4A1 1 0 0 0 12 10v9a1 1 0 0 0 .5.87l7-4a1 1 0 0 0 .5-.87V6a1 1 0 0 0-.5-.87z"/></svg>
+            </div>
             <div class="dl-name">Windows Installer</div>
             <div class="dl-filename">DevHunt_Setup.msi</div>
             <button class="dl-btn" tabindex="-1">Download</button>
@@ -991,7 +1236,9 @@
 
           <!-- Card Github -->
           <a href="https://github.com/hitehsolanki2006/DevHunt" target="_blank" rel="noopener" class="dl-item">
-            <div class="dl-icon" aria-hidden="true">⌥</div>
+            <div class="dl-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+            </div>
             <div class="dl-name">Source Code</div>
             <div class="dl-filename">GitHub Repo</div>
             <button class="dl-btn" tabindex="-1">View Repo</button>
@@ -1094,6 +1341,20 @@
   }
   
   window.addEventListener('DOMContentLoaded', fetchGitHubStats);
+
+  function toggleNav() {
+    const navLinks = document.querySelector('.nav-links');
+    navLinks.classList.toggle('active');
+    const toggle = document.querySelector('.nav-toggle');
+    toggle.classList.toggle('open');
+  }
+
+  document.querySelectorAll('.nav-links a').forEach(link => {
+    link.addEventListener('click', () => {
+      document.querySelector('.nav-links').classList.remove('active');
+      document.querySelector('.nav-toggle').classList.remove('open');
+    });
+  });
 </script>
 
 </body>

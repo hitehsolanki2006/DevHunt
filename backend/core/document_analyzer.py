@@ -22,7 +22,7 @@ except ImportError:
     PYMUPDF_AVAILABLE = False
 
 try:
-    import PyPDF2
+    import pypdf as PyPDF2
     PYPDF2_AVAILABLE = True
 except ImportError:
     PYPDF2_AVAILABLE = False

@@ -48,7 +48,9 @@ ENCRYPTION_KEY_FILE = os.path.join(DATA_DIR, '.secret')
 if not os.path.exists(ENCRYPTION_KEY_FILE):
     from cryptography.fernet import Fernet
     secret = Fernet.generate_key()
-    with open(ENCRYPTION_KEY_FILE, 'wb') as f:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    mode = 0o600
+    with os.fdopen(os.open(ENCRYPTION_KEY_FILE, flags, mode), 'wb') as f:
         f.write(secret)
 else:
     with open(ENCRYPTION_KEY_FILE, 'rb') as f:

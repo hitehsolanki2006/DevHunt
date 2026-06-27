@@ -5,7 +5,49 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
+fn free_port(port: u16) {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(output) = Command::new("cmd")
+            .args(&["/c", &format!("netstat -ano | findstr :{}", port)])
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 5 {
+                    let pid_str = parts[parts.len() - 1];
+                    if let Ok(pid) = pid_str.parse::<u32>() {
+                        let _ = Command::new("taskkill")
+                            .args(&["/F", "/PID", &pid.to_string()])
+                            .output();
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(output) = Command::new("lsof")
+            .args(&["-t", &format!("-i:{}", port)])
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for pid_str in stdout.lines() {
+                if let Ok(pid) = pid_str.trim().parse::<u32>() {
+                    let _ = Command::new("kill")
+                        .args(&["-9", &pid.to_string()])
+                        .output();
+                }
+            }
+        }
+    }
+}
+
 fn main() {
+    // Free the port if it is already in use
+    free_port(1225);
+
     // Launch the Python Flask backend as a sidecar process
     let exe_dir = std::env::current_exe()
         .unwrap()
@@ -59,7 +101,7 @@ fn main() {
 
     // Spawn the Python backend process
     let mut token_opt = None;
-    let _backend = if backend_path.exists() {
+    let mut backend_child = if backend_path.exists() {
         let backend_dir = backend_path.parent().unwrap();
         // Generate a session token using system time (no rand dependency needed)
         let nanos = std::time::SystemTime::now()
@@ -86,11 +128,11 @@ fn main() {
     };
 
     // Wait a moment for Flask to boot before opening window
-    if _backend.is_some() {
+    if backend_child.is_some() {
         thread::sleep(Duration::from_millis(3500));
     }
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .setup(move |app| {
@@ -105,6 +147,14 @@ fn main() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(move |_app_handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            if let Some(mut child) = backend_child.take() {
+                let _ = child.kill();
+            }
+        }
+    });
 }
