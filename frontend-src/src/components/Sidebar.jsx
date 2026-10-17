@@ -82,13 +82,15 @@ export default function Sidebar({
         setShowNewFileInput(false);
         setNewFileName('');
         try {
-          const res = await fetch('/api/ide/file', {
+          const res = await fetch('/api/ide/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: trimmedName, content: '' })
+            body: JSON.stringify({ path: trimmedName, type: 'file' })
           });
           const data = await res.json();
-          if (data.success) {
+          if (res.status === 409 || !data.success) {
+            alert(data.error || 'File already exists');
+          } else {
             refreshFileTree();
             openFileInEditor(trimmedName);
           }
@@ -222,7 +224,6 @@ export default function Sidebar({
                   onKeyDown={handleCreateFile}
                   onBlur={() => setTimeout(() => setShowNewFileInput(false), 200)}
                   placeholder="filename.txt" 
-                  autoFocus
                   style={{
                     background: 'var(--bg)',
                     border: '1px solid var(--border-hot)',

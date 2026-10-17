@@ -207,7 +207,7 @@ class ChatEngine:
             if completed_todo:
                 todo_actions.append({"action": "complete", "todo": completed_todo})
 
-        # Find all DELETE actions
+        # Find all DELETE actions (propose for approval, do not auto-delete without user confirmation)
         deletes = re.findall(delete_pattern, text)
         for title in deletes:
             if not title.strip():
@@ -216,11 +216,10 @@ class ChatEngine:
             deleted_todo = None
             for todo in todos:
                 if title.strip().lower() in todo['title'].lower() or todo['title'].lower() in title.strip().lower():
-                    TodoManager.delete_todo(todo['id'])
                     deleted_todo = todo
                     break
             if deleted_todo:
-                todo_actions.append({"action": "delete", "todo": deleted_todo})
+                todo_actions.append({"action": "delete_proposed", "todo": deleted_todo, "requires_approval": True})
 
         # Clean text by removing tag lines
         clean_text = re.sub(r"\[TODO_ADD:[\s\S]*?\]\n?", "", text)

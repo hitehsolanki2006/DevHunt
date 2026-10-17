@@ -1,13 +1,44 @@
 import os
 import re
 import json
+import socket
+import ipaddress
+from urllib.parse import urlparse, urljoin
 import requests
 from bs4 import BeautifulSoup
-import pypdf as PyPDF2
+try:
+    import pypdf as PyPDF2
+except ImportError:
+    import PyPDF2
 from google import genai
 from google.genai import types
 from core.db import get_db_connection
 from core.key_manager import KeyManager
+
+URL_VALIDATION_REGEX = re.compile(
+    r"^https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(:\d+)?(/.*)?$"
+)
+
+def _validate_target_host(hostname: str, port: int):
+    try:
+        addr_info = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+    except Exception as e:
+        raise ValueError(f"Unable to resolve hostname '{hostname}': {e}")
+
+    for ai in addr_info:
+        ip_str = ai[4][0]
+        ip_obj = ipaddress.ip_address(ip_str)
+        if not ip_obj.is_global or ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+            raise ValueError(f"Access denied: Target address {ip_str} is private or non-routable")
+
+def _read_stream_response(response, max_bytes: int) -> bytes:
+    response.raise_for_status()
+    data = bytearray()
+    for chunk in response.iter_content(65536):
+        data.extend(chunk)
+        if len(data) > max_bytes:
+            raise ValueError("Response payload exceeds 5 MB limit")
+    return bytes(data)
 
 class RAGPipeline:
     def __init__(self, key_manager: KeyManager):
@@ -108,51 +139,41 @@ class RAGPipeline:
         finally:
             conn.close()
 
-    def is_safe_url(self, url: str) -> bool:
-        from urllib.parse import urlparse
-        import socket
-        import ipaddress
-        
-        try:
-            parsed = urlparse(url)
-            hostname = parsed.hostname
-            if not hostname:
-                return False
-            # Resolve hostname to IP
-            ip_address = socket.gethostbyname(hostname)
-            ip = ipaddress.ip_address(ip_address)
-            # Check if the IP is private, loopback, link-local, etc.
-            if ip.is_private or ip.is_loopback or ip.is_link_local:
-                return False
-            return True
-        except Exception:
-            return False
+    @staticmethod
+    def fetch_public(url: str, max_bytes: int = 5_000_000, hops: int = 3) -> bytes:
+        current_url = url
+        for _ in range(hops + 1):
+            u = urlparse(current_url)
+            if u.scheme not in ("http", "https") or not u.hostname:
+                raise ValueError("Invalid URL scheme or missing hostname")
+            if not URL_VALIDATION_REGEX.match(current_url):
+                raise ValueError("URL failed security format validation")
+            port = u.port or (443 if u.scheme == "https" else 80)
+            _validate_target_host(u.hostname, port)
+
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            }
+            r = requests.get(current_url, headers=headers, stream=True, allow_redirects=False, timeout=(3, 10))
+            if r.is_redirect or 300 <= r.status_code < 400:
+                loc = r.headers.get("Location")
+                if not loc:
+                    raise ValueError("Redirect missing location header")
+                current_url = urljoin(current_url, loc)
+                continue
+
+            return _read_stream_response(r, max_bytes)
+
+        raise ValueError("Too many redirects")
 
     def index_url(self, url: str) -> int:
         url = url.strip()
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
 
-        if not self.is_safe_url(url):
-            raise Exception("Access denied: Target URL resolves to a local or private network address.")
-
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Referer': 'https://www.google.com/'
-        }
-        
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-        except requests.exceptions.SSLError:
-            import urllib3
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            response = requests.get(url, headers=headers, timeout=10, verify=False)
-            response.raise_for_status()
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
+        html_bytes = self.fetch_public(url)
+        soup = BeautifulSoup(html_bytes.decode('utf-8', errors='ignore'), 'html.parser')
         
         # Remove script and style elements
         for script in soup(["script", "style"]):
@@ -267,3 +288,6 @@ class RAGPipeline:
         conn.commit()
         conn.close()
         return True
+
+fetch_public = RAGPipeline.fetch_public
+

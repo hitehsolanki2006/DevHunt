@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import CodeEditor from './CodeEditor';
 import { Terminal, Save, X, RefreshCw, Plus, Search, Check, FolderOpen } from 'lucide-react';
 import { getFileIcon } from '../../utils/iconTheme.jsx';
+import { sanitizeHtml } from '../../utils/sanitize.js';
 
 export default function IDEWorkspace({ 
   theme, 
@@ -43,15 +44,36 @@ export default function IDEWorkspace({
   const [showFind, setShowFind] = useState(false);
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
+  const [gitDiff, setGitDiff] = useState(null);
   
   const terminalBodyRef = useRef(null);
 
   useEffect(() => {
-    if (activeFilePath && fileContent !== undefined) {
-      scanSymbols(fileContent, activeFilePath);
-    } else {
-      setOutlineSymbols([]);
+    if (!activeFilePath || activeFilePath.startsWith('Untitled-')) {
+      setGitDiff(null);
+      return;
     }
+    let cancelled = false;
+    fetch(`/api/ide/gitdiff?path=${encodeURIComponent(activeFilePath)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!cancelled && d.success) {
+          setGitDiff(d);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeFilePath, saveStatus]);
+
+  useEffect(() => {
+    if (!activeFilePath || fileContent === undefined) {
+      setOutlineSymbols([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      scanSymbols(fileContent, activeFilePath);
+    }, 400);
+    return () => clearTimeout(timer);
   }, [activeFilePath, fileContent]);
 
   useEffect(() => {
@@ -133,14 +155,17 @@ export default function IDEWorkspace({
     e.stopPropagation();
     
     // Check if there are unsaved changes
-    const draft = localStorage.getItem(`devhunt_draft_${path}`);
+    const draftKey = `devhunt_draft_${encodeURIComponent(terminalCwd || '')}:${path}`;
+    const legacyKey = `devhunt_draft_${path}`;
+    const draft = localStorage.getItem(draftKey) ?? localStorage.getItem(legacyKey);
     if (draft !== null) {
       const confirmClose = window.confirm(`File "${path}" has unsaved changes. Do you want to close it anyway?`);
       if (!confirmClose) return;
     }
     
     // Remove draft on close
-    localStorage.removeItem(`devhunt_draft_${path}`);
+    localStorage.removeItem(draftKey);
+    localStorage.removeItem(legacyKey);
 
     const newTabs = openTabs.filter(t => t !== path);
     setOpenTabs(newTabs);
@@ -180,10 +205,25 @@ export default function IDEWorkspace({
         })
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.status === 409 || data.conflict) {
+        const overwrite = window.confirm(`"${targetPath}" was modified on disk by another process. Overwrite anyway?`);
+        if (overwrite) {
+          const forceRes = await fetch('/api/ide/file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: targetPath, content: fileContent })
+          });
+          const forceData = await forceRes.json();
+          if (forceData.success) {
+            setSaveStatus('✓ Saved');
+            refreshFileTree();
+          }
+        }
+      } else if (data.success) {
         setSaveStatus('✓ Saved');
         
         // Remove draft of old file
+        localStorage.removeItem(`devhunt_draft_${encodeURIComponent(terminalCwd || '')}:${activeFilePath}`);
         localStorage.removeItem(`devhunt_draft_${activeFilePath}`);
 
         if (isUntitled) {
@@ -196,21 +236,19 @@ export default function IDEWorkspace({
         }
         
         refreshFileTree();
-        
-        setTimeout(() => {
-          setSaveStatus('Save File (Ctrl+S)');
-          setIsSaving(false);
-        }, 1500);
       } else {
         alert(`Failed to save: ${data.error}`);
         setSaveStatus('Error');
-        setIsSaving(false);
       }
     } catch (err) {
       console.error(err);
       alert('Connection error saving file');
       setSaveStatus('Error');
+    } finally {
       setIsSaving(false);
+      setTimeout(() => {
+        setSaveStatus('Save File (Ctrl+S)');
+      }, 1500);
     }
   };
 
@@ -238,7 +276,7 @@ export default function IDEWorkspace({
           const currentIndent = indentString.repeat(indentLevel);
           
           const openBraces = (trimmed.match(/[{[(]/g) || []).length;
-          const closeBraces = (trimmed.match(/[}\right)]/g) || []).length;
+          const closeBraces = (trimmed.match(/[}\])]/g) || []).length;
           
           const openTags = (trimmed.match(/<[a-zA-Z0-9\-]+(?:\s+[^>]*[^/>])?>/g) || []).length;
           const closeTags = (trimmed.match(/<\/[a-zA-Z0-9\-]+>/g) || []).length;
@@ -261,20 +299,20 @@ export default function IDEWorkspace({
     const handleKeyDown = (e) => {
       if (e.ctrlKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        handleSave();
+        void handleSave();
       }
       if (e.shiftKey && e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
-        handleFormatDocument();
+        void handleFormatDocument();
       }
     };
 
     const handleSaveEvent = () => {
-      handleSave();
+      void handleSave();
     };
 
     const handleFormatEvent = () => {
-      handleFormatDocument();
+      void handleFormatDocument();
     };
 
     // Handle open-file events dispatched from terminal `open <path>` command
@@ -391,7 +429,7 @@ export default function IDEWorkspace({
             const lines = (data.output || '').split('\n');
             setTerminalOutput(prev => [
               ...prev,
-              ...lines.map(l => ({ text: l, type: 'output' }))
+              ...lines.map(l => ({ text: mdEscape(l), type: 'output' }))
             ]);
           }
           if (data.cwd) {
@@ -464,7 +502,8 @@ export default function IDEWorkspace({
           const filename = path.split('/').pop();
           const isActive = path === activeFilePath;
           const icon = getFileIcon(filename, iconTheme);
-          const hasDraft = localStorage.getItem(`devhunt_draft_${path}`) !== null;
+          const draftKey = `devhunt_draft_${encodeURIComponent(terminalCwd || '')}:${path}`;
+          const hasDraft = localStorage.getItem(draftKey) !== null || localStorage.getItem(`devhunt_draft_${path}`) !== null;
           return (
             <div 
               key={path}
@@ -493,6 +532,14 @@ export default function IDEWorkspace({
         <span className="active-file-path" style={{ fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
           {activeFilePath || '// Select a file from the explorer sidebar to begin editing'}
         </span>
+
+        {gitDiff && (gitDiff.added?.length > 0 || gitDiff.modified?.length > 0 || gitDiff.deleted?.length > 0) && (
+          <span style={{ fontSize: '10px', fontFamily: 'var(--mono)', display: 'inline-flex', gap: '6px', alignItems: 'center', marginLeft: '12px' }} title="Git changes in active file">
+            {gitDiff.added?.length > 0 && <span style={{ color: 'var(--green)' }}>+{gitDiff.added.length}</span>}
+            {gitDiff.modified?.length > 0 && <span style={{ color: '#f59e0b' }}>~{gitDiff.modified.length}</span>}
+            {gitDiff.deleted?.length > 0 && <span style={{ color: 'var(--red)' }}>-{gitDiff.deleted.length}</span>}
+          </span>
+        )}
         
         {activeFilePath && (
           <>
@@ -609,7 +656,7 @@ export default function IDEWorkspace({
                   <div 
                     key={i} 
                     className={`terminal-line ${colorClass}`}
-                    dangerouslySetInnerHTML={{ __html: l.text }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(l.text) }}
                   />
                 );
               })}

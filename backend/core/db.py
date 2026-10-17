@@ -2,14 +2,25 @@ import sqlite3
 import os
 from config import DB_PATH
 
+CURRENT_SCHEMA_VERSION = 1
+
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    conn.execute("PRAGMA busy_timeout=5000;")
+    conn.execute("PRAGMA foreign_keys=ON;")
     return conn
 
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    cursor.execute("PRAGMA user_version;")
+    current_ver = cursor.fetchone()[0]
+    if current_ver < CURRENT_SCHEMA_VERSION:
+        cursor.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION};")
     
     # Create messages table
     cursor.execute('''

@@ -9,7 +9,80 @@ import requests
 import subprocess
 import datetime
 import math
+import ast
+import operator
 from bs4 import BeautifulSoup
+
+SAFE_MATH_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+SAFE_MATH_FUNCTIONS = {
+    'abs': abs, 'round': round, 'pow': pow,
+    'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
+    'sqrt': math.sqrt, 'log': math.log, 'log10': math.log10, 'log2': math.log2,
+    'pi': math.pi, 'e': math.e
+}
+
+def _eval_bin_op(node):
+    op = SAFE_MATH_OPERATORS.get(type(node.op))
+    if op is None:
+        raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
+    left = _eval_ast_node(node.left)
+    right = _eval_ast_node(node.right)
+    if isinstance(node.op, ast.Pow) and abs(right) > 1000:
+        raise ValueError("Exponent too large")
+    return op(left, right)
+
+def _eval_unary_op(node):
+    op = SAFE_MATH_OPERATORS.get(type(node.op))
+    if op is None:
+        raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
+    return op(_eval_ast_node(node.operand))
+
+def _eval_call(node):
+    if not isinstance(node.func, ast.Name):
+        raise ValueError("Invalid function call")
+    fn = SAFE_MATH_FUNCTIONS.get(node.func.id)
+    if fn is None:
+        raise ValueError(f"Unsupported function: {node.func.id}")
+    args = [_eval_ast_node(arg) for arg in node.args]
+    return fn(*args)
+
+def _eval_name(node):
+    val = SAFE_MATH_FUNCTIONS.get(node.id)
+    if val is not None and isinstance(val, (int, float)):
+        return val
+    raise ValueError(f"Unsupported identifier: {node.id}")
+
+def _eval_ast_node(node):
+    if isinstance(node, ast.Expression):
+        return _eval_ast_node(node.body)
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, (int, float, complex)):
+            return node.value
+        raise ValueError("Only numbers allowed in expressions")
+    if isinstance(node, ast.BinOp):
+        return _eval_bin_op(node)
+    if isinstance(node, ast.UnaryOp):
+        return _eval_unary_op(node)
+    if isinstance(node, ast.Call):
+        return _eval_call(node)
+    if isinstance(node, ast.Name):
+        return _eval_name(node)
+    raise ValueError("Invalid syntax in expression")
+
+def evaluate_math_expression(expr: str):
+    parsed = ast.parse(expr, mode='eval')
+    return _eval_ast_node(parsed)
 
 class TerminalEngine:
     def __init__(self):
@@ -229,7 +302,6 @@ class TerminalEngine:
             return "CLEAR_SIGNAL", current_dir
         
         if first_token != "hunt":
-            # Real shell command execution!
             if first_token == "cd":
                 target = args[1] if len(args) > 1 else self.workspace_root
                 abs_target = os.path.abspath(os.path.join(current_dir, target))
@@ -238,38 +310,14 @@ class TerminalEngine:
                     return f"Switched context directory to: {current_dir}", current_dir
                 else:
                     return self.format_red(f"cd: no such file or directory: {target}"), current_dir
-            
-            try:
-                import html
-                if self.os_type == "Windows":
-                    shell_cmd = ["cmd.exe", "/c", cmd_line]
-                else:
-                    shell_cmd = ["/bin/sh", "-c", cmd_line]
-                res = subprocess.run(
-                    shell_cmd,
-                    shell=False,
-                    cwd=current_dir,
-                    capture_output=True,
-                    text=True,
-                    timeout=15,
-                    errors='ignore'
+            elif first_token == "pwd":
+                return self.format_cyan(current_dir), current_dir
+            else:
+                return (
+                    self.format_yellow(f"Command '{first_token}' is not recognized.") + "\n" +
+                    self.format_muted("DevHunt terminal is sandboxed. Use 'hunt <command>' (e.g. 'hunt help', 'hunt ls', 'hunt neofetch')."),
+                    current_dir
                 )
-                
-                stdout_escaped = html.escape(res.stdout) if res.stdout else ""
-                stderr_escaped = html.escape(res.stderr) if res.stderr else ""
-                
-                output = stdout_escaped
-                if stderr_escaped:
-                    output += f'<span class="ansi-red">{stderr_escaped}</span>'
-                
-                if not output:
-                    output = self.format_muted("// executed successfully (no output)")
-                    
-                return output, current_dir
-            except subprocess.TimeoutExpired:
-                return self.format_red("Error: Process timed out (15 second limit)."), current_dir
-            except Exception as e:
-                return self.format_red(f"Error executing command: {str(e)}"), current_dir
 
         if len(args) < 2:
             return self.cmd_help([], current_dir)
@@ -364,13 +412,27 @@ class TerminalEngine:
         mem_info = "N/A"
         try:
             if self.os_type == "Windows":
-                # Call wmic for memory details
-                out = subprocess.check_output("wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /Value", shell=True).decode()
-                lines = [l.strip() for l in out.splitlines() if "=" in l]
-                kvs = dict(l.split("=") for l in lines)
-                total = int(kvs.get("TotalVisibleMemorySize", 0)) // 1024
-                free = int(kvs.get("FreePhysicalMemory", 0)) // 1024
-                mem_info = f"{total - free}MB / {total}MB ({int((total-free)/total * 100)}%)"
+                import ctypes
+                class MEMORYSTATUSEX(ctypes.Structure):
+                    _fields_ = [
+                        ("dwLength", ctypes.c_ulong),
+                        ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong),
+                        ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong),
+                        ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong),
+                        ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+                    ]
+                stat = MEMORYSTATUSEX()
+                stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+                if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                    total_mb = stat.ullTotalPhys // (1024 * 1024)
+                    avail_mb = stat.ullAvailPhys // (1024 * 1024)
+                    used_mb = total_mb - avail_mb
+                    pct = int((used_mb / total_mb) * 100) if total_mb else 0
+                    mem_info = f"{used_mb}MB / {total_mb}MB ({pct}%)"
             else:
                 # Read /proc/meminfo
                 with open("/proc/meminfo") as f:
@@ -729,8 +791,10 @@ class TerminalEngine:
             if not answers:
                 output_lines.append(self.format_yellow(f"No records of type {qtype} found for this domain."))
             else:
-                output_lines.append(f"{'TYPE':<6} {'TTL':<8} {'DATA':<30}")
-                output_lines.append("-" * 50)
+                output_lines.extend([
+                    f"{'TYPE':<6} {'TTL':<8} {'DATA':<30}",
+                    "-" * 50
+                ])
                 for ans in answers:
                     t_val = ans.get("type", 1)
                     # map numeric types to names
@@ -812,8 +876,10 @@ class TerminalEngine:
         # Phase 2: Query registrar server for full record
         full_record = query_whois_server(refer_server, domain)
         if full_record.startswith("Error"):
-            output_lines.append(self.format_yellow(f"Warning: Registry query failed. Showing IANA fallback response."))
-            output_lines.append(iana_res)
+            output_lines.extend([
+                self.format_yellow("Warning: Registry query failed. Showing IANA fallback response."),
+                iana_res
+            ])
         else:
             # Parse key details to display cleanly first
             registrar = "Unknown"
@@ -868,8 +934,10 @@ class TerminalEngine:
             r = requests.get(url, timeout=6, headers={'User-Agent': 'DevHunt-Headers/1.0'})
             elapsed = (time.time() - t0) * 1000
             
-            output_lines.append(f"Response received in {elapsed:.2f} ms with Status Code: {self.format_green(str(r.status_code))}\n")
-            output_lines.append(f"{self.format_bold('HTTP RESPONSE HEADERS:')}")
+            output_lines.extend([
+                f"Response received in {elapsed:.2f} ms with Status Code: {self.format_green(str(r.status_code))}\n",
+                f"{self.format_bold('HTTP RESPONSE HEADERS:')}"
+            ])
             for k, v in r.headers.items():
                 output_lines.append(f"  {k}: {self.format_cyan(v)}")
 
@@ -912,48 +980,51 @@ class TerminalEngine:
         context = ssl.create_default_context()
         context.minimum_version = ssl.TLSVersion.TLSv1_2
         try:
-            with socket.create_connection((host, 443), timeout=5) as sock:
-                with context.wrap_socket(sock, server_hostname=host) as ssock:
-                    cert = ssock.getpeercert()
-                    cipher = ssock.cipher()
-                    ssl_version = ssock.version()
+            with socket.create_connection((host, 443), timeout=5) as sock, context.wrap_socket(sock, server_hostname=host) as ssock:
+                cert = ssock.getpeercert()
+                cipher = ssock.cipher()
+                ssl_version = ssock.version()
+                
+                output_lines.extend([
+                    f"Negotiated version: {self.format_green(ssl_version)}",
+                    f"Cipher Suite: {self.format_green(cipher[0])} (Strength: {cipher[2]} bits)\n",
+                ])
+                
+                # Extract fields
+                subject = dict(x[0] for x in cert.get('subject', []))
+                issuer = dict(x[0] for x in cert.get('issuer', []))
+                
+                sub_name = subject.get('commonName', 'Unknown')
+                iss_name = issuer.get('commonName', 'Unknown')
+                
+                # Parse dates
+                # e.g., 'May  9 23:59:59 2026 GMT'
+                not_after_str = cert.get('notAfter')
+                not_before_str = cert.get('notBefore')
+                
+                output_lines.extend([
+                    f"{self.format_bold('CERTIFICATE SPECIFICATIONS:')}",
+                    f"  Common Name (CN)   : {self.format_cyan(sub_name)}",
+                    f"  Issuer Authority   : {self.format_cyan(iss_name)}",
+                    f"  Serial Number      : {cert.get('serialNumber', 'Unknown')}",
+                    f"  Activation Date    : {not_before_str}",
+                    f"  Expiration Date    : {self.format_yellow(not_after_str)}",
+                ])
                     
-                    output_lines.append(f"Negotiated version: {self.format_green(ssl_version)}")
-                    output_lines.append(f"Cipher Suite: {self.format_green(cipher[0])} (Strength: {cipher[2]} bits)\n")
+                try:
+                    expire_dt = datetime.datetime.strptime(not_after_str, '%b %d %H:%M:%S %Y %Z')
+                    delta = expire_dt - datetime.datetime.utcnow()
+                    days_left = delta.days
                     
-                    # Extract fields
-                    subject = dict(x[0] for x in cert.get('subject', []))
-                    issuer = dict(x[0] for x in cert.get('issuer', []))
-                    
-                    sub_name = subject.get('commonName', 'Unknown')
-                    iss_name = issuer.get('commonName', 'Unknown')
-                    
-                    # Parse dates
-                    # e.g., 'May  9 23:59:59 2026 GMT'
-                    not_after_str = cert.get('notAfter')
-                    not_before_str = cert.get('notBefore')
-                    
-                    output_lines.append(f"{self.format_bold('CERTIFICATE SPECIFICATIONS:')}")
-                    output_lines.append(f"  Common Name (CN)   : {self.format_cyan(sub_name)}")
-                    output_lines.append(f"  Issuer Authority   : {self.format_cyan(iss_name)}")
-                    output_lines.append(f"  Serial Number      : {cert.get('serialNumber', 'Unknown')}")
-                    output_lines.append(f"  Activation Date    : {not_before_str}")
-                    output_lines.append(f"  Expiration Date    : {self.format_yellow(not_after_str)}")
-                    
-                    try:
-                        expire_dt = datetime.datetime.strptime(not_after_str, '%b %d %H:%M:%S %Y %Z')
-                        delta = expire_dt - datetime.datetime.utcnow()
-                        days_left = delta.days
-                        
-                        if days_left < 0:
-                            output_lines.append(f"  Certificate Status : {self.format_red('EXPIRED')} ({abs(days_left)} days ago)")
-                        elif days_left < 30:
-                            output_lines.append(f"  Certificate Status : {self.format_yellow('WARNING - EXPIRING SOON')} ({days_left} days left)")
-                        else:
-                            output_lines.append(f"  Certificate Status : {self.format_green('VALID')} ({days_left} days remaining)")
-                    except Exception:
-                        pass
-                    
+                    if days_left < 0:
+                        output_lines.append(f"  Certificate Status : {self.format_red('EXPIRED')} ({abs(days_left)} days ago)")
+                    elif days_left < 30:
+                        output_lines.append(f"  Certificate Status : {self.format_yellow('WARNING - EXPIRING SOON')} ({days_left} days left)")
+                    else:
+                        output_lines.append(f"  Certificate Status : {self.format_green('VALID')} ({days_left} days remaining)")
+                except Exception:
+                    pass
+                
             return "\n".join(output_lines), current_dir
         except Exception as e:
             return self.format_red(f"SSL handshake connection failed: {str(e)}"), current_dir
@@ -1032,8 +1103,10 @@ class TerminalEngine:
         # Add target
         hops.append((ip_addr, host, 28.6))
 
-        output_lines.append(f"{'HOP':<4} {'IP ADDRESS':<16} {'RESOLVED HOST':<30} {'TIME (ms)':<10}")
-        output_lines.append("-" * 70)
+        output_lines.extend([
+            f"{'HOP':<4} {'IP ADDRESS':<16} {'RESOLVED HOST':<30} {'TIME (ms)':<10}",
+            "-" * 70
+        ])
         
         for idx, (ip, name, latency) in enumerate(hops, 1):
             var_lat = latency + (idx * 0.4) # Add variation
@@ -1108,6 +1181,12 @@ class TerminalEngine:
         if not args:
             return self.format_red("Usage: hunt git <command> [args]"), current_dir
 
+        # Block dangerous git flags that can execute commands or override hooks
+        forbidden_git_flags = {'-c', '--config', '--exec-path', '--upload-pack', '--receive-pack', '--paginate', '-p'}
+        for a in args:
+            if a.lower() in forbidden_git_flags or a.lower().startswith(('-c=', '--config=', '--exec-path=')):
+                return self.format_red("Error: Security policy forbids passing configuration or exec flags to git."), current_dir
+
         # Safe execution of git - no shell=True, only within workspace directory
         command_to_run = ["git"] + args
         try:
@@ -1169,22 +1248,8 @@ class TerminalEngine:
             return self.format_red("Usage: hunt calc <math_expression>"), current_dir
 
         expr = " ".join(args)
-        
-        # Safe math evaluation using basic python scope mapping (prevent dunder execution)
-        allowed_names = {
-            'abs': abs, 'round': round, 'pow': pow,
-            'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
-            'sqrt': math.sqrt, 'log': math.log, 'log10': math.log10, 'log2': math.log2,
-            'pi': math.pi, 'e': math.e
-        }
-        
-        # Sanitize against underscores/dunder access
-        if "__" in expr or "import" in expr or "eval" in expr or "exec" in expr:
-            return self.format_red("Security Error: Forbidden expression syntax."), current_dir
-
         try:
-            # Evaluate code with empty builtins to prevent exploit vectors
-            res = eval(expr, {"__builtins__": None}, allowed_names)
+            res = evaluate_math_expression(expr)
             return f"{self.format_bold('Expression:')} {expr}\n{self.format_bold('Result:')} {self.format_green(str(res))}", current_dir
         except Exception as e:
             return self.format_red(f"Math Error: {str(e)}"), current_dir
@@ -1209,8 +1274,10 @@ class TerminalEngine:
                 lines = raw.splitlines()
                 header_found = False
                 
-                output_lines.append(f"{'Proto':<6} {'Local Address':<24} {'Foreign Address':<24} {'State':<15} {'PID':<8}")
-                output_lines.append("-" * 80)
+                output_lines.extend([
+                    f"{'Proto':<6} {'Local Address':<24} {'Foreign Address':<24} {'State':<15} {'PID':<8}",
+                    "-" * 80
+                ])
                 
                 count = 0
                 for line in lines:
@@ -1253,8 +1320,10 @@ class TerminalEngine:
                     raw = res.stdout.decode('utf-8', errors='ignore')
 
                 lines = raw.splitlines()
-                output_lines.append(lines[0]) # Header
-                output_lines.append("-" * 80)
+                output_lines.extend([
+                    lines[0], # Header
+                    "-" * 80
+                ])
                 count = 0
                 for line in lines[1:]:
                     if not line.strip():
@@ -1325,8 +1394,10 @@ class TerminalEngine:
             ""
         ]
 
-        output_lines.append(f"{'PORT':<8} {'SERVICE':<12} {'STATUS':<15} {'LATENCY':<10}")
-        output_lines.append("-" * 50)
+        output_lines.extend([
+            f"{'PORT':<8} {'SERVICE':<12} {'STATUS':<15} {'LATENCY':<10}",
+            "-" * 50
+        ])
 
         open_ports_count = 0
         for port in ports:
@@ -1351,8 +1422,10 @@ class TerminalEngine:
             except Exception:
                 pass
 
-        output_lines.append("\n--- Port scan complete ---")
-        output_lines.append(f"Scan finished. Identified {open_ports_count} active listening ports.")
+        output_lines.extend([
+            "\n--- Port scan complete ---",
+            f"Scan finished. Identified {open_ports_count} active listening ports."
+        ])
 
         return "\n".join(output_lines), current_dir
 
@@ -1418,16 +1491,8 @@ class TerminalEngine:
             return "\n".join(output), current_dir
 
         sub_cmd = args[0].lower()
-        if sub_cmd == "add" and len(args) > 1:
-            raw_key = args[1]
-            label = args[2] if len(args) > 2 else "unnamed"
-            try:
-                res = km.add_key(raw_key, label)
-                if res.get("success"):
-                    return self.format_green(f"Key successfully registered with label '{label}'!"), current_dir
-                return self.format_red(f"Error: {res.get('error')}"), current_dir
-            except Exception as e:
-                return self.format_red(f"Error: {e}"), current_dir
+        if sub_cmd == "add":
+            return self.format_yellow("Adding raw API keys directly via CLI command is disabled for security reasons.\nRaw keys in terminal commands are saved to shell history and audit logs.\nPlease add keys securely via the Settings UI (Key Manager) or environment variables."), current_dir
 
         elif sub_cmd == "rm" and len(args) > 1:
             key_id = args[1]
@@ -1836,9 +1901,11 @@ class TerminalEngine:
                 else:
                     type_label = self.format_yellow("[WARNING]")
                     
-                output.append(f"{type_label}{unread_marker}{self.format_cyan(n['id'])} - {n['title']}")
-                output.append(f"  {self.format_muted(n['timestamp'])} - {n['message'][:80]}...")
-                output.append("")
+                output.extend([
+                    f"{type_label}{unread_marker}{self.format_cyan(n['id'])} - {n['title']}",
+                    f"  {self.format_muted(n['timestamp'])} - {n['message'][:80]}...",
+                    ""
+                ])
             return "\n".join(output), current_dir
             
         sub_cmd = args[0].lower()
@@ -1895,8 +1962,10 @@ class TerminalEngine:
             # Print metadata if exists
             metadata = target_notif.get("metadata")
             if metadata:
-                output.append(f"{self.format_bold('Metadata:')}")
-                output.append(f"  {json.dumps(metadata, indent=4)}")
+                output.extend([
+                    f"{self.format_bold('Metadata:')}",
+                    f"  {json.dumps(metadata, indent=4)}"
+                ])
                 
             return "\n".join(output), current_dir
             
@@ -1959,10 +2028,12 @@ class TerminalEngine:
                 tok = r['tokens'] or 0
                 output.append(f"  {model:<25} | {cnt:<10} | {tok:<12}")
                 
-            output.append("")
-            output.append(self.format_bold("API KEY WORKLOAD ANALYSIS:"))
-            output.append(f"  {'KEY LABEL / MASKED':<25} | {'REQUESTS':<10} | {'EST. TOKENS':<12}")
-            output.append("  " + "-" * 53)
+            output.extend([
+                "",
+                self.format_bold("API KEY WORKLOAD ANALYSIS:"),
+                f"  {'KEY LABEL / MASKED':<25} | {'REQUESTS':<10} | {'EST. TOKENS':<12}",
+                "  " + "-" * 53
+            ])
             
             for r in key_rows:
                 kid = str(r['key_used'])
@@ -1973,8 +2044,10 @@ class TerminalEngine:
                 tok = r['tokens'] or 0
                 output.append(f"  {display_name:<25} | {cnt:<10} | {tok:<12}")
                 
-            output.append("")
-            output.append(self.format_muted("* Token approximations are estimated as character length divided by 4."))
+            output.extend([
+                "",
+                self.format_muted("* Token approximations are estimated as character length divided by 4.")
+            ])
             return "\n".join(output), current_dir
             
         except Exception as e:

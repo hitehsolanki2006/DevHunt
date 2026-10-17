@@ -9,16 +9,24 @@ import IDEWorkspace from './components/IDE/IDEWorkspace.jsx';
 import Arcade from './components/Arcade/Arcade.jsx';
 import Settings from './components/Settings/Settings.jsx';
 import DocForensics from './components/DocForensics/DocForensics.jsx';
+import { sanitizeHtml } from './utils/sanitize.js';
 
 // Global fetch interceptor to append secure API token header
 (function() {
   const urlParams = new URLSearchParams(window.location.search);
   const tokenParam = urlParams.get('token');
-  if (tokenParam) {
-    localStorage.setItem('X-DevHunt-Token', tokenParam);
+  const tokenRegex = /^[A-Za-z0-9_-]{16,128}$/;
+  if (tokenParam && tokenRegex.test(tokenParam)) {
+    sessionStorage.setItem('X-DevHunt-Token', tokenParam);
     window.__DEVHUNT_TOKEN__ = tokenParam;
+    try {
+      const cleanUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl || '/');
+    } catch {
+      // Ignored: replaceState may be restricted in sandboxed environments
+    }
   } else {
-    window.__DEVHUNT_TOKEN__ = localStorage.getItem('X-DevHunt-Token') || '';
+    window.__DEVHUNT_TOKEN__ = sessionStorage.getItem('X-DevHunt-Token') || localStorage.getItem('X-DevHunt-Token') || '';
   }
 
   const originalFetch = window.fetch;
@@ -199,7 +207,7 @@ function HuntPath() {
   };
 
   useEffect(() => {
-    loadPath();
+    void loadPath();
   }, []);
 
   const togglePhase = (phaseTitle) => {
@@ -227,7 +235,7 @@ function HuntPath() {
       });
       const data = await res.json();
       if (data.success) {
-        loadPath();
+        void loadPath();
       } else {
         alert('Failed to update status: ' + data.error);
       }
@@ -286,7 +294,7 @@ function HuntPath() {
   };
 
   const copyToClipboard = (text, message = 'Copied to clipboard!') => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
     alert(message);
   };
 
@@ -614,7 +622,7 @@ function SearchPanel() {
     if (!query.trim()) return;
     setStatus('Searching…');
     try {
-      const res = await fetch('/api/search', {
+      const res = await fetch('/api/ide/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, matchCase: opts.case, wholeWord: opts.word, useRegex: opts.regex }),
@@ -627,17 +635,24 @@ function SearchPanel() {
 
   const runReplace = async () => {
     if (!query.trim()) return;
+    const confirmReplace = window.confirm(`Are you sure you want to replace all occurrences of "${query}" with "${replacement}" across files in workspace?`);
+    if (!confirmReplace) return;
     setStatus('Replacing…');
     try {
-      const res = await fetch('/api/search/replace', {
+      const res = await fetch('/api/ide/replace', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, replacement, matchCase: opts.case, wholeWord: opts.word, useRegex: opts.regex }),
       });
       const d = await res.json();
-      setStatus(`Replaced ${d.count || 0} occurrences`);
-      setResults([]);
-    } catch { setStatus('Replace failed'); }
+      if (d.success) {
+        setStatus(`Replaced in ${d.count || d.modified_count || 0} file(s)`);
+        setResults([]);
+        window.dispatchEvent(new CustomEvent('devhunt-refresh-files'));
+      } else {
+        setStatus(`Replace failed: ${d.error || 'Server error'}`);
+      }
+    } catch { setStatus('Replace failed: Network error'); }
   };
 
   const OPT_BTNS = [
@@ -695,7 +710,7 @@ function SearchPanel() {
               {r.matches?.map((m, j) => (
                 <div key={j} style={{ padding: '3px 16px', fontFamily: 'var(--mono)', fontSize: 11 }}>
                   <span style={{ color: 'var(--muted)', marginRight: 8 }}>L{m.line}:</span>
-                  <span dangerouslySetInnerHTML={{ __html: m.content }} />
+                  <span>{m.content}</span>
                 </div>
               ))}
             </div>
@@ -1624,31 +1639,39 @@ function MusicPlayer({ musicState, musicControls }) {
   const [dragActive, setDragActive] = useState(false);
 
   // File Upload
+  const uploadTrackFile = async (file) => {
+    musicControls.setUploadStatus(`↻ Uploading ${file.name}...`);
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await fetch('/api/music/upload', { method: 'POST', body: fd });
+      const contentType = r.headers.get("content-type");
+      if (!r.ok || !contentType || !contentType.includes("application/json")) {
+        const text = await r.text();
+        musicControls.setUploadStatus(`✕ Upload failed (${r.status}): ${text.slice(0, 100) || 'Server error'}`);
+        return;
+      }
+      const d = await r.json();
+      if (d.success) {
+        musicControls.setUploadStatus(`✓ Added: ${d.track.title}`);
+        await musicControls.loadTracks();
+      } else {
+        musicControls.setUploadStatus(`✕ ${d.error}`);
+      }
+    } catch (e) {
+      musicControls.setUploadStatus(`✕ Upload failed: ${e.message}`);
+    }
+  };
+
   const handleFileUpload = async (files) => {
     if (!files || files.length === 0) return;
-    for (const file of files) {
-      musicControls.setUploadStatus(`↻ Uploading ${file.name}...`);
-      const fd = new FormData();
-      fd.append('file', file);
-      try {
-        const r = await fetch('/api/music/upload', { method: 'POST', body: fd });
-        const contentType = r.headers.get("content-type");
-        if (!r.ok || !contentType || !contentType.includes("application/json")) {
-          const text = await r.text();
-          musicControls.setUploadStatus(`✕ Upload failed (${r.status}): ${text.slice(0, 100) || 'Server error'}`);
-          continue;
-        }
-        const d = await r.json();
-        if (d.success) {
-          musicControls.setUploadStatus(`✓ Added: ${d.track.title}`);
-          await musicControls.loadTracks();
-        } else {
-          musicControls.setUploadStatus(`✕ ${d.error}`);
-        }
-      } catch (e) {
-        musicControls.setUploadStatus(`✕ Upload failed: ${e.message}`);
-      }
-    }
+    const fileList = Array.from(files);
+    const uploadSequentially = async (idx) => {
+      if (idx >= fileList.length) return;
+      await uploadTrackFile(fileList[idx]);
+      await uploadSequentially(idx + 1);
+    };
+    await uploadSequentially(0);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -2052,7 +2075,7 @@ function MusicPlayer({ musicState, musicControls }) {
                       {isActive && musicState.playing ? '⏸' : '▶'}
                     </button>
                     <a 
-                      href={`/api/music/download/${encodeURIComponent(t.filename)}`}
+                      href={'/api/music/download/' + encodeURIComponent(t.filename) + (window.__DEVHUNT_TOKEN__ ? '?token=' + encodeURIComponent(window.__DEVHUNT_TOKEN__) : '')}
                       className="btn-ghost"
                       style={{ border: '1px solid rgba(56,189,248,0.25)', color: 'var(--cyan)', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontSize: '11px', textDecoration: 'none', display: 'inline-block' }}
                       title="Download" 
@@ -2160,7 +2183,7 @@ function StandaloneTerminal({ profileSettings, terminalCwd, setTerminalCwd, term
         setOsName("Offline Node");
       }
     };
-    initTerm();
+    void initTerm();
   }, [setTerminalCwd]);
 
   useEffect(() => {
@@ -2208,7 +2231,7 @@ function StandaloneTerminal({ profileSettings, terminalCwd, setTerminalCwd, term
           setOutput([]);
         } else {
           const lines = (d.output || '').split('\n');
-          setOutput(o => [...o, ...lines.map(l => ({ text: l, cls: '' }))]);
+          setOutput(o => [...o, ...lines.map(l => ({ text: mdEscape(l), cls: '' }))]);
         }
         if (d.cwd) {
           setTerminalCwd(d.cwd);
@@ -2225,7 +2248,7 @@ function StandaloneTerminal({ profileSettings, terminalCwd, setTerminalCwd, term
 
   const handleKey = (e) => {
     if (e.key === 'Enter') { 
-      runCmd(); 
+      void runCmd(); 
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (terminalHistory.length === 0) return;
@@ -2297,7 +2320,7 @@ function StandaloneTerminal({ profileSettings, terminalCwd, setTerminalCwd, term
                 whiteSpace: 'pre-wrap', 
                 wordBreak: 'break-all',
               }}
-              dangerouslySetInnerHTML={{ __html: line.text }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(line.text) }}
             />
           ))}
           <div ref={bottomRef} />
@@ -2473,24 +2496,30 @@ export default function App() {
   }, [activeFilePath]);
 
   useEffect(() => {
-    if (activeFilePath && originalContentRef.current !== null) {
-      if (fileContent !== originalContentRef.current) {
-        localStorage.setItem(`devhunt_draft_${activeFilePath}`, fileContent);
-      } else {
-        localStorage.removeItem(`devhunt_draft_${activeFilePath}`);
-      }
+    if (!activeFilePath || originalContentRef.current === null) return;
+    const key = `devhunt_draft_${encodeURIComponent(terminalCwd || '')}:${activeFilePath}`;
+    const legacyKey = `devhunt_draft_${activeFilePath}`;
+
+    if (fileContent === originalContentRef.current) {
+      localStorage.removeItem(key);
+      localStorage.removeItem(legacyKey);
+      return;
     }
-  }, [activeFilePath, fileContent]);
+
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(key, fileContent);
+      } catch (e) {
+        console.warn('Failed to save draft to localStorage:', e);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [activeFilePath, fileContent, terminalCwd]);
 
   useEffect(() => {
     localStorage.setItem('devhunt_word_wrap', wordWrap);
   }, [wordWrap]);
-
-  useEffect(() => {
-    if (terminalCwd) {
-      localStorage.setItem('devhunt_last_workspace', terminalCwd);
-    }
-  }, [terminalCwd]);
 
   /* ── Header badges ────────────────────── */
   const [activeModel, setActiveModel] = useState('OFFLINE · NO KEY');
@@ -2526,7 +2555,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    loadTracks();
+    void loadTracks();
   }, [loadTracks]);
 
   const playTrack = useCallback((index) => {
@@ -2534,7 +2563,8 @@ export default function App() {
     setCurrentIndex(index);
     setPlaying(true);
     if (audioRef.current) {
-      audioRef.current.src = `/api/music/stream/${encodeURIComponent(tracks[index].filename)}`;
+      const tokenParam = window.__DEVHUNT_TOKEN__ ? '?token=' + encodeURIComponent(window.__DEVHUNT_TOKEN__) : '';
+      audioRef.current.src = '/api/music/stream/' + encodeURIComponent(tracks[index].filename) + tokenParam;
       audioRef.current.volume = volume;
       audioRef.current.play().catch(err => console.warn('Play error:', err));
     }
@@ -2744,7 +2774,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'editor') refreshFileTree();
+    if (activeTab === 'editor') void refreshFileTree();
   }, [activeTab, refreshFileTree]);
 
   useEffect(() => {
@@ -2776,7 +2806,8 @@ export default function App() {
 
       const savedPath = localStorage.getItem('devhunt_active_file_path');
       if (savedPath) {
-        const draft = localStorage.getItem(`devhunt_draft_${savedPath}`);
+        const draftKey = `devhunt_draft_${encodeURIComponent(terminalCwd || '')}:${savedPath}`;
+        const draft = localStorage.getItem(draftKey) ?? localStorage.getItem(`devhunt_draft_${savedPath}`);
         if (draft !== null) {
           setFileContent(draft);
         } else {
@@ -2795,9 +2826,9 @@ export default function App() {
           }
         }
       }
-      refreshFileTree();
+      await refreshFileTree();
     };
-    loadStartupData();
+    void loadStartupData();
   }, [refreshFileTree]);
 
   // Centralized active file content loader
@@ -2814,7 +2845,8 @@ export default function App() {
       return prev;
     });
 
-    const draft = localStorage.getItem(`devhunt_draft_${activeFilePath}`);
+    const draftKey = `devhunt_draft_${encodeURIComponent(terminalCwd || '')}:${activeFilePath}`;
+    const draft = localStorage.getItem(draftKey) ?? localStorage.getItem(`devhunt_draft_${activeFilePath}`);
     if (draft !== null) {
       setFileContent(draft);
     }
@@ -2853,7 +2885,7 @@ export default function App() {
       }
     };
 
-    fetchContent();
+    void fetchContent();
     return () => { active = false; };
   }, [activeFilePath, showToast]);
 
@@ -2879,7 +2911,7 @@ export default function App() {
         }
       }
     };
-    checkConnection();
+    void checkConnection();
     return () => { active = false; };
   }, []);
 
@@ -3046,8 +3078,13 @@ export default function App() {
       const data = await res.json();
       if (data.success) {
         setTerminalCwd(path);
+        setOpenTabs([]);
+        setActiveFilePath(null);
+        setFileContent('');
         setFileTree(data.files || []);
         localStorage.setItem('devhunt_last_workspace', path);
+        localStorage.removeItem('devhunt_open_tabs');
+        localStorage.removeItem('devhunt_active_file_path');
         alert(`Workspace changed to: ${path}`);
       } else {
         alert(`Error: ${data.error}`);
