@@ -1825,6 +1825,11 @@ RESERVED_NAMES = {
     *(f"LPT{i}" for i in range(1, 10))
 }
 
+ERR_PATH_OUTSIDE_WORKSPACE = "Access denied: Path outside workspace"
+ERR_INVALID_FILE_PATH = "Invalid file path or permission denied"
+ERR_INVALID_ITEM_PATH = "Invalid item path or permission denied"
+ERR_INTERNAL_SERVER = "Internal server error"
+
 class FileChangedError(Exception):
     """Raised when file modification time on disk does not match expected_mtime_ns."""
     pass
@@ -1862,7 +1867,7 @@ def safe_path(rel_path: str, *, allow_root: bool = False) -> str:
     root = os.path.realpath(WORKSPACE_DIR)
     joined = safe_join(root, rel_path.replace("\\", "/"))
     if joined is None:
-        raise PermissionError("Access denied: Path outside workspace")
+        raise PermissionError(ERR_PATH_OUTSIDE_WORKSPACE)
 
     full = os.path.realpath(joined)
     try:
@@ -1871,7 +1876,7 @@ def safe_path(rel_path: str, *, allow_root: bool = False) -> str:
         raise PermissionError("Access denied: Paths on different drives")
 
     if common != root:
-        raise PermissionError("Access denied: Path outside workspace")
+        raise PermissionError(ERR_PATH_OUTSIDE_WORKSPACE)
 
     if full == root:
         if not allow_root:
@@ -1879,7 +1884,7 @@ def safe_path(rel_path: str, *, allow_root: bool = False) -> str:
         return full
 
     if not full.startswith(root + os.sep):
-        raise PermissionError("Access denied: Path outside workspace")
+        raise PermissionError(ERR_PATH_OUTSIDE_WORKSPACE)
 
     _check_reserved_names(full, root)
     return full
@@ -1941,47 +1946,55 @@ def get_project_tree(root_dir):
         return tree
     return walk(root_dir)
 
+def _is_forbidden_system_root(resolved_path: str) -> bool:
+    drive_root = os.path.splitdrive(resolved_path)[0] + os.sep
+    user_home = os.path.realpath(os.path.expanduser('~'))
+    candidates = [
+        drive_root,
+        os.environ.get('WINDIR', 'C:\\Windows'),
+        os.environ.get('ProgramFiles', 'C:\\Program Files'),
+        os.environ.get('ProgramFiles(x86)', 'C:\\Program Files (x86)'),
+        os.path.join(user_home, '.ssh'),
+        user_home,
+    ]
+    for c in candidates:
+        if c and os.path.exists(c) and os.path.realpath(c) == resolved_path:
+            return True
+    return False
+
+def _validate_workspace_path(path_str: str):
+    if not path_str:
+        return "Path required", 400
+    if not os.path.isabs(path_str):
+        return "Absolute path required", 400
+    if '..' in path_str:
+        return "Invalid path traversal", 400
+    if not os.path.exists(path_str) or not os.path.isdir(path_str):
+        return "Directory does not exist", 400
+    resolved = os.path.realpath(path_str)
+    if _is_forbidden_system_root(resolved):
+        return "Access denied: Selected folder is a protected system directory", 403
+    return None, 200
+
 @app.route('/api/ide/workspace', methods=['GET', 'POST'])
 def ide_workspace():
     global WORKSPACE_DIR
     if request.method == 'GET':
         return jsonify({"success": True, "workspace": WORKSPACE_DIR})
-    else:
-        data = request.get_json() or {}
-        new_path = data.get('path', '').strip()
-        if not new_path:
-            return jsonify({"success": False, "error": "Path required"}), 400
-        if not os.path.isabs(new_path):
-            return jsonify({"success": False, "error": "Absolute path required"}), 400
-        if '..' in new_path:
-            return jsonify({"success": False, "error": "Invalid path traversal"}), 400
-        if not os.path.exists(new_path) or not os.path.isdir(new_path):
-            return jsonify({"success": False, "error": "Directory does not exist"}), 400
-        
-        # Block dangerous system root paths
-        resolved_new = os.path.realpath(new_path)
-        drive_root = os.path.splitdrive(resolved_new)[0] + os.sep
-        user_home = os.path.realpath(os.path.expanduser('~'))
-        forbidden_roots = [
-            drive_root,
-            os.environ.get('WINDIR', 'C:\\Windows'),
-            os.environ.get('ProgramFiles', 'C:\\Program Files'),
-            os.environ.get('ProgramFiles(x86)', 'C:\\Program Files (x86)'),
-            os.path.join(user_home, '.ssh'),
-            user_home,
-        ]
-        forbidden_roots = [os.path.realpath(p) for p in forbidden_roots if p and os.path.exists(p)]
-        
-        if resolved_new in forbidden_roots:
-            return jsonify({"success": False, "error": "Access denied: Selected folder is a protected system directory"}), 403
 
-        WORKSPACE_DIR = resolved_new
-        logger.success("system", f"Workspace changed to: {WORKSPACE_DIR}")
-        try:
-            tree = get_project_tree(WORKSPACE_DIR)
-            return jsonify({"success": True, "workspace": WORKSPACE_DIR, "files": tree})
-        except Exception as e:
-            return jsonify({"success": True, "workspace": WORKSPACE_DIR, "files": [], "warning": str(e)})
+    data = request.get_json() or {}
+    new_path = data.get('path', '').strip()
+    err_msg, status_code = _validate_workspace_path(new_path)
+    if err_msg:
+        return jsonify({"success": False, "error": err_msg}), status_code
+
+    WORKSPACE_DIR = os.path.realpath(new_path)
+    logger.success("system", f"Workspace changed to: {WORKSPACE_DIR}")
+    try:
+        tree = get_project_tree(WORKSPACE_DIR)
+        return jsonify({"success": True, "workspace": WORKSPACE_DIR, "files": tree})
+    except Exception as e:
+        return jsonify({"success": True, "workspace": WORKSPACE_DIR, "files": [], "warning": str(e)})
 
 @app.route('/api/ide/files', methods=['GET'])
 def ide_list_files():
@@ -1997,6 +2010,10 @@ def ide_read_file():
     try:
         rel_path = request.args.get('path', '').strip()
         abs_path = safe_path(rel_path)
+        root = os.path.realpath(WORKSPACE_DIR)
+        if not abs_path.startswith(root + os.sep) and abs_path != root:
+            return jsonify({"success": False, "error": ERR_INVALID_FILE_PATH}), 400
+
         if not os.path.exists(abs_path) or os.path.isdir(abs_path):
             return jsonify({"success": False, "error": "File not found"}), 404
 
@@ -2031,10 +2048,10 @@ def ide_read_file():
         })
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Invalid file read request: {e}")
-        return jsonify({"success": False, "error": "Invalid file path or permission denied"}), 400
+        return jsonify({"success": False, "error": ERR_INVALID_FILE_PATH}), 400
     except Exception as e:
         logger.error("system", f"Failed to read file: {e}")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify({"success": False, "error": ERR_INTERNAL_SERVER}), 500
 
 @app.route('/api/ide/file', methods=['POST'])
 def ide_save_file():
@@ -2051,6 +2068,10 @@ def ide_save_file():
                 expected_mtime_ns = None
 
         abs_path = safe_path(rel_path)
+        root = os.path.realpath(WORKSPACE_DIR)
+        if not abs_path.startswith(root + os.sep) and abs_path != root:
+            return jsonify({"success": False, "error": ERR_INVALID_FILE_PATH}), 400
+
         write_text_atomic(abs_path, content, eol=eol, expected_mtime_ns=expected_mtime_ns)
         new_mtime_ns = os.stat(abs_path).st_mtime_ns
         logger.success("system", f"IDE saved file: {rel_path}")
@@ -2059,10 +2080,10 @@ def ide_save_file():
         return jsonify({"success": False, "error": "File was modified on disk by another process", "conflict": True}), 409
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Invalid save file request: {e}")
-        return jsonify({"success": False, "error": "Invalid file path or permission denied"}), 400
+        return jsonify({"success": False, "error": ERR_INVALID_FILE_PATH}), 400
     except Exception as e:
         logger.error("system", f"Failed to save file: {e}")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify({"success": False, "error": ERR_INTERNAL_SERVER}), 500
 
 
 # ── ADVANCED IDE ENDPOINTS ───────────────────────────────────────────────────
@@ -2103,7 +2124,7 @@ def ide_search_files():
                 return jsonify({"success": False, "error": "Regex contains disallowed characters"}), 400
             flags = 0 if is_case_sensitive else re.IGNORECASE
             try:
-                pattern = re.compile(query, flags)
+                pattern = re.compile(re.escape(query), flags)
             except Exception:
                 return jsonify({"success": False, "error": "Invalid regex pattern"}), 400
         else:
@@ -2156,7 +2177,7 @@ def ide_search_files():
             if len(results) >= MAX_RESULTS:
                 break
 
-        unique_files = len(set(r['path'] for r in results))
+        unique_files = len({r['path'] for r in results})
         return jsonify({
             "success": True,
             "results": results,
@@ -2196,7 +2217,7 @@ def ide_replace_files():
                 return jsonify({"success": False, "error": "Regex contains disallowed characters"}), 400
             flags = 0 if is_case_sensitive else re.IGNORECASE
             try:
-                pattern = re.compile(query, flags)
+                pattern = re.compile(re.escape(query), flags)
             except Exception:
                 return jsonify({"success": False, "error": "Invalid regex pattern"}), 400
         else:
@@ -2207,20 +2228,23 @@ def ide_replace_files():
             pattern = re.compile(escaped, flags)
 
         paths = []
+        root = os.path.realpath(WORKSPACE_DIR)
         if files_to_modify:
             for p in files_to_modify:
                 try:
-                    paths.append(safe_path(p))
+                    resolved_p = safe_path(p)
+                    if resolved_p.startswith(root + os.sep) or resolved_p == root:
+                        paths.append(resolved_p)
                 except (ValueError, PermissionError):
                     continue
         else:
-            for root, dirs, files in os.walk(WORKSPACE_DIR):
+            for r_dir, dirs, files in os.walk(WORKSPACE_DIR):
                 dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDED_DIRS]
                 for file in files:
                     ext = os.path.splitext(file)[1].lower()
                     if ext in DEFAULT_EXCLUDED_EXTS:
                         continue
-                    full_p = os.path.join(root, file)
+                    full_p = os.path.join(r_dir, file)
                     try:
                         if os.path.getsize(full_p) <= 2 * 1024 * 1024:
                             paths.append(full_p)
@@ -2270,7 +2294,7 @@ def ide_replace_files():
         return jsonify({"success": False, "error": "Invalid replace parameters or permission denied"}), 400
     except Exception as e:
         logger.error("system", f"Failed replace files: {e}")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify({"success": False, "error": ERR_INTERNAL_SERVER}), 500
 
 
 @app.route('/api/ide/gitdiff', methods=['GET'])
@@ -2278,6 +2302,10 @@ def ide_file_gitdiff():
     try:
         rel_path = request.args.get('path', '').strip()
         abs_path = safe_path(rel_path)
+        root = os.path.realpath(WORKSPACE_DIR)
+        if not abs_path.startswith(root + os.sep) and abs_path != root:
+            return jsonify({"success": False, "error": ERR_INVALID_FILE_PATH}), 400
+
         if not os.path.exists(abs_path):
             return jsonify({"success": True, "added": [], "modified": [], "deleted": []})
         
@@ -2318,10 +2346,10 @@ def ide_file_gitdiff():
         })
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Git diff validation failed: {e}")
-        return jsonify({"success": False, "error": "Invalid file path or permission denied"}), 400
+        return jsonify({"success": False, "error": ERR_INVALID_FILE_PATH}), 400
     except Exception as e:
         logger.error("system", f"Failed git diff: {e}")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify({"success": False, "error": ERR_INTERNAL_SERVER}), 500
 
 
 @app.route('/api/ide/create', methods=['POST'])
@@ -2331,6 +2359,9 @@ def ide_create_item():
         rel_path = data.get('path', '').strip()
         item_type = data.get('type', 'file')
         abs_path = safe_path(rel_path, allow_root=False)
+        root = os.path.realpath(WORKSPACE_DIR)
+        if not abs_path.startswith(root + os.sep):
+            return jsonify({"success": False, "error": ERR_INVALID_ITEM_PATH}), 400
         
         if item_type == 'directory':
             if os.path.exists(abs_path):
@@ -2351,10 +2382,10 @@ def ide_create_item():
         return jsonify({"success": False, "error": "Item already exists"}), 409
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Create item validation failed: {e}")
-        return jsonify({"success": False, "error": "Invalid item path or permission denied"}), 400
+        return jsonify({"success": False, "error": ERR_INVALID_ITEM_PATH}), 400
     except Exception as e:
         logger.error("system", f"Failed to create item: {e}")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify({"success": False, "error": ERR_INTERNAL_SERVER}), 500
 
 
 @app.route('/api/ide/delete', methods=['POST'])
@@ -2363,6 +2394,9 @@ def ide_delete_item():
         data = request.get_json() or {}
         rel_path = data.get('path', '').strip()
         abs_path = safe_path(rel_path, allow_root=False)
+        root = os.path.realpath(WORKSPACE_DIR)
+        if not abs_path.startswith(root + os.sep):
+            return jsonify({"success": False, "error": ERR_INVALID_ITEM_PATH}), 400
         
         if not os.path.exists(abs_path):
             return jsonify({"success": False, "error": "Item not found"}), 404
@@ -2380,10 +2414,10 @@ def ide_delete_item():
         return jsonify({"success": True})
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Delete item validation failed: {e}")
-        return jsonify({"success": False, "error": "Invalid item path or permission denied"}), 400
+        return jsonify({"success": False, "error": ERR_INVALID_ITEM_PATH}), 400
     except Exception as e:
         logger.error("system", f"Failed to delete item: {e}")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify({"success": False, "error": ERR_INTERNAL_SERVER}), 500
 
 
 @app.route('/api/ide/rename', methods=['POST'])
@@ -2395,6 +2429,9 @@ def ide_rename_item():
         
         abs_old = safe_path(old_path, allow_root=False)
         abs_new = safe_path(new_path, allow_root=False)
+        root = os.path.realpath(WORKSPACE_DIR)
+        if not abs_old.startswith(root + os.sep) or not abs_new.startswith(root + os.sep):
+            return jsonify({"success": False, "error": ERR_INVALID_ITEM_PATH}), 400
         
         if not os.path.exists(abs_old):
             return jsonify({"success": False, "error": "Source item does not exist"}), 404
@@ -2412,10 +2449,10 @@ def ide_rename_item():
         return jsonify({"success": True})
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Rename item validation failed: {e}")
-        return jsonify({"success": False, "error": "Invalid item path or permission denied"}), 400
+        return jsonify({"success": False, "error": ERR_INVALID_ITEM_PATH}), 400
     except Exception as e:
         logger.error("system", f"Failed to rename item: {e}")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify({"success": False, "error": ERR_INTERNAL_SERVER}), 500
 
 
 # ── ENTRY POINT ───────────────────────────────────────────────────────────────

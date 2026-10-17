@@ -736,7 +736,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                           max="22" 
                           step="1" 
                           value={editorFontSize} 
-                          onChange={(e) => { setEditorFontSize(parseInt(e.target.value)); void saveSettings({ font_size_editor: parseInt(e.target.value) }); }}
+                          onChange={(e) => { const val = Number.parseInt(e.target.value, 10); setEditorFontSize(val); void saveSettings({ font_size_editor: val }); }}
                           style={{ flex: 1, accentColor: 'var(--accent)' }} 
                         />
                         <span className="badge" style={{ width: '36px', textAlign: 'center' }}>{editorFontSize}px</span>
@@ -762,7 +762,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                           max="20" 
                           step="1" 
                           value={termFontSize} 
-                          onChange={(e) => { setTermFontSize(parseInt(e.target.value)); void saveSettings({ font_size_terminal: parseInt(e.target.value) }); }}
+                          onChange={(e) => { const val = Number.parseInt(e.target.value, 10); setTermFontSize(val); void saveSettings({ font_size_terminal: val }); }}
                           style={{ flex: 1, accentColor: 'var(--accent)' }} 
                         />
                         <span className="badge" style={{ width: '36px', textAlign: 'center' }}>{termFontSize}px</span>
@@ -1005,7 +1005,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       max="1.5" 
                       step="0.1" 
                       value={temperature} 
-                      onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                      onChange={(e) => setTemperature(Number.parseFloat(e.target.value))}
                       onMouseUp={() => { void saveSettings({ temperature }); }}
                       onTouchEnd={() => { void saveSettings({ temperature }); }}
                       style={{ width: '100%', accentColor: 'var(--accent)' }} 
@@ -1024,7 +1024,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       max="8192" 
                       step="256" 
                       value={maxTokens} 
-                      onChange={(e) => setMaxTokens(parseInt(e.target.value))}
+                      onChange={(e) => setMaxTokens(Number.parseInt(e.target.value, 10))}
                       onMouseUp={() => { void saveSettings({ max_tokens: maxTokens }); }}
                       onTouchEnd={() => { void saveSettings({ max_tokens: maxTokens }); }}
                       style={{ width: '100%', accentColor: 'var(--accent)' }} 

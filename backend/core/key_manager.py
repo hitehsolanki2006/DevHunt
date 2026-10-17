@@ -16,31 +16,37 @@ class KeyManager:
         self._current_key_index = 0  # round-robin pointer
         self._load_keys()
 
-    def _load_keys(self):
+    def _read_keys_file(self):
         if not os.path.exists(KEYS_PATH):
             self.keys = []
             self._save_keys()
-        else:
-            try:
-                with open(KEYS_PATH, 'r') as f:
-                    self.keys = json.load(f)
-            except Exception:
-                self.keys = []
+            return
+        try:
+            with open(KEYS_PATH, 'r') as f:
+                self.keys = json.load(f)
+        except Exception:
+            self.keys = []
 
-        # Migrate existing encrypted keys to OS keyring if any
-        if keyring is not None:
-            migrated = False
-            for k in self.keys:
-                if 'key_encrypted' in k:
-                    try:
-                        decrypted = self._decrypt(k['key_encrypted'])
-                        keyring.set_password("DevHunt", k['id'], decrypted)
-                        del k['key_encrypted']
-                        migrated = True
-                    except Exception as e:
-                        print(f"Failed to migrate key {k.get('id')} to keyring: {e}")
-            if migrated:
-                self._save_keys()
+    def _migrate_keys_to_keyring(self):
+        if keyring is None:
+            return
+        migrated = False
+        for k in self.keys:
+            if 'key_encrypted' not in k:
+                continue
+            try:
+                decrypted = self._decrypt(k['key_encrypted'])
+                keyring.set_password("DevHunt", k['id'], decrypted)
+                del k['key_encrypted']
+                migrated = True
+            except Exception as e:
+                print(f"Failed to migrate key {k.get('id')} to keyring: {e}")
+        if migrated:
+            self._save_keys()
+
+    def _load_keys(self):
+        self._read_keys_file()
+        self._migrate_keys_to_keyring()
 
     def _save_keys(self):
         with open(KEYS_PATH, 'w') as f:

@@ -12,10 +12,10 @@ export default function Arcade() {
   const [activeGame, setActiveGame] = useState(null); // null = menu, 'snake', 'runner', 'decrypt', 'sweeper'
   const [currentScore, setCurrentScore] = useState(0);
   const [highScores, setHighScores] = useState({
-    snake: parseInt(localStorage.getItem('arcade_snake_high') || '0', 10),
-    runner: parseInt(localStorage.getItem('arcade_runner_high') || '0', 10),
-    decrypt: parseInt(localStorage.getItem('arcade_decrypt_high') || '0', 10),
-    sweeper: parseInt(localStorage.getItem('arcade_sweeper_high') || '0', 10)
+    snake: Number.parseInt(localStorage.getItem('arcade_snake_high') || '0', 10),
+    runner: Number.parseInt(localStorage.getItem('arcade_runner_high') || '0', 10),
+    decrypt: Number.parseInt(localStorage.getItem('arcade_decrypt_high') || '0', 10),
+    sweeper: Number.parseInt(localStorage.getItem('arcade_sweeper_high') || '0', 10)
   });
 
   const [overlay, setOverlay] = useState({ show: false, title: '', message: '', success: false });

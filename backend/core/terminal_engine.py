@@ -791,8 +791,10 @@ class TerminalEngine:
             if not answers:
                 output_lines.append(self.format_yellow(f"No records of type {qtype} found for this domain."))
             else:
-                output_lines.append(f"{'TYPE':<6} {'TTL':<8} {'DATA':<30}")
-                output_lines.append("-" * 50)
+                output_lines.extend([
+                    f"{'TYPE':<6} {'TTL':<8} {'DATA':<30}",
+                    "-" * 50
+                ])
                 for ans in answers:
                     t_val = ans.get("type", 1)
                     # map numeric types to names
@@ -874,8 +876,10 @@ class TerminalEngine:
         # Phase 2: Query registrar server for full record
         full_record = query_whois_server(refer_server, domain)
         if full_record.startswith("Error"):
-            output_lines.append(self.format_yellow(f"Warning: Registry query failed. Showing IANA fallback response."))
-            output_lines.append(iana_res)
+            output_lines.extend([
+                self.format_yellow("Warning: Registry query failed. Showing IANA fallback response."),
+                iana_res
+            ])
         else:
             # Parse key details to display cleanly first
             registrar = "Unknown"
@@ -930,8 +934,10 @@ class TerminalEngine:
             r = requests.get(url, timeout=6, headers={'User-Agent': 'DevHunt-Headers/1.0'})
             elapsed = (time.time() - t0) * 1000
             
-            output_lines.append(f"Response received in {elapsed:.2f} ms with Status Code: {self.format_green(str(r.status_code))}\n")
-            output_lines.append(f"{self.format_bold('HTTP RESPONSE HEADERS:')}")
+            output_lines.extend([
+                f"Response received in {elapsed:.2f} ms with Status Code: {self.format_green(str(r.status_code))}\n",
+                f"{self.format_bold('HTTP RESPONSE HEADERS:')}"
+            ])
             for k, v in r.headers.items():
                 output_lines.append(f"  {k}: {self.format_cyan(v)}")
 
@@ -1097,8 +1103,10 @@ class TerminalEngine:
         # Add target
         hops.append((ip_addr, host, 28.6))
 
-        output_lines.append(f"{'HOP':<4} {'IP ADDRESS':<16} {'RESOLVED HOST':<30} {'TIME (ms)':<10}")
-        output_lines.append("-" * 70)
+        output_lines.extend([
+            f"{'HOP':<4} {'IP ADDRESS':<16} {'RESOLVED HOST':<30} {'TIME (ms)':<10}",
+            "-" * 70
+        ])
         
         for idx, (ip, name, latency) in enumerate(hops, 1):
             var_lat = latency + (idx * 0.4) # Add variation
@@ -1266,8 +1274,10 @@ class TerminalEngine:
                 lines = raw.splitlines()
                 header_found = False
                 
-                output_lines.append(f"{'Proto':<6} {'Local Address':<24} {'Foreign Address':<24} {'State':<15} {'PID':<8}")
-                output_lines.append("-" * 80)
+                output_lines.extend([
+                    f"{'Proto':<6} {'Local Address':<24} {'Foreign Address':<24} {'State':<15} {'PID':<8}",
+                    "-" * 80
+                ])
                 
                 count = 0
                 for line in lines:
@@ -1310,8 +1320,10 @@ class TerminalEngine:
                     raw = res.stdout.decode('utf-8', errors='ignore')
 
                 lines = raw.splitlines()
-                output_lines.append(lines[0]) # Header
-                output_lines.append("-" * 80)
+                output_lines.extend([
+                    lines[0], # Header
+                    "-" * 80
+                ])
                 count = 0
                 for line in lines[1:]:
                     if not line.strip():
@@ -1382,8 +1394,10 @@ class TerminalEngine:
             ""
         ]
 
-        output_lines.append(f"{'PORT':<8} {'SERVICE':<12} {'STATUS':<15} {'LATENCY':<10}")
-        output_lines.append("-" * 50)
+        output_lines.extend([
+            f"{'PORT':<8} {'SERVICE':<12} {'STATUS':<15} {'LATENCY':<10}",
+            "-" * 50
+        ])
 
         open_ports_count = 0
         for port in ports:
@@ -1408,8 +1422,10 @@ class TerminalEngine:
             except Exception:
                 pass
 
-        output_lines.append("\n--- Port scan complete ---")
-        output_lines.append(f"Scan finished. Identified {open_ports_count} active listening ports.")
+        output_lines.extend([
+            "\n--- Port scan complete ---",
+            f"Scan finished. Identified {open_ports_count} active listening ports."
+        ])
 
         return "\n".join(output_lines), current_dir
 
@@ -1946,8 +1962,10 @@ class TerminalEngine:
             # Print metadata if exists
             metadata = target_notif.get("metadata")
             if metadata:
-                output.append(f"{self.format_bold('Metadata:')}")
-                output.append(f"  {json.dumps(metadata, indent=4)}")
+                output.extend([
+                    f"{self.format_bold('Metadata:')}",
+                    f"  {json.dumps(metadata, indent=4)}"
+                ])
                 
             return "\n".join(output), current_dir
             
@@ -2010,10 +2028,12 @@ class TerminalEngine:
                 tok = r['tokens'] or 0
                 output.append(f"  {model:<25} | {cnt:<10} | {tok:<12}")
                 
-            output.append("")
-            output.append(self.format_bold("API KEY WORKLOAD ANALYSIS:"))
-            output.append(f"  {'KEY LABEL / MASKED':<25} | {'REQUESTS':<10} | {'EST. TOKENS':<12}")
-            output.append("  " + "-" * 53)
+            output.extend([
+                "",
+                self.format_bold("API KEY WORKLOAD ANALYSIS:"),
+                f"  {'KEY LABEL / MASKED':<25} | {'REQUESTS':<10} | {'EST. TOKENS':<12}",
+                "  " + "-" * 53
+            ])
             
             for r in key_rows:
                 kid = str(r['key_used'])
@@ -2024,8 +2044,10 @@ class TerminalEngine:
                 tok = r['tokens'] or 0
                 output.append(f"  {display_name:<25} | {cnt:<10} | {tok:<12}")
                 
-            output.append("")
-            output.append(self.format_muted("* Token approximations are estimated as character length divided by 4."))
+            output.extend([
+                "",
+                self.format_muted("* Token approximations are estimated as character length divided by 4.")
+            ])
             return "\n".join(output), current_dir
             
         except Exception as e:

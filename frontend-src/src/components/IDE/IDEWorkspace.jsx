@@ -299,20 +299,20 @@ export default function IDEWorkspace({
     const handleKeyDown = (e) => {
       if (e.ctrlKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        handleSave();
+        void handleSave();
       }
       if (e.shiftKey && e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
-        handleFormatDocument();
+        void handleFormatDocument();
       }
     };
 
     const handleSaveEvent = () => {
-      handleSave();
+      void handleSave();
     };
 
     const handleFormatEvent = () => {
-      handleFormatDocument();
+      void handleFormatDocument();
     };
 
     // Handle open-file events dispatched from terminal `open <path>` command

@@ -294,7 +294,7 @@ function HuntPath() {
   };
 
   const copyToClipboard = (text, message = 'Copied to clipboard!') => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
     alert(message);
   };
 
@@ -2555,7 +2555,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    loadTracks();
+    void loadTracks();
   }, [loadTracks]);
 
   const playTrack = useCallback((index) => {
@@ -2563,7 +2563,8 @@ export default function App() {
     setCurrentIndex(index);
     setPlaying(true);
     if (audioRef.current) {
-      audioRef.current.src = `/api/music/stream/${encodeURIComponent(tracks[index].filename)}${window.__DEVHUNT_TOKEN__ ? `?token=${encodeURIComponent(window.__DEVHUNT_TOKEN__)}` : ''}`;
+      const tokenParam = window.__DEVHUNT_TOKEN__ ? '?token=' + encodeURIComponent(window.__DEVHUNT_TOKEN__) : '';
+      audioRef.current.src = '/api/music/stream/' + encodeURIComponent(tracks[index].filename) + tokenParam;
       audioRef.current.volume = volume;
       audioRef.current.play().catch(err => console.warn('Play error:', err));
     }
@@ -2773,7 +2774,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'editor') refreshFileTree();
+    if (activeTab === 'editor') void refreshFileTree();
   }, [activeTab, refreshFileTree]);
 
   useEffect(() => {
@@ -2825,9 +2826,9 @@ export default function App() {
           }
         }
       }
-      refreshFileTree();
+      await refreshFileTree();
     };
-    loadStartupData();
+    void loadStartupData();
   }, [refreshFileTree]);
 
   // Centralized active file content loader
