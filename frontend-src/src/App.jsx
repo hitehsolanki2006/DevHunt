@@ -3096,25 +3096,50 @@ export default function App() {
   }, []);
 
   const handleOpenLocalFolder = useCallback(async () => {
+    // 1. Try Tauri dialog if available
     if (window.__TAURI__) {
       try {
-        const { open } = window.__TAURI__.dialog || {};
-        if (open) {
-          const selected = await open({
+        const dialog = window.__TAURI__.dialog || (window.__TAURI__.core && window.__TAURI__.core.dialog);
+        if (dialog?.open) {
+          const selected = await dialog.open({
             directory: true,
             multiple: false,
             title: 'Select Workspace Folder'
           });
           if (selected && typeof selected === 'string') {
             await changeWorkspace(selected);
+            return;
           }
-          return;
+          if (selected === null) {
+            return; // User cancelled
+          }
         }
       } catch (err) {
         console.error('Tauri open folder dialog failed:', err);
       }
     }
+
+    // 2. Call backend native folder picker dialog
+    try {
+      const res = await fetch('/api/ide/select-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.cancelled) {
+          return; // User cancelled the folder picker dialog
+        }
+        if (data.path) {
+          await changeWorkspace(data.path);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Native folder dialog request failed:', err);
+    }
     
+    // 3. Fallback prompt if native dialog could not be opened
     const path = prompt('Enter absolute path to workspace folder:', terminalCwd || '');
     if (path) {
       await changeWorkspace(path);

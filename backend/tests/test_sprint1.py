@@ -196,6 +196,31 @@ class TestWorkspaceValidation(unittest.TestCase):
         finally:
             app.WORKSPACE_DIR = old_ws
 
+    def test_select_folder_endpoint_cancelled(self):
+        with app.app.test_client() as client:
+            orig = app._open_native_folder_dialog
+            app._open_native_folder_dialog = lambda: (None, True)
+            try:
+                res = client.post('/api/ide/select-folder', headers={"X-DevHunt-Token": app.API_TOKEN})
+                data = res.get_json()
+                self.assertTrue(data.get("success"))
+                self.assertTrue(data.get("cancelled"))
+            finally:
+                app._open_native_folder_dialog = orig
+
+    def test_select_folder_endpoint_success(self):
+        with app.app.test_client() as client:
+            orig = app._open_native_folder_dialog
+            app._open_native_folder_dialog = lambda: (self.test_dir, False)
+            try:
+                res = client.post('/api/ide/select-folder', headers={"X-DevHunt-Token": app.API_TOKEN})
+                data = res.get_json()
+                self.assertTrue(data.get("success"))
+                self.assertEqual(data.get("path"), os.path.realpath(self.test_dir))
+                self.assertFalse(data.get("cancelled"))
+            finally:
+                app._open_native_folder_dialog = orig
+
 
 if __name__ == "__main__":
     unittest.main()
