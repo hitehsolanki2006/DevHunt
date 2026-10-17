@@ -5,6 +5,11 @@ import uuid
 from cryptography.fernet import Fernet
 from config import KEYS_PATH, ENCRYPTION_SECRET, COOLING_DOWN_PERIOD
 
+try:
+    import keyring
+except ImportError:
+    keyring = None
+
 class KeyManager:
     def __init__(self):
         self.fernet = Fernet(ENCRYPTION_SECRET)
@@ -23,19 +28,19 @@ class KeyManager:
                 self.keys = []
 
         # Migrate existing encrypted keys to OS keyring if any
-        migrated = False
-        import keyring
-        for k in self.keys:
-            if 'key_encrypted' in k:
-                try:
-                    decrypted = self._decrypt(k['key_encrypted'])
-                    keyring.set_password("DevHunt", k['id'], decrypted)
-                    del k['key_encrypted']
-                    migrated = True
-                except Exception as e:
-                    print(f"Failed to migrate key {k.get('id')} to keyring: {e}")
-        if migrated:
-            self._save_keys()
+        if keyring is not None:
+            migrated = False
+            for k in self.keys:
+                if 'key_encrypted' in k:
+                    try:
+                        decrypted = self._decrypt(k['key_encrypted'])
+                        keyring.set_password("DevHunt", k['id'], decrypted)
+                        del k['key_encrypted']
+                        migrated = True
+                    except Exception as e:
+                        print(f"Failed to migrate key {k.get('id')} to keyring: {e}")
+            if migrated:
+                self._save_keys()
 
     def _save_keys(self):
         with open(KEYS_PATH, 'w') as f:
@@ -48,7 +53,9 @@ class KeyManager:
         return self.fernet.decrypt(encrypted_key.encode()).decode()
 
     def add_key(self, raw_key: str, label: str = None) -> dict:
-        import keyring
+        if keyring is None:
+            return {"success": False, "message": "OS keyring service is unavailable (fail-closed)"}
+
         # Check if already exists
         for k in self.keys:
             try:
@@ -80,15 +87,15 @@ class KeyManager:
         return {"success": True, "key": self._mask_key(new_key)}
 
     def remove_key(self, key_id: str) -> bool:
-        import keyring
         initial_len = len(self.keys)
         self.keys = [k for k in self.keys if k['id'] != key_id]
         if len(self.keys) != initial_len:
             self._save_keys()
-            try:
-                keyring.delete_password("DevHunt", key_id)
-            except Exception:
-                pass
+            if keyring is not None:
+                try:
+                    keyring.delete_password("DevHunt", key_id)
+                except Exception:
+                    pass
             return True
         return False
 
@@ -110,15 +117,17 @@ class KeyManager:
         return [self._mask_key(k) for k in self.keys]
 
     def _mask_key(self, key_dict: dict) -> dict:
-        import keyring
-        try:
-            decrypted = keyring.get_password("DevHunt", key_dict['id'])
-            if decrypted:
-                masked = decrypted[:6] + "..." + decrypted[-4:] if len(decrypted) > 10 else "..."
-            else:
-                masked = "not_found_in_vault"
-        except Exception:
-            masked = "error_reading_vault"
+        if keyring is None:
+            masked = "vault_unavailable"
+        else:
+            try:
+                decrypted = keyring.get_password("DevHunt", key_dict['id'])
+                if decrypted:
+                    masked = decrypted[:6] + "..." + decrypted[-4:] if len(decrypted) > 10 else "..."
+                else:
+                    masked = "not_found_in_vault"
+            except Exception:
+                masked = "error_reading_vault"
         
         return {
             "id": key_dict['id'],
@@ -148,7 +157,9 @@ class KeyManager:
         Falls back to any Active key if the current index is not Active.
         Returns (key_string, key_id) or (None, None).
         """
-        import keyring
+        if keyring is None:
+            return None, None
+
         self._refresh_cooldowns()
         active_keys = [k for k in self.keys if k['status'] == "Active"]
         if not active_keys:
@@ -199,12 +210,9 @@ class KeyManager:
         for k in self.keys:
             if k['id'] == key_id:
                 k['error_count'] += 1
-                # Only permanently disable if error count is very high (likely truly broken)
-                # For transient errors, use a short cooldown instead
                 if k['error_count'] >= 5:
                     k['status'] = "Error"
                 else:
-                    # Short 30s cooldown for transient errors
                     k['status'] = "Cooling Down"
                     k['cooldown_until'] = time.time() + 30
                 self._save_keys()

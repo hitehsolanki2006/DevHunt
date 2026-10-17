@@ -1,53 +1,67 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::net::TcpListener;
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-fn free_port(port: u16) {
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(output) = Command::new("cmd")
-            .args(&["/c", &format!("netstat -ano | findstr :{}", port)])
-            .output()
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 5 {
-                    let pid_str = parts[parts.len() - 1];
-                    if let Ok(pid) = pid_str.parse::<u32>() {
-                        let _ = Command::new("taskkill")
-                            .args(&["/F", "/PID", &pid.to_string()])
-                            .output();
-                    }
-                }
-            }
-        }
+#[cfg(target_os = "windows")]
+fn generate_secure_token() -> String {
+    extern "system" {
+        fn BCryptGenRandom(
+            h_alg: *mut std::ffi::c_void,
+            pb_buf: *mut u8,
+            cb_buf: u32,
+            dw_flags: u32,
+        ) -> i32;
     }
-    #[cfg(not(target_os = "windows"))]
-    {
-        if let Ok(output) = Command::new("lsof")
-            .args(&["-t", &format!("-i:{}", port)])
-            .output()
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for pid_str in stdout.lines() {
-                if let Ok(pid) = pid_str.trim().parse::<u32>() {
-                    let _ = Command::new("kill")
-                        .args(&["-9", &pid.to_string()])
-                        .output();
-                }
-            }
-        }
+    let mut buf = [0u8; 32];
+    let ok = unsafe {
+        BCryptGenRandom(
+            std::ptr::null_mut(),
+            buf.as_mut_ptr(),
+            buf.len() as u32,
+            0x00000002, // BCRYPT_USE_SYSTEM_PREFERRED_RNG
+        ) == 0
+    };
+    if ok {
+        buf.iter().map(|b| format!("{:02x}", b)).collect()
+    } else {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let pid = std::process::id();
+        format!("{:032x}{:032x}", nanos, (nanos ^ (pid as u128)).wrapping_mul(6364136223846793005))
     }
 }
 
-fn main() {
-    // Free the port if it is already in use
-    free_port(1225);
+#[cfg(not(target_os = "windows"))]
+fn generate_secure_token() -> String {
+    use std::io::Read;
+    let mut buf = [0u8; 32];
+    if let Ok(mut f) = std::fs::File::open("/dev/urandom") {
+        if f.read_exact(&mut buf).is_ok() {
+            return buf.iter().map(|b| format!("{:02x}", b)).collect();
+        }
+    }
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let pid = std::process::id();
+    format!("{:032x}{:032x}", nanos, (nanos ^ (pid as u128)).wrapping_mul(6364136223846793005))
+}
 
+fn find_free_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0")
+        .and_then(|l| l.local_addr())
+        .map(|a| a.port())
+        .unwrap_or(1225)
+}
+
+fn main() {
     // Launch the Python Flask backend as a sidecar process
     let exe_dir = std::env::current_exe()
         .unwrap()
@@ -100,23 +114,16 @@ fn main() {
     });
 
     // Spawn the Python backend process
-    let mut token_opt = None;
+    let mut session_info: Option<(String, u16)> = None;
     let mut backend_child = if backend_path.exists() {
         let backend_dir = backend_path.parent().unwrap();
-        // Generate a session token using system time (no rand dependency needed)
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .subsec_nanos();
-        let pid = std::process::id();
-        let token = format!("{:08x}{:08x}{:08x}{:08x}", nanos, pid, nanos ^ pid, nanos.wrapping_mul(pid));
-        token_opt = Some(token.clone());
+        let port = find_free_port();
+        let token = generate_secure_token();
+        session_info = Some((token.clone(), port));
         let child = Command::new(&backend_path)
             .current_dir(backend_dir)
             .arg("--port")
-            .arg("1225")
-            .arg("--token")
-            .arg(&token)
+            .arg(port.to_string())
             .env("X_DEVHUNT_TOKEN", &token)
             .spawn()
             .expect("Failed to start DevHunt backend");
@@ -136,10 +143,10 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .setup(move |app| {
-            if let Some(token) = token_opt {
+            if let Some((token, port)) = session_info {
                 use tauri::Manager;
                 if let Some(window) = app.get_webview_window("main") {
-                    let target_url = format!("http://localhost:1225/?token={}", token);
+                    let target_url = format!("http://127.0.0.1:{}?token={}", port, token);
                     if let Ok(url) = tauri::Url::parse(&target_url) {
                         let _ = window.navigate(url);
                     }
@@ -153,7 +160,17 @@ fn main() {
     app.run(move |_app_handle, event| {
         if let tauri::RunEvent::Exit = event {
             if let Some(mut child) = backend_child.take() {
-                let _ = child.kill();
+                #[cfg(target_os = "windows")]
+                {
+                    let pid = child.id();
+                    let _ = Command::new("taskkill")
+                        .args(&["/F", "/T", "/PID", &pid.to_string()])
+                        .output();
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let _ = child.kill();
+                }
             }
         }
     });

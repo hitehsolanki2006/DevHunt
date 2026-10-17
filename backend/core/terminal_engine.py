@@ -229,7 +229,6 @@ class TerminalEngine:
             return "CLEAR_SIGNAL", current_dir
         
         if first_token != "hunt":
-            # Real shell command execution!
             if first_token == "cd":
                 target = args[1] if len(args) > 1 else self.workspace_root
                 abs_target = os.path.abspath(os.path.join(current_dir, target))
@@ -238,38 +237,14 @@ class TerminalEngine:
                     return f"Switched context directory to: {current_dir}", current_dir
                 else:
                     return self.format_red(f"cd: no such file or directory: {target}"), current_dir
-            
-            try:
-                import html
-                if self.os_type == "Windows":
-                    shell_cmd = ["cmd.exe", "/c", cmd_line]
-                else:
-                    shell_cmd = ["/bin/sh", "-c", cmd_line]
-                res = subprocess.run(
-                    shell_cmd,
-                    shell=False,
-                    cwd=current_dir,
-                    capture_output=True,
-                    text=True,
-                    timeout=15,
-                    errors='ignore'
+            elif first_token == "pwd":
+                return self.format_cyan(current_dir), current_dir
+            else:
+                return (
+                    self.format_yellow(f"Command '{first_token}' is not recognized.") + "\n" +
+                    self.format_muted("DevHunt terminal is sandboxed. Use 'hunt <command>' (e.g. 'hunt help', 'hunt ls', 'hunt neofetch')."),
+                    current_dir
                 )
-                
-                stdout_escaped = html.escape(res.stdout) if res.stdout else ""
-                stderr_escaped = html.escape(res.stderr) if res.stderr else ""
-                
-                output = stdout_escaped
-                if stderr_escaped:
-                    output += f'<span class="ansi-red">{stderr_escaped}</span>'
-                
-                if not output:
-                    output = self.format_muted("// executed successfully (no output)")
-                    
-                return output, current_dir
-            except subprocess.TimeoutExpired:
-                return self.format_red("Error: Process timed out (15 second limit)."), current_dir
-            except Exception as e:
-                return self.format_red(f"Error executing command: {str(e)}"), current_dir
 
         if len(args) < 2:
             return self.cmd_help([], current_dir)
@@ -364,13 +339,27 @@ class TerminalEngine:
         mem_info = "N/A"
         try:
             if self.os_type == "Windows":
-                # Call wmic for memory details
-                out = subprocess.check_output("wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /Value", shell=True).decode()
-                lines = [l.strip() for l in out.splitlines() if "=" in l]
-                kvs = dict(l.split("=") for l in lines)
-                total = int(kvs.get("TotalVisibleMemorySize", 0)) // 1024
-                free = int(kvs.get("FreePhysicalMemory", 0)) // 1024
-                mem_info = f"{total - free}MB / {total}MB ({int((total-free)/total * 100)}%)"
+                import ctypes
+                class MEMORYSTATUSEX(ctypes.Structure):
+                    _fields_ = [
+                        ("dwLength", ctypes.c_ulong),
+                        ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong),
+                        ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong),
+                        ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong),
+                        ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+                    ]
+                stat = MEMORYSTATUSEX()
+                stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+                if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                    total_mb = stat.ullTotalPhys // (1024 * 1024)
+                    avail_mb = stat.ullAvailPhys // (1024 * 1024)
+                    used_mb = total_mb - avail_mb
+                    pct = int((used_mb / total_mb) * 100) if total_mb else 0
+                    mem_info = f"{used_mb}MB / {total_mb}MB ({pct}%)"
             else:
                 # Read /proc/meminfo
                 with open("/proc/meminfo") as f:
@@ -1108,6 +1097,12 @@ class TerminalEngine:
         if not args:
             return self.format_red("Usage: hunt git <command> [args]"), current_dir
 
+        # Block dangerous git flags that can execute commands or override hooks
+        forbidden_git_flags = {'-c', '--config', '--exec-path', '--upload-pack', '--receive-pack', '--paginate', '-p'}
+        for a in args:
+            if a.lower() in forbidden_git_flags or a.lower().startswith(('-c=', '--config=', '--exec-path=')):
+                return self.format_red("Error: Security policy forbids passing configuration or exec flags to git."), current_dir
+
         # Safe execution of git - no shell=True, only within workspace directory
         command_to_run = ["git"] + args
         try:
@@ -1170,21 +1165,66 @@ class TerminalEngine:
 
         expr = " ".join(args)
         
-        # Safe math evaluation using basic python scope mapping (prevent dunder execution)
-        allowed_names = {
+        import ast
+        import operator
+        safe_operators = {
+            ast.Add: operator.add,
+            ast.Sub: operator.sub,
+            ast.Mult: operator.mul,
+            ast.Div: operator.truediv,
+            ast.FloorDiv: operator.floordiv,
+            ast.Mod: operator.mod,
+            ast.Pow: operator.pow,
+            ast.USub: operator.neg,
+            ast.UAdd: operator.pos,
+        }
+        safe_functions = {
             'abs': abs, 'round': round, 'pow': pow,
             'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
             'sqrt': math.sqrt, 'log': math.log, 'log10': math.log10, 'log2': math.log2,
             'pi': math.pi, 'e': math.e
         }
-        
-        # Sanitize against underscores/dunder access
-        if "__" in expr or "import" in expr or "eval" in expr or "exec" in expr:
-            return self.format_red("Security Error: Forbidden expression syntax."), current_dir
+
+        def eval_node(node):
+            if isinstance(node, ast.Expression):
+                return eval_node(node.body)
+            elif isinstance(node, ast.Constant):
+                if isinstance(node.value, (int, float, complex)):
+                    return node.value
+                raise ValueError("Only numbers allowed in expressions")
+            elif isinstance(node, ast.BinOp):
+                op = safe_operators.get(type(node.op))
+                if op is None:
+                    raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
+                left = eval_node(node.left)
+                right = eval_node(node.right)
+                if isinstance(node.op, ast.Pow) and abs(right) > 1000:
+                    raise ValueError("Exponent too large")
+                return op(left, right)
+            elif isinstance(node, ast.UnaryOp):
+                op = safe_operators.get(type(node.op))
+                if op is None:
+                    raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
+                return op(eval_node(node.operand))
+            elif isinstance(node, ast.Call):
+                if not isinstance(node.func, ast.Name):
+                    raise ValueError("Invalid function call")
+                fn = safe_functions.get(node.func.id)
+                if fn is None:
+                    raise ValueError(f"Unsupported function: {node.func.id}")
+                evaluated_args = [eval_node(arg) for arg in node.args]
+                return fn(*evaluated_args)
+            elif isinstance(node, ast.Name):
+                val = safe_functions.get(node.id)
+                if val is not None and isinstance(val, (int, float)):
+                    return val
+                raise ValueError(f"Unsupported identifier: {node.id}")
+            else:
+                raise ValueError("Invalid syntax in expression")
 
         try:
-            # Evaluate code with empty builtins to prevent exploit vectors
-            res = eval(expr, {"__builtins__": None}, allowed_names)
+            parsed = ast.parse(expr, mode='eval')
+            res = eval_node(parsed)
             return f"{self.format_bold('Expression:')} {expr}\n{self.format_bold('Result:')} {self.format_green(str(res))}", current_dir
         except Exception as e:
             return self.format_red(f"Math Error: {str(e)}"), current_dir
@@ -1418,16 +1458,8 @@ class TerminalEngine:
             return "\n".join(output), current_dir
 
         sub_cmd = args[0].lower()
-        if sub_cmd == "add" and len(args) > 1:
-            raw_key = args[1]
-            label = args[2] if len(args) > 2 else "unnamed"
-            try:
-                res = km.add_key(raw_key, label)
-                if res.get("success"):
-                    return self.format_green(f"Key successfully registered with label '{label}'!"), current_dir
-                return self.format_red(f"Error: {res.get('error')}"), current_dir
-            except Exception as e:
-                return self.format_red(f"Error: {e}"), current_dir
+        if sub_cmd == "add":
+            return self.format_yellow("Adding raw API keys directly via CLI command is disabled for security reasons.\nRaw keys in terminal commands are saved to shell history and audit logs.\nPlease add keys securely via the Settings UI (Key Manager) or environment variables."), current_dir
 
         elif sub_cmd == "rm" and len(args) > 1:
             key_id = args[1]

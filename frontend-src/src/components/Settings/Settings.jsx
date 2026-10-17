@@ -1172,7 +1172,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                     <div>
                       <div style={{ fontWeight: 'bold', fontSize: '12px', color: 'var(--text)' }}>{updateStatus}</div>
-                      <div className="muted" style={{ marginTop: '2px', fontSize: '11px', color: 'var(--muted)' }} dangerouslySetInnerHTML={{ __html: updateVersion }} />
+                      <div className="muted" style={{ marginTop: '2px', fontSize: '11px', color: 'var(--muted)' }}>{updateVersion}</div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button className="btn-ghost" onClick={() => checkUpdates(true)} style={{ padding: '6px 12px', fontSize: '11px' }}>Check Updates</button>

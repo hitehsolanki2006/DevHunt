@@ -89,10 +89,11 @@ function getTheme(theme) {
    CODE EDITOR COMPONENT
 ═══════════════════════════════════════════ */
 export default function CodeEditor({ fileContent, activeFile, onChange, theme, readOnly, wordWrap }) {
-  const extensions = [...getExtensions(activeFile), EditorView.contentAttributes.of({ spellcheck: "true" })];
-  if (wordWrap) {
-    extensions.push(EditorView.lineWrapping);
-  }
+  const extensions = React.useMemo(() => [
+    ...getExtensions(activeFile),
+    EditorView.contentAttributes.of({ spellcheck: "true" }),
+    ...(wordWrap ? [EditorView.lineWrapping] : [])
+  ], [activeFile, wordWrap]);
 
   return (
     <CodeMirror

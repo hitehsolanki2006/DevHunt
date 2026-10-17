@@ -18,3 +18,4 @@ openpyxl>=3.1.0
 Pillow>=9.0.0
 yt-dlp>=2024.1.0
 keyring>=25.2.1
+send2trash>=2.1.0

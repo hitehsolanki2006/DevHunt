@@ -2,6 +2,8 @@ import os
 import uuid
 import json
 import datetime
+import hmac
+import secrets
 from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -93,6 +95,10 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 terminal_engine = TerminalEngine()
 
 API_TOKEN = os.environ.get('X_DEVHUNT_TOKEN')
+if not API_TOKEN:
+    # Always enforce security: generate a 256-bit CSPRNG token if none provided in environment
+    API_TOKEN = secrets.token_hex(32)
+    os.environ['X_DEVHUNT_TOKEN'] = API_TOKEN
 
 @app.before_request
 def check_api_token():
@@ -100,13 +106,16 @@ def check_api_token():
         return
     if not request.path.startswith('/api/'):
         return
-    # Bypass auth check for native browser streaming and downloads which cannot pass headers
+    # Media stream and downloads: validate token from header or query param using constant-time comparison
     if request.path.startswith('/api/music/stream/') or request.path.startswith('/api/music/download/'):
-        return
-    if API_TOKEN:
-        token = request.headers.get('X-DevHunt-Token')
-        if token != API_TOKEN:
-            return jsonify({"success": False, "error": "Unauthorized: Invalid or missing execution token."}), 401
+        token = request.headers.get('X-DevHunt-Token') or request.args.get('token')
+        if token and API_TOKEN and hmac.compare_digest(token, API_TOKEN):
+            return
+        return jsonify({"success": False, "error": "Unauthorized: Invalid or missing media token."}), 401
+
+    token = request.headers.get('X-DevHunt-Token')
+    if not token or not API_TOKEN or not hmac.compare_digest(token, API_TOKEN):
+        return jsonify({"success": False, "error": "Unauthorized: Invalid or missing execution token."}), 401
 
 # ── Static pages ──────────────────────────────────────────────────────────────
 @app.after_request
@@ -1202,14 +1211,61 @@ def export_full_backup():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+MAX_BACKUP_SIZE = 25 * 1024 * 1024  # 25MB
+
 @app.route('/api/backup/import', methods=['POST'])
 def import_full_backup():
     try:
         if 'file' not in request.files:
             return jsonify({"success": False, "error": "No file uploaded"}), 400
-        content = request.files['file'].read().decode('utf-8')
-        backup  = json.loads(content)
         
+        file_obj = request.files['file']
+        raw_bytes = file_obj.read(MAX_BACKUP_SIZE + 1)
+        if len(raw_bytes) > MAX_BACKUP_SIZE:
+            return jsonify({"success": False, "error": "Backup file exceeds maximum allowed size (25MB)"}), 413
+
+        # Check if zip archive
+        if raw_bytes.startswith(b'PK\x03\x04') or file_obj.filename.lower().endswith('.zip'):
+            import zipfile
+            import io
+            import tempfile
+            with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
+                # Check for Zip-Slip in all members
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    real_tmp = os.path.realpath(tmp_dir)
+                    for member in zf.infolist():
+                        dest_path = os.path.realpath(os.path.join(real_tmp, member.filename))
+                        if not dest_path.startswith(real_tmp + os.sep) and dest_path != real_tmp:
+                            logger.warn("security", f"Zip slip path traversal attempt blocked: {member.filename}")
+                            return jsonify({"success": False, "error": "Malicious zip archive: path traversal detected"}), 400
+                    
+                    backup_entry = None
+                    for name in zf.namelist():
+                        if name.endswith('.json'):
+                            backup_entry = name
+                            break
+                    if not backup_entry:
+                        return jsonify({"success": False, "error": "Zip archive contains no backup JSON payload"}), 400
+                    content = zf.read(backup_entry).decode('utf-8')
+        else:
+            content = raw_bytes.decode('utf-8')
+
+        backup = json.loads(content)
+        if not isinstance(backup, dict):
+            return jsonify({"success": False, "error": "Invalid backup payload: root must be an object"}), 400
+
+        # Schema validation
+        for list_key in ('chat_history', 'todos', 'user_memories', 'linkedin_drafts', 'document_analyses'):
+            if list_key in backup and not isinstance(backup[list_key], list):
+                return jsonify({"success": False, "error": f"Invalid backup schema: '{list_key}' must be a list"}), 400
+
+        for dict_key in ('profile', 'settings', 'learning_path'):
+            if dict_key in backup and not isinstance(backup[dict_key], dict):
+                return jsonify({"success": False, "error": f"Invalid backup schema: '{dict_key}' must be an object"}), 400
+
+        if 'keys' in backup and not isinstance(backup['keys'], list):
+            return jsonify({"success": False, "error": "Invalid backup schema: 'keys' must be a list"}), 400
+
         backup_version = backup.get('backup_version', '1.0')
         logger.info("backup", f"Importing backup version: {backup_version}")
 
@@ -1749,40 +1805,94 @@ else:
 if not os.path.exists(WORKSPACE_DIR):
     os.makedirs(WORKSPACE_DIR, exist_ok=True)
 
-def resolve_and_validate_path(rel_path):
-    if not rel_path:
+import tempfile
+import contextlib
+from werkzeug.security import safe_join
+
+RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10))
+}
+
+class FileChangedError(Exception):
+    """Raised when file modification time on disk does not match expected_mtime_ns."""
+    pass
+
+def safe_path(rel_path: str, *, allow_root: bool = False) -> str:
+    """
+    Validates that rel_path resides safely within WORKSPACE_DIR.
+    Handles Unicode, brackets, +, #, quotes, and spaces.
+    Rejects directory traversal, root escape, reserved Windows names, and trailing dots/spaces.
+    """
+    if not isinstance(rel_path, str) or not rel_path.strip():
         raise ValueError("Path required")
-    if '\x00' in rel_path:
-        raise PermissionError("Access denied: Invalid path")
+    if any(ord(c) < 32 for c in rel_path):
+        raise PermissionError("Invalid path: contains control characters")
 
-    # Normalize separators and collapse traversal tokens.
-    normalized_rel_path = os.path.normpath(rel_path.replace('\\', '/'))
-    
-    # Disallow absolute and drive-qualified paths from user input.
-    drive, _ = os.path.splitdrive(normalized_rel_path)
-    if (
-        os.path.isabs(normalized_rel_path)
-        or bool(drive)
-        or normalized_rel_path.startswith('/')
-        or normalized_rel_path.startswith('//')
-        or rel_path.startswith('\\')
-    ):
-        raise PermissionError("Access denied: Absolute paths are not allowed")
-        
-    # Allow only safe relative path characters and separators.
-    import re
-    if not re.fullmatch(r"[A-Za-z0-9._\-/() ]+", normalized_rel_path):
-        raise PermissionError("Access denied: Invalid characters in path")
+    normalized_parts = rel_path.replace("\\", "/").split("/")
+    for part in normalized_parts:
+        if not part or part == ".":
+            continue
+        if part != part.rstrip(" .") or part.endswith("."):
+            raise PermissionError(f"Access denied: Path component cannot end with space or dot: '{part}'")
 
-    workspace_root = os.path.realpath(WORKSPACE_DIR)
-    abs_path = os.path.realpath(os.path.join(workspace_root, normalized_rel_path))
-
-    if os.path.commonpath([workspace_root, abs_path]) != workspace_root:
+    root = os.path.realpath(WORKSPACE_DIR)
+    joined = safe_join(root, rel_path.replace("\\", "/"))
+    if joined is None:
         raise PermissionError("Access denied: Path outside workspace")
-    return abs_path
+        
+    full = os.path.realpath(joined)
+    if full != root and not full.startswith(root + os.sep):
+        raise PermissionError("Access denied: Path outside workspace")
+    if full == root:
+        if not allow_root:
+            raise PermissionError("Access denied: Root workspace directory not allowed for this operation")
+        return full
+
+    rel_from_root = os.path.relpath(full, root)
+    for part in rel_from_root.split(os.sep):
+        base_name = part.split(".")[0].upper()
+        if base_name in RESERVED_NAMES:
+            raise PermissionError(f"Access denied: Reserved device name '{part}'")
+            
+    return full
+
+def resolve_and_validate_path(rel_path, *, allow_root=False):
+    """Backward compatibility alias for safe_path."""
+    return safe_path(rel_path, allow_root=allow_root)
+
+def write_text_atomic(path: str, text: str, *, eol: str = "\n", expected_mtime_ns: int = None):
+    """
+    Atomically writes text to file using tempfile + os.replace + os.fsync.
+    Normalizes line endings to the specified eol ('\n' or '\r\n').
+    Optionally verifies expected_mtime_ns to prevent race condition overwrites.
+    """
+    if expected_mtime_ns is not None and os.path.exists(path):
+        current_mtime = os.stat(path).st_mtime_ns
+        if current_mtime != expected_mtime_ns:
+            raise FileChangedError("File was modified on disk by another process")
+            
+    parent_dir = os.path.dirname(path)
+    os.makedirs(parent_dir, exist_ok=True)
+    
+    normalized_content = text.replace("\r\n", "\n").replace("\n", eol).encode("utf-8")
+    
+    fd, tmp_path = tempfile.mkstemp(dir=parent_dir, prefix=".devhunt_tmp_")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(normalized_content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        raise
 
 def get_project_tree(root_dir):
-    ignored_dirs = {'.git', 'venv', '.vscode', '__pycache__', 'node_modules', '.gemini'}
+    ignored_dirs = {'.git', 'venv', '.vscode', '__pycache__', 'node_modules', '.gemini', 'target', 'dist', 'build', '.venv', '.next'}
     ignored_files = {'.DS_Store', 'desktop.ini'}
     
     def walk(directory):
@@ -1821,7 +1931,24 @@ def ide_workspace():
         if not os.path.exists(new_path) or not os.path.isdir(new_path):
             return jsonify({"success": False, "error": "Directory does not exist"}), 400
         
-        WORKSPACE_DIR = os.path.abspath(new_path)
+        # Block dangerous system root paths
+        resolved_new = os.path.realpath(new_path)
+        drive_root = os.path.splitdrive(resolved_new)[0] + os.sep
+        user_home = os.path.realpath(os.path.expanduser('~'))
+        forbidden_roots = [
+            drive_root,
+            os.environ.get('WINDIR', 'C:\\Windows'),
+            os.environ.get('ProgramFiles', 'C:\\Program Files'),
+            os.environ.get('ProgramFiles(x86)', 'C:\\Program Files (x86)'),
+            os.path.join(user_home, '.ssh'),
+            user_home,
+        ]
+        forbidden_roots = [os.path.realpath(p) for p in forbidden_roots if p and os.path.exists(p)]
+        
+        if resolved_new in forbidden_roots:
+            return jsonify({"success": False, "error": "Access denied: Selected folder is a protected system directory"}), 403
+
+        WORKSPACE_DIR = resolved_new
         logger.success("system", f"Workspace changed to: {WORKSPACE_DIR}")
         try:
             tree = get_project_tree(WORKSPACE_DIR)
@@ -1841,15 +1968,42 @@ def ide_list_files():
 def ide_read_file():
     try:
         rel_path = request.args.get('path', '').strip()
-        abs_path = resolve_and_validate_path(rel_path)
+        abs_path = safe_path(rel_path)
         if not os.path.exists(abs_path) or os.path.isdir(abs_path):
             return jsonify({"success": False, "error": "File not found"}), 404
-        with open(abs_path, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
-        return jsonify({"success": True, "content": content, "path": rel_path})
+
+        file_size = os.path.getsize(abs_path)
+        if file_size > 2 * 1024 * 1024:
+            return jsonify({"success": False, "error": "File exceeds maximum 2 MB limit for text editor"}), 400
+
+        with open(abs_path, 'rb') as f:
+            sample = f.read(8192)
+            if b'\x00' in sample:
+                return jsonify({"success": False, "error": "Binary files cannot be opened in text editor"}), 400
+
+        eol = "\r\n" if b"\r\n" in sample else "\n"
+        mtime_ns = os.stat(abs_path).st_mtime_ns
+
+        try:
+            with open(abs_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            encoding = "utf-8"
+        except UnicodeDecodeError:
+            with open(abs_path, 'r', encoding='latin-1') as f:
+                content = f.read()
+            encoding = "latin-1"
+
+        return jsonify({
+            "success": True,
+            "content": content,
+            "path": rel_path,
+            "eol": eol,
+            "mtime_ns": mtime_ns,
+            "encoding": encoding
+        })
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Invalid file read request: {e}")
-        return jsonify({"success": False, "error": "Invalid file request"}), 400
+        return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
         logger.error("system", f"Failed to read file: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -1860,33 +2014,57 @@ def ide_save_file():
         data = request.get_json() or {}
         rel_path = data.get('path', '').strip()
         content = data.get('content', '')
-        abs_path = resolve_and_validate_path(rel_path)
-        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-        with open(abs_path, 'w', encoding='utf-8') as f:
-            f.write(content)
+        eol = data.get('eol', '\n')
+        expected_mtime_ns = data.get('mtime_ns')
+        if expected_mtime_ns is not None:
+            try:
+                expected_mtime_ns = int(expected_mtime_ns)
+            except (ValueError, TypeError):
+                expected_mtime_ns = None
+
+        abs_path = safe_path(rel_path)
+        write_text_atomic(abs_path, content, eol=eol, expected_mtime_ns=expected_mtime_ns)
+        new_mtime_ns = os.stat(abs_path).st_mtime_ns
         logger.success("system", f"IDE saved file: {rel_path}")
-        return jsonify({"success": True, "message": "File saved successfully"})
+        return jsonify({"success": True, "message": "File saved successfully", "mtime_ns": new_mtime_ns})
+    except FileChangedError as e:
+        return jsonify({"success": False, "error": str(e), "conflict": True}), 409
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Invalid save file request: {e}")
-        return jsonify({"success": False, "error": "Invalid request"}), 400
+        return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
         logger.error("system", f"Failed to save file: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
+
 # ── ADVANCED IDE ENDPOINTS ───────────────────────────────────────────────────
 @app.route('/api/ide/search', methods=['GET', 'POST'])
+@app.route('/api/search', methods=['GET', 'POST'])
 def ide_search_files():
-    query = (request.args.get('query') or (request.get_json() or {}).get('query', '')).strip()
-    is_case_sensitive = (request.args.get('case_sensitive') == 'true' or (request.get_json() or {}).get('case_sensitive') == True)
-    is_whole_word = (request.args.get('whole_word') == 'true' or (request.get_json() or {}).get('whole_word') == True)
-    is_regex = (request.args.get('regex') == 'true' or (request.get_json() or {}).get('regex') == True)
+    data = request.get_json(silent=True) or {}
+    query = (request.args.get('query') or data.get('query', '')).strip()
+    is_case_sensitive = (
+        request.args.get('case_sensitive') == 'true'
+        or data.get('case_sensitive') is True
+        or data.get('matchCase') is True
+    )
+    is_whole_word = (
+        request.args.get('whole_word') == 'true'
+        or data.get('whole_word') is True
+        or data.get('wholeWord') is True
+    )
+    is_regex = (
+        request.args.get('regex') == 'true'
+        or data.get('regex') is True
+        or data.get('useRegex') is True
+    )
 
     if not query:
-        return jsonify({"success": True, "results": []})
+        return jsonify({"success": True, "results": [], "total": 0, "files": 0})
     
     results = []
-    exclude_dirs = {'.git', 'node_modules', 'venv', 'backend/venv', '__pycache__', '.idea', '.vscode'}
-    exclude_exts = {'.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', '.mp3', '.wav', '.ogg', '.pyc'}
+    exclude_dirs = {'.git', 'node_modules', 'venv', 'backend/venv', '__pycache__', '.idea', '.vscode', 'target', 'dist', 'build', '.venv', '.next'}
+    exclude_exts = {'.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', '.mp3', '.wav', '.ogg', '.pyc', '.exe', '.dll', '.db', '.sqlite'}
 
     try:
         import re
@@ -1895,20 +2073,6 @@ def ide_search_files():
                 return jsonify({"success": False, "error": "Regex pattern too long"}), 400
             if any(bad in query for bad in ['++', '**', '??', '*+', '+*', '?*', '*?', '+?', '?+']):
                 return jsonify({"success": False, "error": "Regex pattern is too complex"}), 400
-            open_p = 0
-            has_quantifier_in_p = False
-            for idx_c, char in enumerate(query):
-                if char == '(':
-                    open_p += 1
-                elif char == ')':
-                    if open_p > 0:
-                        open_p -= 1
-                        if open_p == 0 and has_quantifier_in_p:
-                            if idx_c + 1 < len(query) and query[idx_c + 1] in ['+', '*', '?']:
-                                return jsonify({"success": False, "error": "Regex pattern is too complex"}), 400
-                        has_quantifier_in_p = False
-                elif char in ['+', '*', '?'] and open_p > 0:
-                    has_quantifier_in_p = True
             flags = 0 if is_case_sensitive else re.IGNORECASE
             try:
                 pattern = re.compile(query, flags)
@@ -1921,18 +2085,33 @@ def ide_search_files():
             flags = 0 if is_case_sensitive else re.IGNORECASE
             pattern = re.compile(escaped, flags)
 
+        MAX_RESULTS = 500
         for root, dirs, files in os.walk(WORKSPACE_DIR):
             dirs[:] = [d for d in dirs if d not in exclude_dirs and os.path.join(root, d) not in [os.path.join(WORKSPACE_DIR, 'backend', 'venv'), os.path.join(WORKSPACE_DIR, 'venv')]]
             
             for file in files:
+                if len(results) >= MAX_RESULTS:
+                    break
                 ext = os.path.splitext(file)[1].lower()
                 if ext in exclude_exts:
                     continue
                 
                 full_path = os.path.join(root, file)
+                # Skip files larger than 2MB
+                try:
+                    if os.path.getsize(full_path) > 2 * 1024 * 1024:
+                        continue
+                except OSError:
+                    continue
+
                 rel_path = os.path.relpath(full_path, WORKSPACE_DIR)
                 
                 try:
+                    with open(full_path, 'rb') as f:
+                        sample = f.read(8192)
+                        if b'\x00' in sample:
+                            continue
+                    
                     with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
                         lines = f.readlines()
                     for idx, line in enumerate(lines):
@@ -1942,48 +2121,48 @@ def ide_search_files():
                                 "line": idx + 1,
                                 "content": line.strip()
                             })
+                            if len(results) >= MAX_RESULTS:
+                                break
                 except Exception:
                     pass
-        return jsonify({"success": True, "results": results})
+            if len(results) >= MAX_RESULTS:
+                break
+
+        unique_files = len(set(r['path'] for r in results))
+        return jsonify({
+            "success": True,
+            "results": results,
+            "total": len(results),
+            "files": unique_files
+        })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/ide/replace', methods=['POST'])
+@app.route('/api/search/replace', methods=['POST'])
 def ide_replace_files():
     try:
         data = request.get_json() or {}
         query = data.get('query', '').strip()
-        replace_term = data.get('replace', '')
+        replace_term = data.get('replace') if data.get('replace') is not None else data.get('replacement', '')
         files_to_modify = data.get('files', [])
-        is_case_sensitive = data.get('case_sensitive', False)
-        is_whole_word = data.get('whole_word', False)
-        is_regex = data.get('regex', False)
+        dry_run = data.get('dry_run', False)
+        is_case_sensitive = data.get('case_sensitive') is True or data.get('matchCase') is True
+        is_whole_word = data.get('whole_word') is True or data.get('wholeWord') is True
+        is_regex = data.get('regex') is True or data.get('useRegex') is True
 
         if not query:
             return jsonify({"success": False, "error": "Query required"}), 400
             
         modified_count = 0
+        preview_changes = []
         import re
         if is_regex:
             if len(query) > 150:
                 return jsonify({"success": False, "error": "Regex pattern too long"}), 400
             if any(bad in query for bad in ['++', '**', '??', '*+', '+*', '?*', '*?', '+?', '?+']):
                 return jsonify({"success": False, "error": "Regex pattern is too complex"}), 400
-            open_p = 0
-            has_quantifier_in_p = False
-            for idx_c, char in enumerate(query):
-                if char == '(':
-                    open_p += 1
-                elif char == ')':
-                    if open_p > 0:
-                        open_p -= 1
-                        if open_p == 0 and has_quantifier_in_p:
-                            if idx_c + 1 < len(query) and query[idx_c + 1] in ['+', '*', '?']:
-                                return jsonify({"success": False, "error": "Regex pattern is too complex"}), 400
-                        has_quantifier_in_p = False
-                elif char in ['+', '*', '?'] and open_p > 0:
-                    has_quantifier_in_p = True
             flags = 0 if is_case_sensitive else re.IGNORECASE
             pattern = re.compile(query, flags)
         else:
@@ -1997,48 +2176,66 @@ def ide_replace_files():
         if files_to_modify:
             for p in files_to_modify:
                 try:
-                    paths.append(resolve_and_validate_path(p))
+                    paths.append(safe_path(p))
                 except (ValueError, PermissionError):
                     continue
         else:
-            exclude_dirs = {'.git', 'node_modules', 'venv', '__pycache__', '.idea', '.vscode'}
-            exclude_exts = {'.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', '.mp3', '.wav', '.ogg', '.pyc'}
+            exclude_dirs = {'.git', 'node_modules', 'venv', '__pycache__', '.idea', '.vscode', 'target', 'dist', 'build', '.venv', '.next'}
+            exclude_exts = {'.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', '.mp3', '.wav', '.ogg', '.pyc', '.exe', '.dll', '.db', '.sqlite'}
             for root, dirs, files in os.walk(WORKSPACE_DIR):
                 dirs[:] = [d for d in dirs if d not in exclude_dirs]
                 for file in files:
                     ext = os.path.splitext(file)[1].lower()
                     if ext in exclude_exts:
                         continue
-                    paths.append(os.path.join(root, file))
+                    full_p = os.path.join(root, file)
+                    try:
+                        if os.path.getsize(full_p) <= 2 * 1024 * 1024:
+                            paths.append(full_p)
+                    except OSError:
+                        continue
                     
         for abs_path in paths:
             if not os.path.exists(abs_path) or os.path.isdir(abs_path):
                 continue
                 
             try:
+                # Refuse binary files
+                with open(abs_path, 'rb') as f:
+                    sample = f.read(8192)
+                    if b'\x00' in sample:
+                        continue
+
+                eol = "\r\n" if b"\r\n" in sample else "\n"
                 with open(abs_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
                 
                 if pattern.search(content):
-                    if is_regex or is_whole_word:
-                        new_content = pattern.sub(replace_term, content)
+                    # Literal replacement using lambda to avoid \1 \g template interpretation bugs
+                    if is_regex or is_whole_word or not is_case_sensitive:
+                        new_content = pattern.sub(lambda m: replace_term, content)
                     else:
-                        if is_case_sensitive:
-                            new_content = content.replace(query, replace_term)
-                        else:
-                            new_content = pattern.sub(replace_term, content)
-                    
-                    with open(abs_path, 'w', encoding='utf-8') as f:
-                        f.write(new_content)
+                        new_content = content.replace(query, replace_term)
+
+                    rel_display = os.path.relpath(abs_path, WORKSPACE_DIR).replace('\\', '/')
+                    preview_changes.append({"file": rel_display})
+
+                    if not dry_run:
+                        write_text_atomic(abs_path, new_content, eol=eol)
                     modified_count += 1
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warn("system", f"Skipped replace on {abs_path}: {e}")
                 
-        logger.success("system", f"IDE replaced '{query}' with '{replace_term}' in {modified_count} files")
-        return jsonify({"success": True, "modified_count": modified_count})
+        logger.success("system", f"IDE replace completed: modified {modified_count} files (dry_run={dry_run})")
+        return jsonify({
+            "success": True,
+            "modified_count": modified_count,
+            "count": modified_count,
+            "preview": preview_changes
+        })
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Replace files validation failed: {e}")
-        return jsonify({"success": False, "error": "Invalid replace parameters"}), 400
+        return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
         logger.error("system", f"Failed replace files: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2048,13 +2245,13 @@ def ide_replace_files():
 def ide_file_gitdiff():
     try:
         rel_path = request.args.get('path', '').strip()
-        abs_path = resolve_and_validate_path(rel_path)
+        abs_path = safe_path(rel_path)
         if not os.path.exists(abs_path):
             return jsonify({"success": True, "added": [], "modified": [], "deleted": []})
         
         import subprocess
         cmd = ["git", "diff", "-U0", "--", abs_path]
-        res = subprocess.run(cmd, cwd=WORKSPACE_DIR, capture_output=True, text=True, errors='ignore')
+        res = subprocess.run(cmd, cwd=WORKSPACE_DIR, capture_output=True, text=True, errors='ignore', timeout=5.0)
         
         added_lines = []
         modified_lines = []
@@ -2092,7 +2289,7 @@ def ide_file_gitdiff():
         })
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Git diff validation failed: {e}")
-        return jsonify({"success": False, "error": "Invalid git diff parameters"}), 400
+        return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
         logger.error("system", f"Failed git diff: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2104,18 +2301,28 @@ def ide_create_item():
         data = request.get_json() or {}
         rel_path = data.get('path', '').strip()
         item_type = data.get('type', 'file')
-        abs_path = resolve_and_validate_path(rel_path)
+        abs_path = safe_path(rel_path, allow_root=False)
         
         if item_type == 'directory':
-            os.makedirs(abs_path, exist_ok=True)
+            if os.path.exists(abs_path):
+                return jsonify({"success": False, "error": "Directory already exists"}), 409
+            os.makedirs(abs_path, exist_ok=False)
         else:
-            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-            with open(abs_path, 'w', encoding='utf-8') as f:
-                f.write('')
+            parent_dir = os.path.dirname(abs_path)
+            os.makedirs(parent_dir, exist_ok=True)
+            # Create exclusive (O_CREAT | O_EXCL) to prevent overwriting existing files
+            try:
+                fd = os.open(abs_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
+                os.close(fd)
+            except FileExistsError:
+                return jsonify({"success": False, "error": "File already exists"}), 409
+                
         return jsonify({"success": True})
+    except FileExistsError:
+        return jsonify({"success": False, "error": "Item already exists"}), 409
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Create item validation failed: {e}")
-        return jsonify({"success": False, "error": "Invalid path or parameters"}), 400
+        return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
         logger.error("system", f"Failed to create item: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2126,17 +2333,25 @@ def ide_delete_item():
     try:
         data = request.get_json() or {}
         rel_path = data.get('path', '').strip()
-        abs_path = resolve_and_validate_path(rel_path)
+        abs_path = safe_path(rel_path, allow_root=False)
         
-        if os.path.isdir(abs_path):
-            import shutil
-            shutil.rmtree(abs_path)
-        else:
-            os.remove(abs_path)
+        if not os.path.exists(abs_path):
+            return jsonify({"success": False, "error": "Item not found"}), 404
+
+        try:
+            import send2trash
+            send2trash.send2trash(abs_path)
+        except Exception as e_trash:
+            logger.warn("system", f"send2trash unavailable or failed, falling back to delete: {e_trash}")
+            if os.path.isdir(abs_path):
+                import shutil
+                shutil.rmtree(abs_path)
+            else:
+                os.remove(abs_path)
         return jsonify({"success": True})
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Delete item validation failed: {e}")
-        return jsonify({"success": False, "error": "Invalid path or parameters"}), 400
+        return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
         logger.error("system", f"Failed to delete item: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2149,14 +2364,26 @@ def ide_rename_item():
         old_path = data.get('old_path', '').strip()
         new_path = data.get('new_path', '').strip()
         
-        abs_old = resolve_and_validate_path(old_path)
-        abs_new = resolve_and_validate_path(new_path)
+        abs_old = safe_path(old_path, allow_root=False)
+        abs_new = safe_path(new_path, allow_root=False)
         
+        if not os.path.exists(abs_old):
+            return jsonify({"success": False, "error": "Source item does not exist"}), 404
+            
+        if os.path.exists(abs_new):
+            return jsonify({"success": False, "error": "Destination path already exists"}), 409
+            
+        # Prevent moving a folder into itself
+        if os.path.isdir(abs_old):
+            if abs_new == abs_old or abs_new.startswith(abs_old + os.sep):
+                return jsonify({"success": False, "error": "Cannot move directory into itself"}), 400
+
+        os.makedirs(os.path.dirname(abs_new), exist_ok=True)
         os.rename(abs_old, abs_new)
         return jsonify({"success": True})
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Rename item validation failed: {e}")
-        return jsonify({"success": False, "error": "Invalid paths or parameters"}), 400
+        return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
         logger.error("system", f"Failed to rename item: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2172,11 +2399,11 @@ if __name__ == '__main__':
     
     if args.token:
         API_TOKEN = args.token
+        os.environ['X_DEVHUNT_TOKEN'] = API_TOKEN
     
-    if API_TOKEN:
-        logger.info("system", f"Secure API token authentication enabled (ends with ...{API_TOKEN[-4:] if len(API_TOKEN) > 4 else ''})")
-    else:
-        logger.warn("system", "Running without secure API token authentication.")
+    logger.info("system", f"Secure API token authentication enabled (ends with ...{API_TOKEN[-4:] if len(API_TOKEN) > 4 else ''})")
         
     logger.info("system", f"DevHunt server starting on host 127.0.0.1, port {args.port}")
-    app.run(host='127.0.0.1', port=args.port, debug=not _is_frozen)
+    flask_debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host='127.0.0.1', port=args.port, debug=flask_debug)
+
