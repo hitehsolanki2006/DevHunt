@@ -2052,75 +2052,68 @@ def ide_workspace():
         logger.warn("system", f"Failed to get project tree: {e}")
         return jsonify({"success": True, "workspace": WORKSPACE_DIR, "files": [], "warning": "Failed to load project tree"})
 
-def _open_native_folder_dialog():
-    """
-    Launches a native OS folder selection dialog and returns (selected_path, cancelled).
-    On Windows: Uses PowerShell to display the native FolderBrowserDialog with TopMost owner.
-    On macOS: Uses osascript.
-    On Linux: Uses zenity or kdialog.
-    """
+def _open_windows_folder_dialog():
     import subprocess
-    import sys
-    if sys.platform == "win32":
-        try:
-            ps_script = (
-                "Add-Type -AssemblyName System.Windows.Forms; "
-                "$f = New-Object System.Windows.Forms.FolderBrowserDialog; "
-                "$f.Description = 'Select Workspace Folder'; "
-                "$f.ShowNewFolderButton = $true; "
-                "$f.RootFolder = [System.Environment+SpecialFolder]::MyComputer; "
-                "$top = New-Object System.Windows.Forms.Form; "
-                "$top.TopMost = $true; "
-                "$top.WindowState = [System.Windows.Forms.FormWindowState]::Minimized; "
-                "$res = $f.ShowDialog($top); "
-                "if ($res -eq [System.Windows.Forms.DialogResult]::OK) { "
-                "  [Console]::Out.Write($f.SelectedPath) "
-                "}"
-            )
-            startupinfo = None
-            creationflags = 0
-            if hasattr(subprocess, 'STARTUPINFO'):
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = subprocess.SW_HIDE
-            if hasattr(subprocess, 'CREATE_NO_WINDOW'):
-                creationflags |= subprocess.CREATE_NO_WINDOW
+    ps_script = (
+        "Add-Type -AssemblyName System.Windows.Forms; "
+        "$f = New-Object System.Windows.Forms.FolderBrowserDialog; "
+        "$f.Description = 'Select Workspace Folder'; "
+        "$f.ShowNewFolderButton = $true; "
+        "$f.RootFolder = [System.Environment+SpecialFolder]::MyComputer; "
+        "$top = New-Object System.Windows.Forms.Form; "
+        "$top.TopMost = $true; "
+        "$top.WindowState = [System.Windows.Forms.FormWindowState]::Minimized; "
+        "$res = $f.ShowDialog($top); "
+        "if ($res -eq [System.Windows.Forms.DialogResult]::OK) { "
+        "  [Console]::Out.Write($f.SelectedPath) "
+        "}"
+    )
+    startupinfo = None
+    creationflags = 0
+    if hasattr(subprocess, 'STARTUPINFO'):
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+    if hasattr(subprocess, 'CREATE_NO_WINDOW'):
+        creationflags |= subprocess.CREATE_NO_WINDOW
 
-            proc = subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-STA", "-Command", ps_script],
-                capture_output=True,
-                text=True,
-                timeout=300,
-                startupinfo=startupinfo,
-                creationflags=creationflags
-            )
-            selected = proc.stdout.strip()
-            if selected:
-                return selected, False
-            return None, True
-        except Exception as e:
-            logger.warn("system", f"Native folder dialog error: {e}")
-            return None, False
-    elif sys.platform == "darwin":
-        try:
-            cmd = ['osascript', '-e', 'POSIX path of (choose folder with prompt "Select Workspace Folder")']
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-            selected = proc.stdout.strip()
-            if selected:
-                return selected, False
-            return None, True
-        except Exception:
-            return None, False
-    else:
-        try:
-            cmd = ['zenity', '--file-selection', '--directory', '--title=Select Workspace Folder']
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-            selected = proc.stdout.strip()
-            if selected:
-                return selected, False
-            return None, True
-        except Exception:
-            return None, False
+    proc = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-STA", "-Command", ps_script],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        startupinfo=startupinfo,
+        creationflags=creationflags
+    )
+    selected = proc.stdout.strip()
+    return (selected, False) if selected else (None, True)
+
+def _open_darwin_folder_dialog():
+    import subprocess
+    cmd = ['osascript', '-e', 'POSIX path of (choose folder with prompt "Select Workspace Folder")']
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    selected = proc.stdout.strip()
+    return (selected, False) if selected else (None, True)
+
+def _open_linux_folder_dialog():
+    import subprocess
+    cmd = ['zenity', '--file-selection', '--directory', '--title=Select Workspace Folder']
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    selected = proc.stdout.strip()
+    return (selected, False) if selected else (None, True)
+
+def _open_native_folder_dialog():
+    """Launches a native OS folder selection dialog and returns (selected_path, cancelled)."""
+    import sys
+    try:
+        if sys.platform == "win32":
+            return _open_windows_folder_dialog()
+        if sys.platform == "darwin":
+            return _open_darwin_folder_dialog()
+        return _open_linux_folder_dialog()
+    except Exception as e:
+        logger.warn("system", f"Native folder dialog error: {e}")
+        return None, False
 
 @app.route('/api/ide/select-folder', methods=['POST'])
 def ide_select_folder():
