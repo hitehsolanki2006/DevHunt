@@ -2231,7 +2231,7 @@ function StandaloneTerminal({ profileSettings, terminalCwd, setTerminalCwd, term
           setOutput([]);
         } else {
           const lines = (d.output || '').split('\n');
-          setOutput(o => [...o, ...lines.map(l => ({ text: mdEscape(l), cls: '' }))]);
+          setOutput(o => [...o, ...lines.map(l => ({ text: l, cls: '' }))]);
         }
         if (d.cwd) {
           setTerminalCwd(d.cwd);

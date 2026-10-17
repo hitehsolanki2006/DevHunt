@@ -429,7 +429,7 @@ export default function IDEWorkspace({
             const lines = (data.output || '').split('\n');
             setTerminalOutput(prev => [
               ...prev,
-              ...lines.map(l => ({ text: mdEscape(l), type: 'output' }))
+              ...lines.map(l => ({ text: l, type: 'output' }))
             ]);
           }
           if (data.cwd) {
