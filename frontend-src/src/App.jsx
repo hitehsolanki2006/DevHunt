@@ -2393,6 +2393,39 @@ function StatusBar({ activeTab, activeFilePath, theme }) {
   );
 }
 
+async function requestTauriFolderDialog() {
+  try {
+    const dialog = window.__TAURI__?.dialog ?? window.__TAURI__?.core?.dialog;
+    if (!dialog?.open) return undefined;
+    const selected = await dialog.open({
+      directory: true,
+      multiple: false,
+      title: 'Select Workspace Folder'
+    });
+    return typeof selected === 'string' ? selected : null;
+  } catch (err) {
+    console.error('Tauri open folder dialog failed:', err);
+    return undefined;
+  }
+}
+
+async function requestBackendFolderDialog() {
+  try {
+    const res = await fetch('/api/ide/select-folder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    if (data?.success) {
+      if (data.cancelled) return null;
+      if (data.path) return data.path;
+    }
+  } catch (err) {
+    console.warn('Native folder dialog request failed:', err);
+  }
+  return undefined;
+}
+
 /* ═══════════════════════════════════════════
    ROOT APP
 ═══════════════════════════════════════════ */
@@ -3077,15 +3110,18 @@ export default function App() {
       });
       const data = await res.json();
       if (data.success) {
-        setTerminalCwd(path);
+        const confirmedPath = typeof data.workspace === 'string' && data.workspace ? data.workspace : path;
+        setTerminalCwd(confirmedPath);
         setOpenTabs([]);
         setActiveFilePath(null);
         setFileContent('');
         setFileTree(data.files || []);
-        localStorage.setItem('devhunt_last_workspace', path);
+        if (typeof confirmedPath === 'string' && /^[a-zA-Z0-9_.:/\\ -]+$/.test(confirmedPath)) {
+          localStorage.setItem('devhunt_last_workspace', confirmedPath);
+        }
         localStorage.removeItem('devhunt_open_tabs');
         localStorage.removeItem('devhunt_active_file_path');
-        alert(`Workspace changed to: ${path}`);
+        alert(`Workspace changed to: ${confirmedPath}`);
       } else {
         alert(`Error: ${data.error}`);
       }
@@ -3096,28 +3132,26 @@ export default function App() {
   }, []);
 
   const handleOpenLocalFolder = useCallback(async () => {
-    if (window.__TAURI__) {
-      try {
-        const { open } = window.__TAURI__.dialog || {};
-        if (open) {
-          const selected = await open({
-            directory: true,
-            multiple: false,
-            title: 'Select Workspace Folder'
-          });
-          if (selected && typeof selected === 'string') {
-            await changeWorkspace(selected);
-          }
-          return;
-        }
-      } catch (err) {
-        console.error('Tauri open folder dialog failed:', err);
-      }
+    // 1. Try Tauri dialog if available
+    const tauriPath = await requestTauriFolderDialog();
+    if (tauriPath) {
+      await changeWorkspace(tauriPath);
+      return;
     }
-    
-    const path = prompt('Enter absolute path to workspace folder:', terminalCwd || '');
-    if (path) {
-      await changeWorkspace(path);
+    if (tauriPath === null) return;
+
+    // 2. Call backend native folder picker dialog
+    const backendPath = await requestBackendFolderDialog();
+    if (backendPath) {
+      await changeWorkspace(backendPath);
+      return;
+    }
+    if (backendPath === null) return;
+
+    // 3. Fallback prompt if native dialog could not be opened
+    const rawPath = prompt('Enter absolute path to workspace folder:', terminalCwd || '');
+    if (rawPath?.trim()) {
+      await changeWorkspace(rawPath.trim());
     }
   }, [terminalCwd, changeWorkspace]);
 

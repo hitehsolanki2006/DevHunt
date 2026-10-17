@@ -4,6 +4,7 @@ import unittest
 import tempfile
 import shutil
 import time
+from unittest.mock import patch
 
 # Ensure backend directory is in sys.path
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -195,6 +196,23 @@ class TestWorkspaceValidation(unittest.TestCase):
             self.assertEqual(tree[0]["name"], "sample.txt")
         finally:
             app.WORKSPACE_DIR = old_ws
+
+    def test_select_folder_endpoint_cancelled(self):
+        with app.app.test_client() as client:
+            with patch.object(app, '_open_native_folder_dialog', return_value=(None, True)):
+                res = client.post('/api/ide/select-folder', headers={"X-DevHunt-Token": app.API_TOKEN})
+                data = res.get_json()
+                self.assertTrue(data.get("success"))
+                self.assertTrue(data.get("cancelled"))
+
+    def test_select_folder_endpoint_success(self):
+        with app.app.test_client() as client:
+            with patch.object(app, '_open_native_folder_dialog', return_value=(self.test_dir, False)):
+                res = client.post('/api/ide/select-folder', headers={"X-DevHunt-Token": app.API_TOKEN})
+                data = res.get_json()
+                self.assertTrue(data.get("success"))
+                self.assertEqual(data.get("path"), os.path.realpath(self.test_dir))
+                self.assertFalse(data.get("cancelled"))
 
 
 if __name__ == "__main__":
