@@ -1899,23 +1899,41 @@ def write_text_atomic(path: str, text: str, *, eol: str = "\n", expected_mtime_n
     Normalizes line endings to the specified eol ('\n' or '\r\n').
     Optionally verifies expected_mtime_ns to prevent race condition overwrites.
     """
-    if expected_mtime_ns is not None and os.path.exists(path):
-        current_mtime = os.stat(path).st_mtime_ns
+    root = os.path.realpath(WORKSPACE_DIR)
+    temp_dir = os.path.realpath(tempfile.gettempdir())
+    abs_path = os.path.realpath(path)
+    in_workspace = abs_path.startswith(root + os.sep) or abs_path == root
+    in_temp = abs_path.startswith(temp_dir + os.sep) or abs_path == temp_dir
+    if not in_workspace and not in_temp:
+        raise PermissionError(ERR_PATH_OUTSIDE_WORKSPACE)
+
+    parent_dir = os.path.realpath(os.path.dirname(abs_path))
+    in_ws_parent = parent_dir.startswith(root + os.sep) or parent_dir == root
+    in_temp_parent = parent_dir.startswith(temp_dir + os.sep) or parent_dir == temp_dir
+    if not in_ws_parent and not in_temp_parent:
+        raise PermissionError(ERR_PATH_OUTSIDE_WORKSPACE)
+
+    if expected_mtime_ns is not None and os.path.exists(abs_path):
+        current_mtime = os.stat(abs_path).st_mtime_ns
         if current_mtime != expected_mtime_ns:
             raise FileChangedError("File was modified on disk by another process")
             
-    parent_dir = os.path.dirname(path)
     os.makedirs(parent_dir, exist_ok=True)
     
     normalized_content = text.replace("\r\n", "\n").replace("\n", eol).encode("utf-8")
     
     fd, tmp_path = tempfile.mkstemp(dir=parent_dir, prefix=".devhunt_tmp_")
+    tmp_path = os.path.realpath(tmp_path)
+    if not tmp_path.startswith(parent_dir + os.sep):
+        os.close(fd)
+        raise PermissionError(ERR_PATH_OUTSIDE_WORKSPACE)
+
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(normalized_content)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp_path, path)
+        os.replace(tmp_path, abs_path)
     except BaseException:
         with contextlib.suppress(OSError):
             if os.path.exists(tmp_path):
@@ -1946,34 +1964,45 @@ def get_project_tree(root_dir):
         return tree
     return walk(root_dir)
 
-def _is_forbidden_system_root(resolved_path: str) -> bool:
-    drive_root = os.path.splitdrive(resolved_path)[0] + os.sep
-    user_home = os.path.realpath(os.path.expanduser('~'))
-    candidates = [
-        drive_root,
+SYSTEM_FORBIDDEN_ROOTS = {
+    os.path.normcase(os.path.realpath(p))
+    for p in [
         os.environ.get('WINDIR', 'C:\\Windows'),
         os.environ.get('ProgramFiles', 'C:\\Program Files'),
         os.environ.get('ProgramFiles(x86)', 'C:\\Program Files (x86)'),
-        os.path.join(user_home, '.ssh'),
-        user_home,
+        os.path.expanduser('~'),
+        os.path.join(os.path.expanduser('~'), '.ssh'),
     ]
-    for c in candidates:
-        if c and os.path.exists(c) and os.path.realpath(c) == resolved_path:
-            return True
-    return False
+    if p and os.path.exists(p)
+}
+
+def _is_forbidden_system_root(resolved_path: str) -> bool:
+    drive_split = os.path.splitdrive(resolved_path)[1]
+    if drive_split in ('\\', '/', ''):
+        return True
+    norm_path = os.path.normcase(resolved_path)
+    return norm_path in SYSTEM_FORBIDDEN_ROOTS
 
 def _validate_workspace_path(path_str: str):
-    if not path_str:
+    if not path_str or not isinstance(path_str, str):
         return "Path required", 400
-    if not os.path.isabs(path_str):
-        return "Absolute path required", 400
-    if '..' in path_str:
+    clean = path_str.strip()
+    if not clean:
+        return "Path required", 400
+    if any(ord(c) < 32 for c in clean):
+        return "Invalid path characters", 400
+    if clean.startswith('\\\\') or clean.startswith('//'):
+        return "Network paths not permitted", 400
+    if '..' in clean:
         return "Invalid path traversal", 400
-    if not os.path.exists(path_str) or not os.path.isdir(path_str):
-        return "Directory does not exist", 400
-    resolved = os.path.realpath(path_str)
+    if not os.path.isabs(clean):
+        return "Absolute path required", 400
+
+    resolved = os.path.realpath(clean)
     if _is_forbidden_system_root(resolved):
         return "Access denied: Selected folder is a protected system directory", 403
+    if not os.path.isdir(resolved):
+        return "Directory does not exist", 400
     return None, 200
 
 @app.route('/api/ide/workspace', methods=['GET', 'POST'])
@@ -1994,7 +2023,8 @@ def ide_workspace():
         tree = get_project_tree(WORKSPACE_DIR)
         return jsonify({"success": True, "workspace": WORKSPACE_DIR, "files": tree})
     except Exception as e:
-        return jsonify({"success": True, "workspace": WORKSPACE_DIR, "files": [], "warning": str(e)})
+        logger.warn("system", f"Failed to get project tree: {e}")
+        return jsonify({"success": True, "workspace": WORKSPACE_DIR, "files": [], "warning": "Failed to load project tree"})
 
 @app.route('/api/ide/files', methods=['GET'])
 def ide_list_files():
@@ -2135,7 +2165,8 @@ def ide_search_files():
             pattern = re.compile(escaped, flags)
 
         MAX_RESULTS = 500
-        for root, dirs, files in os.walk(WORKSPACE_DIR):
+        root_ws = os.path.realpath(WORKSPACE_DIR)
+        for root, dirs, files in os.walk(root_ws):
             dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDED_DIRS]
             
             for file in files:
@@ -2145,7 +2176,10 @@ def ide_search_files():
                 if ext in DEFAULT_EXCLUDED_EXTS:
                     continue
                 
-                full_path = os.path.join(root, file)
+                full_path = os.path.realpath(os.path.join(root, file))
+                if not full_path.startswith(root_ws + os.sep):
+                    continue
+
                 # Skip files larger than 2MB
                 try:
                     if os.path.getsize(full_path) > 2 * 1024 * 1024:
@@ -2153,7 +2187,7 @@ def ide_search_files():
                 except OSError:
                     continue
 
-                rel_path = os.path.relpath(full_path, WORKSPACE_DIR)
+                rel_path = os.path.relpath(full_path, root_ws)
                 
                 try:
                     with open(full_path, 'rb') as f:
@@ -2238,13 +2272,15 @@ def ide_replace_files():
                 except (ValueError, PermissionError):
                     continue
         else:
-            for r_dir, dirs, files in os.walk(WORKSPACE_DIR):
+            for r_dir, dirs, files in os.walk(root):
                 dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDED_DIRS]
                 for file in files:
                     ext = os.path.splitext(file)[1].lower()
                     if ext in DEFAULT_EXCLUDED_EXTS:
                         continue
-                    full_p = os.path.join(r_dir, file)
+                    full_p = os.path.realpath(os.path.join(r_dir, file))
+                    if not full_p.startswith(root + os.sep):
+                        continue
                     try:
                         if os.path.getsize(full_p) <= 2 * 1024 * 1024:
                             paths.append(full_p)
@@ -2252,6 +2288,9 @@ def ide_replace_files():
                         continue
                     
         for abs_path in paths:
+            abs_path = os.path.realpath(abs_path)
+            if not abs_path.startswith(root + os.sep):
+                continue
             if not os.path.exists(abs_path) or os.path.isdir(abs_path):
                 continue
                 
