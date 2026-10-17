@@ -1828,7 +1828,14 @@ RESERVED_NAMES = {
 ERR_PATH_OUTSIDE_WORKSPACE = "Access denied: Path outside workspace"
 ERR_INVALID_FILE_PATH = "Invalid file path or permission denied"
 ERR_INVALID_ITEM_PATH = "Invalid item path or permission denied"
+ERR_INVALID_WORKSPACE = "Invalid workspace directory"
 ERR_INTERNAL_SERVER = "Internal server error"
+
+VALID_PATH_PREFIXES = (
+    tuple(f"{d}:\\" for d in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+    + tuple(f"{d}:/" for d in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+    + ("/",)
+)
 
 class FileChangedError(Exception):
     """Raised when file modification time on disk does not match expected_mtime_ns."""
@@ -1865,11 +1872,15 @@ def safe_path(rel_path: str, *, allow_root: bool = False) -> str:
     _check_path_components(rel_path)
 
     root = os.path.realpath(WORKSPACE_DIR)
+    if not root.startswith(VALID_PATH_PREFIXES):
+        raise PermissionError(ERR_PATH_OUTSIDE_WORKSPACE)
     joined = safe_join(root, rel_path.replace("\\", "/"))
     if joined is None:
         raise PermissionError(ERR_PATH_OUTSIDE_WORKSPACE)
 
     full = os.path.realpath(joined)
+    if not full.startswith(VALID_PATH_PREFIXES):
+        raise PermissionError(ERR_PATH_OUTSIDE_WORKSPACE)
     try:
         common = os.path.commonpath([root, full])
     except ValueError:
@@ -1941,13 +1952,20 @@ def write_text_atomic(path: str, text: str, *, eol: str = "\n", expected_mtime_n
         raise
 
 def get_project_tree(root_dir):
+    root_norm = os.path.realpath(root_dir)
+    if not root_norm.startswith(VALID_PATH_PREFIXES) or _is_forbidden_system_root(root_norm):
+        return []
     def walk(directory):
+        if not directory.startswith(VALID_PATH_PREFIXES) or not directory.startswith(root_norm):
+            return []
         tree = []
         try:
             for item in sorted(os.listdir(directory)):
                 if item in DEFAULT_EXCLUDED_DIRS or item in DEFAULT_IGNORED_FILES:
                     continue
-                full_path = os.path.join(directory, item)
+                full_path = os.path.realpath(os.path.join(directory, item))
+                if not full_path.startswith(root_norm + os.sep) and full_path != root_norm:
+                    continue
                 rel_path = os.path.relpath(full_path, WORKSPACE_DIR)
                 is_dir = os.path.isdir(full_path)
                 
@@ -1962,7 +1980,7 @@ def get_project_tree(root_dir):
         except Exception:
             pass
         return tree
-    return walk(root_dir)
+    return walk(root_norm)
 
 SYSTEM_FORBIDDEN_ROOTS = {
     os.path.normcase(os.path.realpath(p))
@@ -1995,10 +2013,14 @@ def _validate_workspace_path(path_str: str):
         return "Network paths not permitted", 400
     if '..' in clean:
         return "Invalid path traversal", 400
+    if not clean.startswith(VALID_PATH_PREFIXES):
+        return "Path must reside on a valid local drive", 400
     if not os.path.isabs(clean):
         return "Absolute path required", 400
 
     resolved = os.path.realpath(clean)
+    if not resolved.startswith(VALID_PATH_PREFIXES):
+        return "Path must reside on a valid local drive", 400
     if _is_forbidden_system_root(resolved):
         return "Access denied: Selected folder is a protected system directory", 403
     if not os.path.isdir(resolved):
@@ -2017,7 +2039,11 @@ def ide_workspace():
     if err_msg:
         return jsonify({"success": False, "error": err_msg}), status_code
 
-    WORKSPACE_DIR = os.path.realpath(new_path)
+    candidate = os.path.realpath(new_path)
+    if not candidate.startswith(VALID_PATH_PREFIXES) or _is_forbidden_system_root(candidate):
+        return jsonify({"success": False, "error": ERR_INVALID_WORKSPACE}), 400
+
+    WORKSPACE_DIR = candidate
     logger.success("system", f"Workspace changed to: {WORKSPACE_DIR}")
     try:
         tree = get_project_tree(WORKSPACE_DIR)
@@ -2166,6 +2192,8 @@ def ide_search_files():
 
         MAX_RESULTS = 500
         root_ws = os.path.realpath(WORKSPACE_DIR)
+        if not root_ws.startswith(VALID_PATH_PREFIXES) or _is_forbidden_system_root(root_ws):
+            return jsonify({"success": False, "error": ERR_INVALID_WORKSPACE}), 400
         for root, dirs, files in os.walk(root_ws):
             dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDED_DIRS]
             
@@ -2263,6 +2291,8 @@ def ide_replace_files():
 
         paths = []
         root = os.path.realpath(WORKSPACE_DIR)
+        if not root.startswith(VALID_PATH_PREFIXES) or _is_forbidden_system_root(root):
+            return jsonify({"success": False, "error": ERR_INVALID_WORKSPACE}), 400
         if files_to_modify:
             for p in files_to_modify:
                 try:

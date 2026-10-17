@@ -161,5 +161,41 @@ class TestTerminalEngineSecurity(unittest.TestCase):
             self.assertIn("Security policy forbids", result)
 
 
+class TestWorkspaceValidation(unittest.TestCase):
+    def setUp(self):
+        self.test_dir = tempfile.mkdtemp(prefix="devhunt_test_ws_val_")
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
+    def test_validate_workspace_path_valid(self):
+        err, code = app._validate_workspace_path(self.test_dir)
+        self.assertIsNone(err)
+        self.assertEqual(code, 200)
+
+    def test_validate_workspace_path_invalid_drive(self):
+        err, code = app._validate_workspace_path("relative/path/not/abs")
+        self.assertIsNotNone(err)
+        self.assertEqual(code, 400)
+
+    def test_validate_workspace_path_non_existent(self):
+        non_existent = os.path.join(self.test_dir, "does_not_exist_xyz123")
+        err, code = app._validate_workspace_path(non_existent)
+        self.assertEqual(err, "Directory does not exist")
+        self.assertEqual(code, 400)
+
+    def test_get_project_tree_safe(self):
+        with open(os.path.join(self.test_dir, "sample.txt"), "w") as f:
+            f.write("hello")
+        old_ws = app.WORKSPACE_DIR
+        app.WORKSPACE_DIR = self.test_dir
+        try:
+            tree = app.get_project_tree(self.test_dir)
+            self.assertEqual(len(tree), 1)
+            self.assertEqual(tree[0]["name"], "sample.txt")
+        finally:
+            app.WORKSPACE_DIR = old_ws
+
+
 if __name__ == "__main__":
     unittest.main()
