@@ -1809,6 +1809,16 @@ import tempfile
 import contextlib
 from werkzeug.security import safe_join
 
+DEFAULT_EXCLUDED_DIRS = {
+    '.git', 'node_modules', 'venv', 'backend/venv', '__pycache__',
+    '.idea', '.vscode', 'target', 'dist', 'build', '.venv', '.next', '.gemini'
+}
+DEFAULT_EXCLUDED_EXTS = {
+    '.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar',
+    '.gz', '.mp3', '.wav', '.ogg', '.pyc', '.exe', '.dll', '.db', '.sqlite'
+}
+DEFAULT_IGNORED_FILES = {'.DS_Store', 'desktop.ini'}
+
 RESERVED_NAMES = {
     "CON", "PRN", "AUX", "NUL",
     *(f"COM{i}" for i in range(1, 10)),
@@ -1819,16 +1829,13 @@ class FileChangedError(Exception):
     """Raised when file modification time on disk does not match expected_mtime_ns."""
     pass
 
-def safe_path(rel_path: str, *, allow_root: bool = False) -> str:
-    """
-    Validates that rel_path resides safely within WORKSPACE_DIR.
-    Handles Unicode, brackets, +, #, quotes, and spaces.
-    Rejects directory traversal, root escape, reserved Windows names, and trailing dots/spaces.
-    """
+def _check_path_components(rel_path: str):
     if not isinstance(rel_path, str) or not rel_path.strip():
         raise ValueError("Path required")
     if any(ord(c) < 32 for c in rel_path):
         raise PermissionError("Invalid path: contains control characters")
+    if '..' in rel_path:
+        raise PermissionError("Access denied: Directory traversal sequence detected")
 
     normalized_parts = rel_path.replace("\\", "/").split("/")
     for part in normalized_parts:
@@ -1837,25 +1844,44 @@ def safe_path(rel_path: str, *, allow_root: bool = False) -> str:
         if part != part.rstrip(" .") or part.endswith("."):
             raise PermissionError(f"Access denied: Path component cannot end with space or dot: '{part}'")
 
+def _check_reserved_names(full_path: str, root_dir: str):
+    rel = os.path.relpath(full_path, root_dir)
+    for part in rel.split(os.sep):
+        base_name = part.split(".")[0].upper()
+        if base_name in RESERVED_NAMES:
+            raise PermissionError(f"Access denied: Reserved device name '{part}'")
+
+def safe_path(rel_path: str, *, allow_root: bool = False) -> str:
+    """
+    Validates that rel_path resides safely within WORKSPACE_DIR.
+    Handles Unicode, brackets, +, #, quotes, and spaces.
+    Rejects directory traversal, root escape, reserved Windows names, and trailing dots/spaces.
+    """
+    _check_path_components(rel_path)
+
     root = os.path.realpath(WORKSPACE_DIR)
     joined = safe_join(root, rel_path.replace("\\", "/"))
     if joined is None:
         raise PermissionError("Access denied: Path outside workspace")
-        
+
     full = os.path.realpath(joined)
-    if full != root and not full.startswith(root + os.sep):
+    try:
+        common = os.path.commonpath([root, full])
+    except ValueError:
+        raise PermissionError("Access denied: Paths on different drives")
+
+    if common != root:
         raise PermissionError("Access denied: Path outside workspace")
+
     if full == root:
         if not allow_root:
             raise PermissionError("Access denied: Root workspace directory not allowed for this operation")
         return full
 
-    rel_from_root = os.path.relpath(full, root)
-    for part in rel_from_root.split(os.sep):
-        base_name = part.split(".")[0].upper()
-        if base_name in RESERVED_NAMES:
-            raise PermissionError(f"Access denied: Reserved device name '{part}'")
-            
+    if not full.startswith(root + os.sep):
+        raise PermissionError("Access denied: Path outside workspace")
+
+    _check_reserved_names(full, root)
     return full
 
 def resolve_and_validate_path(rel_path, *, allow_root=False):
@@ -1892,14 +1918,11 @@ def write_text_atomic(path: str, text: str, *, eol: str = "\n", expected_mtime_n
         raise
 
 def get_project_tree(root_dir):
-    ignored_dirs = {'.git', 'venv', '.vscode', '__pycache__', 'node_modules', '.gemini', 'target', 'dist', 'build', '.venv', '.next'}
-    ignored_files = {'.DS_Store', 'desktop.ini'}
-    
     def walk(directory):
         tree = []
         try:
             for item in sorted(os.listdir(directory)):
-                if item in ignored_dirs or item in ignored_files:
+                if item in DEFAULT_EXCLUDED_DIRS or item in DEFAULT_IGNORED_FILES:
                     continue
                 full_path = os.path.join(directory, item)
                 rel_path = os.path.relpath(full_path, WORKSPACE_DIR)
@@ -1928,6 +1951,10 @@ def ide_workspace():
         new_path = data.get('path', '').strip()
         if not new_path:
             return jsonify({"success": False, "error": "Path required"}), 400
+        if not os.path.isabs(new_path):
+            return jsonify({"success": False, "error": "Absolute path required"}), 400
+        if '..' in new_path:
+            return jsonify({"success": False, "error": "Invalid path traversal"}), 400
         if not os.path.exists(new_path) or not os.path.isdir(new_path):
             return jsonify({"success": False, "error": "Directory does not exist"}), 400
         
@@ -1962,7 +1989,8 @@ def ide_list_files():
         tree = get_project_tree(WORKSPACE_DIR)
         return jsonify({"success": True, "files": tree})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.error("system", f"Failed to list files: {e}")
+        return jsonify({"success": False, "error": "Failed to list workspace files"}), 500
 
 @app.route('/api/ide/file', methods=['GET'])
 def ide_read_file():
@@ -2003,7 +2031,7 @@ def ide_read_file():
         })
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Invalid file read request: {e}")
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": "Invalid file path or permission denied"}), 400
     except Exception as e:
         logger.error("system", f"Failed to read file: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2027,11 +2055,11 @@ def ide_save_file():
         new_mtime_ns = os.stat(abs_path).st_mtime_ns
         logger.success("system", f"IDE saved file: {rel_path}")
         return jsonify({"success": True, "message": "File saved successfully", "mtime_ns": new_mtime_ns})
-    except FileChangedError as e:
-        return jsonify({"success": False, "error": str(e), "conflict": True}), 409
+    except FileChangedError:
+        return jsonify({"success": False, "error": "File was modified on disk by another process", "conflict": True}), 409
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Invalid save file request: {e}")
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": "Invalid file path or permission denied"}), 400
     except Exception as e:
         logger.error("system", f"Failed to save file: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2063,8 +2091,6 @@ def ide_search_files():
         return jsonify({"success": True, "results": [], "total": 0, "files": 0})
     
     results = []
-    exclude_dirs = {'.git', 'node_modules', 'venv', 'backend/venv', '__pycache__', '.idea', '.vscode', 'target', 'dist', 'build', '.venv', '.next'}
-    exclude_exts = {'.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', '.mp3', '.wav', '.ogg', '.pyc', '.exe', '.dll', '.db', '.sqlite'}
 
     try:
         import re
@@ -2073,11 +2099,13 @@ def ide_search_files():
                 return jsonify({"success": False, "error": "Regex pattern too long"}), 400
             if any(bad in query for bad in ['++', '**', '??', '*+', '+*', '?*', '*?', '+?', '?+']):
                 return jsonify({"success": False, "error": "Regex pattern is too complex"}), 400
+            if not re.fullmatch(r"[\w\s.\-/#+*?^$|(){}\[\]\\]+", query):
+                return jsonify({"success": False, "error": "Regex contains disallowed characters"}), 400
             flags = 0 if is_case_sensitive else re.IGNORECASE
             try:
                 pattern = re.compile(query, flags)
-            except Exception as e:
-                return jsonify({"success": False, "error": f"Invalid regex: {str(e)}"}), 400
+            except Exception:
+                return jsonify({"success": False, "error": "Invalid regex pattern"}), 400
         else:
             escaped = re.escape(query)
             if is_whole_word:
@@ -2087,13 +2115,13 @@ def ide_search_files():
 
         MAX_RESULTS = 500
         for root, dirs, files in os.walk(WORKSPACE_DIR):
-            dirs[:] = [d for d in dirs if d not in exclude_dirs and os.path.join(root, d) not in [os.path.join(WORKSPACE_DIR, 'backend', 'venv'), os.path.join(WORKSPACE_DIR, 'venv')]]
+            dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDED_DIRS]
             
             for file in files:
                 if len(results) >= MAX_RESULTS:
                     break
                 ext = os.path.splitext(file)[1].lower()
-                if ext in exclude_exts:
+                if ext in DEFAULT_EXCLUDED_EXTS:
                     continue
                 
                 full_path = os.path.join(root, file)
@@ -2136,7 +2164,8 @@ def ide_search_files():
             "files": unique_files
         })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.error("system", f"Search files failed: {e}")
+        return jsonify({"success": False, "error": "Failed to search files"}), 500
 
 
 @app.route('/api/ide/replace', methods=['POST'])
@@ -2163,8 +2192,13 @@ def ide_replace_files():
                 return jsonify({"success": False, "error": "Regex pattern too long"}), 400
             if any(bad in query for bad in ['++', '**', '??', '*+', '+*', '?*', '*?', '+?', '?+']):
                 return jsonify({"success": False, "error": "Regex pattern is too complex"}), 400
+            if not re.fullmatch(r"[\w\s.\-/#+*?^$|(){}\[\]\\]+", query):
+                return jsonify({"success": False, "error": "Regex contains disallowed characters"}), 400
             flags = 0 if is_case_sensitive else re.IGNORECASE
-            pattern = re.compile(query, flags)
+            try:
+                pattern = re.compile(query, flags)
+            except Exception:
+                return jsonify({"success": False, "error": "Invalid regex pattern"}), 400
         else:
             escaped = re.escape(query)
             if is_whole_word:
@@ -2180,13 +2214,11 @@ def ide_replace_files():
                 except (ValueError, PermissionError):
                     continue
         else:
-            exclude_dirs = {'.git', 'node_modules', 'venv', '__pycache__', '.idea', '.vscode', 'target', 'dist', 'build', '.venv', '.next'}
-            exclude_exts = {'.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.zip', '.tar', '.gz', '.mp3', '.wav', '.ogg', '.pyc', '.exe', '.dll', '.db', '.sqlite'}
             for root, dirs, files in os.walk(WORKSPACE_DIR):
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
+                dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDED_DIRS]
                 for file in files:
                     ext = os.path.splitext(file)[1].lower()
-                    if ext in exclude_exts:
+                    if ext in DEFAULT_EXCLUDED_EXTS:
                         continue
                     full_p = os.path.join(root, file)
                     try:
@@ -2235,7 +2267,7 @@ def ide_replace_files():
         })
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Replace files validation failed: {e}")
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": "Invalid replace parameters or permission denied"}), 400
     except Exception as e:
         logger.error("system", f"Failed replace files: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2270,16 +2302,13 @@ def ide_file_gitdiff():
                         new_count = int(match.group(4)) if match.group(4) else (0 if ',0' in line.split()[2] else 1)
                         
                         if old_count == 0:
-                            for idx in range(new_start, new_start + new_count):
-                                added_lines.append(idx)
+                            added_lines.extend(range(new_start, new_start + new_count))
                         elif new_count == 0:
                             deleted_lines.append(new_start)
                         else:
-                            for idx in range(new_start, new_start + min(old_count, new_count)):
-                                modified_lines.append(idx)
+                            modified_lines.extend(range(new_start, new_start + min(old_count, new_count)))
                             if new_count > old_count:
-                                for idx in range(new_start + old_count, new_start + new_count):
-                                    added_lines.append(idx)
+                                added_lines.extend(range(new_start + old_count, new_start + new_count))
                                     
         return jsonify({
             "success": True,
@@ -2289,7 +2318,7 @@ def ide_file_gitdiff():
         })
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Git diff validation failed: {e}")
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": "Invalid file path or permission denied"}), 400
     except Exception as e:
         logger.error("system", f"Failed git diff: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2322,7 +2351,7 @@ def ide_create_item():
         return jsonify({"success": False, "error": "Item already exists"}), 409
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Create item validation failed: {e}")
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": "Invalid item path or permission denied"}), 400
     except Exception as e:
         logger.error("system", f"Failed to create item: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2351,7 +2380,7 @@ def ide_delete_item():
         return jsonify({"success": True})
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Delete item validation failed: {e}")
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": "Invalid item path or permission denied"}), 400
     except Exception as e:
         logger.error("system", f"Failed to delete item: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
@@ -2383,7 +2412,7 @@ def ide_rename_item():
         return jsonify({"success": True})
     except (ValueError, PermissionError) as e:
         logger.error("system", f"Rename item validation failed: {e}")
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": "Invalid item path or permission denied"}), 400
     except Exception as e:
         logger.error("system", f"Failed to rename item: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500

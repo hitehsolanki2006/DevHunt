@@ -18,7 +18,9 @@ def init_db():
     cursor = conn.cursor()
     
     cursor.execute("PRAGMA user_version;")
-    version = cursor.fetchone()[0]
+    current_ver = cursor.fetchone()[0]
+    if current_ver < CURRENT_SCHEMA_VERSION:
+        cursor.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION};")
     
     # Create messages table
     cursor.execute('''

@@ -9,7 +9,80 @@ import requests
 import subprocess
 import datetime
 import math
+import ast
+import operator
 from bs4 import BeautifulSoup
+
+SAFE_MATH_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+SAFE_MATH_FUNCTIONS = {
+    'abs': abs, 'round': round, 'pow': pow,
+    'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
+    'sqrt': math.sqrt, 'log': math.log, 'log10': math.log10, 'log2': math.log2,
+    'pi': math.pi, 'e': math.e
+}
+
+def _eval_bin_op(node):
+    op = SAFE_MATH_OPERATORS.get(type(node.op))
+    if op is None:
+        raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
+    left = _eval_ast_node(node.left)
+    right = _eval_ast_node(node.right)
+    if isinstance(node.op, ast.Pow) and abs(right) > 1000:
+        raise ValueError("Exponent too large")
+    return op(left, right)
+
+def _eval_unary_op(node):
+    op = SAFE_MATH_OPERATORS.get(type(node.op))
+    if op is None:
+        raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
+    return op(_eval_ast_node(node.operand))
+
+def _eval_call(node):
+    if not isinstance(node.func, ast.Name):
+        raise ValueError("Invalid function call")
+    fn = SAFE_MATH_FUNCTIONS.get(node.func.id)
+    if fn is None:
+        raise ValueError(f"Unsupported function: {node.func.id}")
+    args = [_eval_ast_node(arg) for arg in node.args]
+    return fn(*args)
+
+def _eval_name(node):
+    val = SAFE_MATH_FUNCTIONS.get(node.id)
+    if val is not None and isinstance(val, (int, float)):
+        return val
+    raise ValueError(f"Unsupported identifier: {node.id}")
+
+def _eval_ast_node(node):
+    if isinstance(node, ast.Expression):
+        return _eval_ast_node(node.body)
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, (int, float, complex)):
+            return node.value
+        raise ValueError("Only numbers allowed in expressions")
+    if isinstance(node, ast.BinOp):
+        return _eval_bin_op(node)
+    if isinstance(node, ast.UnaryOp):
+        return _eval_unary_op(node)
+    if isinstance(node, ast.Call):
+        return _eval_call(node)
+    if isinstance(node, ast.Name):
+        return _eval_name(node)
+    raise ValueError("Invalid syntax in expression")
+
+def evaluate_math_expression(expr: str):
+    parsed = ast.parse(expr, mode='eval')
+    return _eval_ast_node(parsed)
 
 class TerminalEngine:
     def __init__(self):
@@ -901,48 +974,51 @@ class TerminalEngine:
         context = ssl.create_default_context()
         context.minimum_version = ssl.TLSVersion.TLSv1_2
         try:
-            with socket.create_connection((host, 443), timeout=5) as sock:
-                with context.wrap_socket(sock, server_hostname=host) as ssock:
-                    cert = ssock.getpeercert()
-                    cipher = ssock.cipher()
-                    ssl_version = ssock.version()
+            with socket.create_connection((host, 443), timeout=5) as sock, context.wrap_socket(sock, server_hostname=host) as ssock:
+                cert = ssock.getpeercert()
+                cipher = ssock.cipher()
+                ssl_version = ssock.version()
+                
+                output_lines.extend([
+                    f"Negotiated version: {self.format_green(ssl_version)}",
+                    f"Cipher Suite: {self.format_green(cipher[0])} (Strength: {cipher[2]} bits)\n",
+                ])
+                
+                # Extract fields
+                subject = dict(x[0] for x in cert.get('subject', []))
+                issuer = dict(x[0] for x in cert.get('issuer', []))
+                
+                sub_name = subject.get('commonName', 'Unknown')
+                iss_name = issuer.get('commonName', 'Unknown')
+                
+                # Parse dates
+                # e.g., 'May  9 23:59:59 2026 GMT'
+                not_after_str = cert.get('notAfter')
+                not_before_str = cert.get('notBefore')
+                
+                output_lines.extend([
+                    f"{self.format_bold('CERTIFICATE SPECIFICATIONS:')}",
+                    f"  Common Name (CN)   : {self.format_cyan(sub_name)}",
+                    f"  Issuer Authority   : {self.format_cyan(iss_name)}",
+                    f"  Serial Number      : {cert.get('serialNumber', 'Unknown')}",
+                    f"  Activation Date    : {not_before_str}",
+                    f"  Expiration Date    : {self.format_yellow(not_after_str)}",
+                ])
                     
-                    output_lines.append(f"Negotiated version: {self.format_green(ssl_version)}")
-                    output_lines.append(f"Cipher Suite: {self.format_green(cipher[0])} (Strength: {cipher[2]} bits)\n")
+                try:
+                    expire_dt = datetime.datetime.strptime(not_after_str, '%b %d %H:%M:%S %Y %Z')
+                    delta = expire_dt - datetime.datetime.utcnow()
+                    days_left = delta.days
                     
-                    # Extract fields
-                    subject = dict(x[0] for x in cert.get('subject', []))
-                    issuer = dict(x[0] for x in cert.get('issuer', []))
-                    
-                    sub_name = subject.get('commonName', 'Unknown')
-                    iss_name = issuer.get('commonName', 'Unknown')
-                    
-                    # Parse dates
-                    # e.g., 'May  9 23:59:59 2026 GMT'
-                    not_after_str = cert.get('notAfter')
-                    not_before_str = cert.get('notBefore')
-                    
-                    output_lines.append(f"{self.format_bold('CERTIFICATE SPECIFICATIONS:')}")
-                    output_lines.append(f"  Common Name (CN)   : {self.format_cyan(sub_name)}")
-                    output_lines.append(f"  Issuer Authority   : {self.format_cyan(iss_name)}")
-                    output_lines.append(f"  Serial Number      : {cert.get('serialNumber', 'Unknown')}")
-                    output_lines.append(f"  Activation Date    : {not_before_str}")
-                    output_lines.append(f"  Expiration Date    : {self.format_yellow(not_after_str)}")
-                    
-                    try:
-                        expire_dt = datetime.datetime.strptime(not_after_str, '%b %d %H:%M:%S %Y %Z')
-                        delta = expire_dt - datetime.datetime.utcnow()
-                        days_left = delta.days
-                        
-                        if days_left < 0:
-                            output_lines.append(f"  Certificate Status : {self.format_red('EXPIRED')} ({abs(days_left)} days ago)")
-                        elif days_left < 30:
-                            output_lines.append(f"  Certificate Status : {self.format_yellow('WARNING - EXPIRING SOON')} ({days_left} days left)")
-                        else:
-                            output_lines.append(f"  Certificate Status : {self.format_green('VALID')} ({days_left} days remaining)")
-                    except Exception:
-                        pass
-                    
+                    if days_left < 0:
+                        output_lines.append(f"  Certificate Status : {self.format_red('EXPIRED')} ({abs(days_left)} days ago)")
+                    elif days_left < 30:
+                        output_lines.append(f"  Certificate Status : {self.format_yellow('WARNING - EXPIRING SOON')} ({days_left} days left)")
+                    else:
+                        output_lines.append(f"  Certificate Status : {self.format_green('VALID')} ({days_left} days remaining)")
+                except Exception:
+                    pass
+                
             return "\n".join(output_lines), current_dir
         except Exception as e:
             return self.format_red(f"SSL handshake connection failed: {str(e)}"), current_dir
@@ -1164,67 +1240,8 @@ class TerminalEngine:
             return self.format_red("Usage: hunt calc <math_expression>"), current_dir
 
         expr = " ".join(args)
-        
-        import ast
-        import operator
-        safe_operators = {
-            ast.Add: operator.add,
-            ast.Sub: operator.sub,
-            ast.Mult: operator.mul,
-            ast.Div: operator.truediv,
-            ast.FloorDiv: operator.floordiv,
-            ast.Mod: operator.mod,
-            ast.Pow: operator.pow,
-            ast.USub: operator.neg,
-            ast.UAdd: operator.pos,
-        }
-        safe_functions = {
-            'abs': abs, 'round': round, 'pow': pow,
-            'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
-            'sqrt': math.sqrt, 'log': math.log, 'log10': math.log10, 'log2': math.log2,
-            'pi': math.pi, 'e': math.e
-        }
-
-        def eval_node(node):
-            if isinstance(node, ast.Expression):
-                return eval_node(node.body)
-            elif isinstance(node, ast.Constant):
-                if isinstance(node.value, (int, float, complex)):
-                    return node.value
-                raise ValueError("Only numbers allowed in expressions")
-            elif isinstance(node, ast.BinOp):
-                op = safe_operators.get(type(node.op))
-                if op is None:
-                    raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
-                left = eval_node(node.left)
-                right = eval_node(node.right)
-                if isinstance(node.op, ast.Pow) and abs(right) > 1000:
-                    raise ValueError("Exponent too large")
-                return op(left, right)
-            elif isinstance(node, ast.UnaryOp):
-                op = safe_operators.get(type(node.op))
-                if op is None:
-                    raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
-                return op(eval_node(node.operand))
-            elif isinstance(node, ast.Call):
-                if not isinstance(node.func, ast.Name):
-                    raise ValueError("Invalid function call")
-                fn = safe_functions.get(node.func.id)
-                if fn is None:
-                    raise ValueError(f"Unsupported function: {node.func.id}")
-                evaluated_args = [eval_node(arg) for arg in node.args]
-                return fn(*evaluated_args)
-            elif isinstance(node, ast.Name):
-                val = safe_functions.get(node.id)
-                if val is not None and isinstance(val, (int, float)):
-                    return val
-                raise ValueError(f"Unsupported identifier: {node.id}")
-            else:
-                raise ValueError("Invalid syntax in expression")
-
         try:
-            parsed = ast.parse(expr, mode='eval')
-            res = eval_node(parsed)
+            res = evaluate_math_expression(expr)
             return f"{self.format_bold('Expression:')} {expr}\n{self.format_bold('Result:')} {self.format_green(str(res))}", current_dir
         except Exception as e:
             return self.format_red(f"Math Error: {str(e)}"), current_dir
@@ -1868,9 +1885,11 @@ class TerminalEngine:
                 else:
                     type_label = self.format_yellow("[WARNING]")
                     
-                output.append(f"{type_label}{unread_marker}{self.format_cyan(n['id'])} - {n['title']}")
-                output.append(f"  {self.format_muted(n['timestamp'])} - {n['message'][:80]}...")
-                output.append("")
+                output.extend([
+                    f"{type_label}{unread_marker}{self.format_cyan(n['id'])} - {n['title']}",
+                    f"  {self.format_muted(n['timestamp'])} - {n['message'][:80]}...",
+                    ""
+                ])
             return "\n".join(output), current_dir
             
         sub_cmd = args[0].lower()

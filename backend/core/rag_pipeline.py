@@ -1,6 +1,9 @@
 import os
 import re
 import json
+import socket
+import ipaddress
+from urllib.parse import urlparse, urljoin
 import requests
 from bs4 import BeautifulSoup
 try:
@@ -11,6 +14,31 @@ from google import genai
 from google.genai import types
 from core.db import get_db_connection
 from core.key_manager import KeyManager
+
+URL_VALIDATION_REGEX = re.compile(
+    r"^https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(:\d+)?(/.*)?$"
+)
+
+def _validate_target_host(hostname: str, port: int):
+    try:
+        addr_info = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+    except Exception as e:
+        raise ValueError(f"Unable to resolve hostname '{hostname}': {e}")
+
+    for ai in addr_info:
+        ip_str = ai[4][0]
+        ip_obj = ipaddress.ip_address(ip_str)
+        if not ip_obj.is_global or ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+            raise ValueError(f"Access denied: Target address {ip_str} is private or non-routable")
+
+def _read_stream_response(response, max_bytes: int) -> bytes:
+    response.raise_for_status()
+    data = bytearray()
+    for chunk in response.iter_content(65536):
+        data.extend(chunk)
+        if len(data) > max_bytes:
+            raise ValueError("Response payload exceeds 5 MB limit")
+    return bytes(data)
 
 class RAGPipeline:
     def __init__(self, key_manager: KeyManager):
@@ -113,27 +141,15 @@ class RAGPipeline:
 
     @staticmethod
     def fetch_public(url: str, max_bytes: int = 5_000_000, hops: int = 3) -> bytes:
-        from urllib.parse import urlparse, urljoin
-        import socket
-        import ipaddress
-
         current_url = url
         for _ in range(hops + 1):
             u = urlparse(current_url)
             if u.scheme not in ("http", "https") or not u.hostname:
                 raise ValueError("Invalid URL scheme or missing hostname")
+            if not URL_VALIDATION_REGEX.match(current_url):
+                raise ValueError("URL failed security format validation")
             port = u.port or (443 if u.scheme == "https" else 80)
-
-            try:
-                addr_info = socket.getaddrinfo(u.hostname, port, type=socket.SOCK_STREAM)
-            except Exception as e:
-                raise ValueError(f"Unable to resolve hostname '{u.hostname}': {e}")
-
-            for ai in addr_info:
-                ip_str = ai[4][0]
-                ip_obj = ipaddress.ip_address(ip_str)
-                if not ip_obj.is_global or ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
-                    raise ValueError(f"Access denied: Target address {ip_str} is private or non-routable")
+            _validate_target_host(u.hostname, port)
 
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -147,13 +163,7 @@ class RAGPipeline:
                 current_url = urljoin(current_url, loc)
                 continue
 
-            r.raise_for_status()
-            data = bytearray()
-            for chunk in r.iter_content(65536):
-                data.extend(chunk)
-                if len(data) > max_bytes:
-                    raise ValueError("Response payload exceeds 5 MB limit")
-            return bytes(data)
+            return _read_stream_response(r, max_bytes)
 
         raise ValueError("Too many redirects")
 

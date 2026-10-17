@@ -68,14 +68,14 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
   const [dangerStatus, setDangerStatus] = useState('');
 
   useEffect(() => {
-    loadSettings();
-    loadKeys();
-    checkUpdates();
+    void loadSettings();
+    void loadKeys();
+    void checkUpdates();
   }, []);
 
   useEffect(() => {
     if (activeSubTab === 'ai') {
-      loadAIMemory();
+      void loadAIMemory();
     }
   }, [activeSubTab]);
 
@@ -93,7 +93,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
       }
 
       if (key === 'Escape' || key === 'Delete') {
-        saveShortcut(recordingShortcutAction, 'None');
+        void saveShortcut(recordingShortcutAction, 'None');
         setRecordingShortcutAction(null);
         return;
       }
@@ -111,7 +111,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
       parts.push(keyName);
       const combo = parts.join('+');
 
-      saveShortcut(recordingShortcutAction, combo);
+      void saveShortcut(recordingShortcutAction, combo);
       setRecordingShortcutAction(null);
     };
 
@@ -190,7 +190,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
       });
       const data = await res.json();
       if (data.success) {
-        loadSettings();
+        void loadSettings();
         if (onRefreshHeader) onRefreshHeader();
       }
     } catch (err) {
@@ -202,7 +202,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
   const handleFeatureToggle = (key, val) => {
     const updatedToggles = { ...featureToggles, [key]: val };
     setFeatureToggles(updatedToggles);
-    saveSettings({ feature_toggles: updatedToggles });
+    void saveSettings({ feature_toggles: updatedToggles });
   };
 
   // AI Core Memory methods
@@ -243,7 +243,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
       const data = await res.json();
       if (data.success) {
         setMemoryStatus(`✓ Memories saved successfully (${memories.length} facts)`);
-        loadAIMemory();
+        void loadAIMemory();
       } else {
         setMemoryStatus(`✕ Save failed: ${data.error}`);
       }
@@ -263,7 +263,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
       const data = await res.json();
       if (data.success) {
         setMemoryStatus('✓ Refinement complete! Loaded updated facts.');
-        loadAIMemory();
+        void loadAIMemory();
       } else {
         setMemoryStatus(`✕ Refinement failed: ${data.error}`);
       }
@@ -347,7 +347,9 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
       // Dismiss state wipe
       try {
         await saveSettings({ dismissed_update: null });
-      } catch (e) {}
+      } catch {
+        // Ignored: failure to clear dismissed update setting is non-fatal
+      }
     }
     try {
       const res = await fetch('/api/updates/check');
@@ -390,7 +392,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
       } else {
         alert(`Failed to apply updates: ${data.error}`);
         setIsUpdating(false);
-        checkUpdates();
+        void checkUpdates();
       }
     } catch (err) {
       setUpdateStatus('✓ Server reloading with new updates...');
@@ -419,8 +421,8 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
           .map(([k, v]) => `${k}: ${v}`)
           .join(' · ');
         setBackupStatus(`✓ Restored — ${summary}`);
-        loadSettings();
-        loadKeys();
+        void loadSettings();
+        void loadKeys();
         if (onRefreshHeader) onRefreshHeader();
       } else {
         setBackupStatus(`✕ Import failed: ${data.error}`);
@@ -488,7 +490,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
       if (data.success) {
         setNewKey('');
         setNewKeyLabel('');
-        loadKeys();
+        void loadKeys();
         if (onRefreshHeader) onRefreshHeader();
       } else {
         alert(`Error: ${data.error}`);
@@ -508,7 +510,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
       });
       const data = await res.json();
       if (data.success) {
-        loadKeys();
+        void loadKeys();
       }
     } catch (err) {
       console.error(err);
@@ -523,7 +525,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
       });
       const data = await res.json();
       if (data.success) {
-        loadKeys();
+        void loadKeys();
         if (onRefreshHeader) onRefreshHeader();
       }
     } catch (err) {
@@ -551,7 +553,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
   const handleThemeChange = (newTheme) => {
     setTheme(newTheme);
     document.body.className = `theme-${newTheme}`;
-    saveSettings({ theme: newTheme });
+    void saveSettings({ theme: newTheme });
   };
 
   const shortcutActionNames = {
@@ -634,7 +636,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                     <div style={{ width: '180px', flexShrink: 0 }}>
                       <select 
                         value={iconThemeSetting} 
-                        onChange={(e) => { setIconThemeSetting(e.target.value); saveSettings({ icon_theme: e.target.value }); }}
+                        onChange={(e) => { setIconThemeSetting(e.target.value); void saveSettings({ icon_theme: e.target.value }); }}
                         style={{ width: '100%', fontSize: '12px', padding: '6px', background: 'rgba(0,0,0,0.35)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text)' }}
                       >
                         <option value="emoji">Cyberpunk Emojis</option>
@@ -650,7 +652,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       <div className="muted" style={{ fontSize: '11px', color: 'var(--muted)' }}>Prepends a "Grammar &amp; Phrasing Tip" callout to every AI response.</div>
                     </div>
                     <label className="switch">
-                      <input type="checkbox" checked={englishCorrection} onChange={(e) => { setEnglishCorrection(e.target.checked); saveSettings({ english_correction: e.target.checked }); }} />
+                      <input type="checkbox" checked={englishCorrection} onChange={(e) => { setEnglishCorrection(e.target.checked); void saveSettings({ english_correction: e.target.checked }); }} />
                       <span></span>
                     </label>
                   </div>
@@ -661,7 +663,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       <div className="muted" style={{ fontSize: '11px', color: 'var(--muted)' }}>Collapse the left file explorer panel into a hidden state.</div>
                     </div>
                     <label className="switch">
-                      <input type="checkbox" checked={minimizeSidebar} onChange={(e) => { setMinimizeSidebar(e.target.checked); saveSettings({ minimize_sidebar: e.target.checked }); }} />
+                      <input type="checkbox" checked={minimizeSidebar} onChange={(e) => { setMinimizeSidebar(e.target.checked); void saveSettings({ minimize_sidebar: e.target.checked }); }} />
                       <span></span>
                     </label>
                   </div>
@@ -679,7 +681,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       <div className="muted" style={{ fontSize: '11px', color: 'var(--muted)' }}>Toggle the glowing network animation in Deep Space Dark Theme (save CPU).</div>
                     </div>
                     <label className="switch">
-                      <input type="checkbox" checked={canvasParticles} onChange={(e) => { setCanvasParticles(e.target.checked); saveSettings({ canvas_particles: e.target.checked }); }} />
+                      <input type="checkbox" checked={canvasParticles} onChange={(e) => { setCanvasParticles(e.target.checked); void saveSettings({ canvas_particles: e.target.checked }); }} />
                       <span></span>
                     </label>
                   </div>
@@ -690,7 +692,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       <div className="muted" style={{ fontSize: '11px', color: 'var(--muted)' }}>Play micro-feedback audio sounds during clicks and key events in Game Arcade or Vault.</div>
                     </div>
                     <label className="switch">
-                      <input type="checkbox" checked={soundEffects} onChange={(e) => { setSoundEffects(e.target.checked); saveSettings({ sound_effects: e.target.checked }); }} />
+                      <input type="checkbox" checked={soundEffects} onChange={(e) => { setSoundEffects(e.target.checked); void saveSettings({ sound_effects: e.target.checked }); }} />
                       <span></span>
                     </label>
                   </div>
@@ -700,7 +702,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       <label className="toggle-title" style={{ marginBottom: '6px', display: 'block', fontWeight: 'bold', fontSize: '11px' }}>SYSTEM UI FONT</label>
                       <select 
                         value={sysFontFamily} 
-                        onChange={(e) => { setSysFontFamily(e.target.value); saveSettings({ font_family_system: e.target.value }); }}
+                        onChange={(e) => { setSysFontFamily(e.target.value); void saveSettings({ font_family_system: e.target.value }); }}
                         style={{ width: '100%', fontSize: '12px', padding: '6px', background: 'rgba(0,0,0,0.35)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text)' }}
                       >
                         <option value="Inter">Inter (Modern Sans)</option>
@@ -719,7 +721,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       <label className="toggle-title" style={{ marginBottom: '6px', display: 'block', fontWeight: 'bold', fontSize: '11px' }}>CODE EDITOR FONT</label>
                       <select 
                         value={editorFontFamily} 
-                        onChange={(e) => { setEditorFontFamily(e.target.value); saveSettings({ font_family_editor: e.target.value }); }}
+                        onChange={(e) => { setEditorFontFamily(e.target.value); void saveSettings({ font_family_editor: e.target.value }); }}
                         style={{ width: '100%', fontSize: '12px', padding: '6px', background: 'rgba(0,0,0,0.35)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text)', marginBottom: '10px' }}
                       >
                         <option value="JetBrains Mono">JetBrains Mono (Sleek)</option>
@@ -734,7 +736,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                           max="22" 
                           step="1" 
                           value={editorFontSize} 
-                          onChange={(e) => { setEditorFontSize(parseInt(e.target.value)); saveSettings({ font_size_editor: parseInt(e.target.value) }); }}
+                          onChange={(e) => { setEditorFontSize(parseInt(e.target.value)); void saveSettings({ font_size_editor: parseInt(e.target.value) }); }}
                           style={{ flex: 1, accentColor: 'var(--accent)' }} 
                         />
                         <span className="badge" style={{ width: '36px', textAlign: 'center' }}>{editorFontSize}px</span>
@@ -745,7 +747,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       <label className="toggle-title" style={{ marginBottom: '6px', display: 'block', fontWeight: 'bold', fontSize: '11px' }}>TERMINAL FONT</label>
                       <select 
                         value={termFontFamily} 
-                        onChange={(e) => { setTermFontFamily(e.target.value); saveSettings({ font_family_terminal: e.target.value }); }}
+                        onChange={(e) => { setTermFontFamily(e.target.value); void saveSettings({ font_family_terminal: e.target.value }); }}
                         style={{ width: '100%', fontSize: '12px', padding: '6px', background: 'rgba(0,0,0,0.35)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text)', marginBottom: '10px' }}
                       >
                         <option value="JetBrains Mono">JetBrains Mono (Sleek)</option>
@@ -760,7 +762,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                           max="20" 
                           step="1" 
                           value={termFontSize} 
-                          onChange={(e) => { setTermFontSize(parseInt(e.target.value)); saveSettings({ font_size_terminal: parseInt(e.target.value) }); }}
+                          onChange={(e) => { setTermFontSize(parseInt(e.target.value)); void saveSettings({ font_size_terminal: parseInt(e.target.value) }); }}
                           style={{ flex: 1, accentColor: 'var(--accent)' }} 
                         />
                         <span className="badge" style={{ width: '36px', textAlign: 'center' }}>{termFontSize}px</span>
@@ -865,19 +867,21 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
               <div style={{ display: 'flex', gap: '10px', marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
                 <button 
                   className="btn-primary" 
-                  onClick={() => saveSettings({
-                    terminal_username: termUser,
-                    terminal_hostname: termHost,
-                    terminal_prompt_symbol: termSymbol,
-                    terminal_sound: termSound
-                  })}
+                  onClick={() => {
+                    void saveSettings({
+                      terminal_username: termUser,
+                      terminal_hostname: termHost,
+                      terminal_prompt_symbol: termSymbol,
+                      terminal_sound: termSound
+                    });
+                  }}
                   style={{ padding: '6px 14px', fontSize: '11px' }}
                 >
                   Apply Prompt Settings
                 </button>
                 <button 
                   className="btn-ghost" 
-                  onClick={handleResetTerminalDefaults}
+                  onClick={() => { void handleResetTerminalDefaults(); }}
                   style={{ padding: '6px 14px', fontSize: '11px' }}
                 >
                   Reset Prompt Defaults
@@ -937,7 +941,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                         </button>
                         <button 
                           className="btn-ghost btn-sm" 
-                          onClick={() => handleDeleteShortcut(actionId)}
+                          onClick={() => { void handleDeleteShortcut(actionId); }}
                           style={{ color: 'var(--red)', borderColor: 'rgba(255,77,109,.2)', padding: '3px 8px', fontSize: '10px' }}
                         >
                           ✕
@@ -951,7 +955,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
               <div style={{ display: 'flex', gap: '10px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
                 <button 
                   className="btn-primary" 
-                  onClick={handleResetShortcuts}
+                  onClick={() => { void handleResetShortcuts(); }}
                   style={{ padding: '6px 14px', fontSize: '11px' }}
                 >
                   Reset All Keybindings
@@ -978,7 +982,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                     <div style={{ width: '180px', flexShrink: 0 }}>
                       <select 
                         value={selectedModel} 
-                        onChange={(e) => { setSelectedModel(e.target.value); saveSettings({ selected_model: e.target.value }); }}
+                        onChange={(e) => { setSelectedModel(e.target.value); void saveSettings({ selected_model: e.target.value }); }}
                         style={{ width: '100%', fontSize: '12px', padding: '6px', background: 'rgba(0,0,0,0.35)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text)' }}
                       >
                         <option value="auto">Auto Pool Decider</option>
@@ -1002,8 +1006,8 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       step="0.1" 
                       value={temperature} 
                       onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                      onMouseUp={() => saveSettings({ temperature })}
-                      onTouchEnd={() => saveSettings({ temperature })}
+                      onMouseUp={() => { void saveSettings({ temperature }); }}
+                      onTouchEnd={() => { void saveSettings({ temperature }); }}
                       style={{ width: '100%', accentColor: 'var(--accent)' }} 
                     />
                   </div>
@@ -1021,8 +1025,8 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       step="256" 
                       value={maxTokens} 
                       onChange={(e) => setMaxTokens(parseInt(e.target.value))}
-                      onMouseUp={() => saveSettings({ max_tokens: maxTokens })}
-                      onTouchEnd={() => saveSettings({ max_tokens: maxTokens })}
+                      onMouseUp={() => { void saveSettings({ max_tokens: maxTokens }); }}
+                      onTouchEnd={() => { void saveSettings({ max_tokens: maxTokens }); }}
                       style={{ width: '100%', accentColor: 'var(--accent)' }} 
                     />
                   </div>
@@ -1046,7 +1050,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                     style={{ width: '100%', fontFamily: 'var(--display)', fontSize: '12px', padding: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text)', resize: 'vertical' }}
                   />
                   <div>
-                    <button className="btn-primary" onClick={() => saveSettings({ system_prompt: systemPrompt })} style={{ padding: '6px 14px', fontSize: '11px' }}>
+                    <button className="btn-primary" onClick={() => { void saveSettings({ system_prompt: systemPrompt }); }} style={{ padding: '6px 14px', fontSize: '11px' }}>
                       Save Instructions
                     </button>
                   </div>
@@ -1072,9 +1076,9 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                   />
 
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button className="btn-primary" onClick={handleSaveMemory} style={{ padding: '6px 14px', fontSize: '11px' }}>Save Changes</button>
-                    <button className="btn-ghost" onClick={handleRefineMemory} style={{ padding: '6px 14px', fontSize: '11px' }}>Refine Now</button>
-                    <button className="btn-ghost" onClick={handleClearMemory} style={{ color: 'var(--red)', borderColor: 'rgba(255,77,109,.4)', padding: '6px 14px', fontSize: '11px' }}>Clear Memory</button>
+                    <button className="btn-primary" onClick={() => { void handleSaveMemory(); }} style={{ padding: '6px 14px', fontSize: '11px' }}>Save Changes</button>
+                    <button className="btn-ghost" onClick={() => { void handleRefineMemory(); }} style={{ padding: '6px 14px', fontSize: '11px' }}>Refine Now</button>
+                    <button className="btn-ghost" onClick={() => { void handleClearMemory(); }} style={{ color: 'var(--red)', borderColor: 'rgba(255,77,109,.4)', padding: '6px 14px', fontSize: '11px' }}>Clear Memory</button>
                   </div>
                   {memoryStatus && (
                     <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'var(--mono)' }}>{memoryStatus}</div>
@@ -1134,19 +1138,19 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                         <td style={{ padding: '8px', textAlign: 'center' }}>
                           <button 
                             className={`btn-ghost ${k.status === 'Active' ? 'active' : ''}`}
-                            onClick={() => handleToggleKey(k.id, k.status)}
+                            onClick={() => { void handleToggleKey(k.id, k.status); }}
                             style={{ padding: '3px 8px', fontSize: '10px' }}
                           >
                             {k.status}
                           </button>
                         </td>
                         <td style={{ padding: '8px', textAlign: 'center' }}>
-                          <button onClick={() => handleTestKey(k.id)} className="btn-ghost" style={{ padding: '4px' }}>
+                          <button onClick={() => { void handleTestKey(k.id); }} className="btn-ghost" style={{ padding: '4px' }}>
                             <Play size={12} />
                           </button>
                         </td>
                         <td style={{ padding: '8px', textAlign: 'center' }}>
-                          <button onClick={() => handleDeleteKey(k.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)' }}>
+                          <button onClick={() => { void handleDeleteKey(k.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)' }}>
                             <Trash2 size={14} />
                           </button>
                         </td>
@@ -1175,11 +1179,11 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       <div className="muted" style={{ marginTop: '2px', fontSize: '11px', color: 'var(--muted)' }}>{updateVersion}</div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn-ghost" onClick={() => checkUpdates(true)} style={{ padding: '6px 12px', fontSize: '11px' }}>Check Updates</button>
+                      <button className="btn-ghost" onClick={() => { void checkUpdates(true); }} style={{ padding: '6px 12px', fontSize: '11px' }}>Check Updates</button>
                       {updateAvailable && (
                         <button 
                           className="btn-primary" 
-                          onClick={handleApplyUpdate} 
+                          onClick={() => { void handleApplyUpdate(); }} 
                           disabled={isUpdating}
                           style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 'bold' }}
                         >
@@ -1238,7 +1242,7 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                       type="file" 
                       accept=".json" 
                       hidden 
-                      onChange={handleImportBackup} 
+                      onChange={(e) => { void handleImportBackup(e); }} 
                     />
                   </label>
                   <button 
@@ -1265,14 +1269,14 @@ export default function Settings({ theme, setTheme, onRefreshHeader, setActiveTa
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
                   <button 
                     className="btn-ghost" 
-                    onClick={handleClearHistory}
+                    onClick={() => { void handleClearHistory(); }}
                     style={{ borderColor: 'rgba(255,77,106,.4)', color: 'var(--red)', padding: '6px 14px', fontSize: '11px' }}
                   >
                     ✕ Clear Chat History
                   </button>
                   <button 
                     className="btn-ghost" 
-                    onClick={handleResetEverything}
+                    onClick={() => { void handleResetEverything(); }}
                     style={{ borderColor: 'rgba(255,77,106,.6)', color: 'var(--red)', fontWeight: '700', padding: '6px 14px', fontSize: '11px' }}
                   >
                     ☢ Reset Everything

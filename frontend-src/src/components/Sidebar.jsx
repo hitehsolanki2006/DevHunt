@@ -224,7 +224,6 @@ export default function Sidebar({
                   onKeyDown={handleCreateFile}
                   onBlur={() => setTimeout(() => setShowNewFileInput(false), 200)}
                   placeholder="filename.txt" 
-                  autoFocus
                   style={{
                     background: 'var(--bg)',
                     border: '1px solid var(--border-hot)',

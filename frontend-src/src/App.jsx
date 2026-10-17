@@ -9,19 +9,22 @@ import IDEWorkspace from './components/IDE/IDEWorkspace.jsx';
 import Arcade from './components/Arcade/Arcade.jsx';
 import Settings from './components/Settings/Settings.jsx';
 import DocForensics from './components/DocForensics/DocForensics.jsx';
-import { sanitizeHtml, mdEscape } from './utils/sanitize.js';
+import { sanitizeHtml } from './utils/sanitize.js';
 
 // Global fetch interceptor to append secure API token header
 (function() {
   const urlParams = new URLSearchParams(window.location.search);
   const tokenParam = urlParams.get('token');
-  if (tokenParam) {
+  const tokenRegex = /^[A-Za-z0-9_-]{16,128}$/;
+  if (tokenParam && tokenRegex.test(tokenParam)) {
     sessionStorage.setItem('X-DevHunt-Token', tokenParam);
     window.__DEVHUNT_TOKEN__ = tokenParam;
     try {
       const cleanUrl = window.location.pathname + window.location.hash;
       window.history.replaceState({}, document.title, cleanUrl || '/');
-    } catch (_) {}
+    } catch {
+      // Ignored: replaceState may be restricted in sandboxed environments
+    }
   } else {
     window.__DEVHUNT_TOKEN__ = sessionStorage.getItem('X-DevHunt-Token') || localStorage.getItem('X-DevHunt-Token') || '';
   }
@@ -204,7 +207,7 @@ function HuntPath() {
   };
 
   useEffect(() => {
-    loadPath();
+    void loadPath();
   }, []);
 
   const togglePhase = (phaseTitle) => {
@@ -232,7 +235,7 @@ function HuntPath() {
       });
       const data = await res.json();
       if (data.success) {
-        loadPath();
+        void loadPath();
       } else {
         alert('Failed to update status: ' + data.error);
       }
@@ -1636,31 +1639,39 @@ function MusicPlayer({ musicState, musicControls }) {
   const [dragActive, setDragActive] = useState(false);
 
   // File Upload
+  const uploadTrackFile = async (file) => {
+    musicControls.setUploadStatus(`↻ Uploading ${file.name}...`);
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await fetch('/api/music/upload', { method: 'POST', body: fd });
+      const contentType = r.headers.get("content-type");
+      if (!r.ok || !contentType || !contentType.includes("application/json")) {
+        const text = await r.text();
+        musicControls.setUploadStatus(`✕ Upload failed (${r.status}): ${text.slice(0, 100) || 'Server error'}`);
+        return;
+      }
+      const d = await r.json();
+      if (d.success) {
+        musicControls.setUploadStatus(`✓ Added: ${d.track.title}`);
+        await musicControls.loadTracks();
+      } else {
+        musicControls.setUploadStatus(`✕ ${d.error}`);
+      }
+    } catch (e) {
+      musicControls.setUploadStatus(`✕ Upload failed: ${e.message}`);
+    }
+  };
+
   const handleFileUpload = async (files) => {
     if (!files || files.length === 0) return;
-    for (const file of files) {
-      musicControls.setUploadStatus(`↻ Uploading ${file.name}...`);
-      const fd = new FormData();
-      fd.append('file', file);
-      try {
-        const r = await fetch('/api/music/upload', { method: 'POST', body: fd });
-        const contentType = r.headers.get("content-type");
-        if (!r.ok || !contentType || !contentType.includes("application/json")) {
-          const text = await r.text();
-          musicControls.setUploadStatus(`✕ Upload failed (${r.status}): ${text.slice(0, 100) || 'Server error'}`);
-          continue;
-        }
-        const d = await r.json();
-        if (d.success) {
-          musicControls.setUploadStatus(`✓ Added: ${d.track.title}`);
-          await musicControls.loadTracks();
-        } else {
-          musicControls.setUploadStatus(`✕ ${d.error}`);
-        }
-      } catch (e) {
-        musicControls.setUploadStatus(`✕ Upload failed: ${e.message}`);
-      }
-    }
+    const fileList = Array.from(files);
+    const uploadSequentially = async (idx) => {
+      if (idx >= fileList.length) return;
+      await uploadTrackFile(fileList[idx]);
+      await uploadSequentially(idx + 1);
+    };
+    await uploadSequentially(0);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -2064,7 +2075,7 @@ function MusicPlayer({ musicState, musicControls }) {
                       {isActive && musicState.playing ? '⏸' : '▶'}
                     </button>
                     <a 
-                      href={`/api/music/download/${encodeURIComponent(t.filename)}${window.__DEVHUNT_TOKEN__ ? `?token=${encodeURIComponent(window.__DEVHUNT_TOKEN__)}` : ''}`}
+                      href={'/api/music/download/' + encodeURIComponent(t.filename) + (window.__DEVHUNT_TOKEN__ ? '?token=' + encodeURIComponent(window.__DEVHUNT_TOKEN__) : '')}
                       className="btn-ghost"
                       style={{ border: '1px solid rgba(56,189,248,0.25)', color: 'var(--cyan)', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontSize: '11px', textDecoration: 'none', display: 'inline-block' }}
                       title="Download" 
@@ -2172,7 +2183,7 @@ function StandaloneTerminal({ profileSettings, terminalCwd, setTerminalCwd, term
         setOsName("Offline Node");
       }
     };
-    initTerm();
+    void initTerm();
   }, [setTerminalCwd]);
 
   useEffect(() => {
@@ -2237,7 +2248,7 @@ function StandaloneTerminal({ profileSettings, terminalCwd, setTerminalCwd, term
 
   const handleKey = (e) => {
     if (e.key === 'Enter') { 
-      runCmd(); 
+      void runCmd(); 
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (terminalHistory.length === 0) return;
@@ -2873,7 +2884,7 @@ export default function App() {
       }
     };
 
-    fetchContent();
+    void fetchContent();
     return () => { active = false; };
   }, [activeFilePath, showToast]);
 
@@ -2899,7 +2910,7 @@ export default function App() {
         }
       }
     };
-    checkConnection();
+    void checkConnection();
     return () => { active = false; };
   }, []);
 
